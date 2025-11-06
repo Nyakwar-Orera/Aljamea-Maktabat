@@ -2,9 +2,7 @@
 # 📚 Maktabat al-Jamea Library Dashboard
 ---
 
-A professional, role-based **Library Dashboard** built with **Flask**, seamlessly integrated with the **Koha Integrated Library System (ILS)**.
-
-This system provides **real-time analytics**, **automated scheduled reports**, and **secure dashboards** for **administrators**, **heads of departments (HODs)**, and **class teachers** — enabling data-driven decision-making and streamlined academic library management.
+A professional, role-based dashboard built with Flask and seamlessly integrated with Koha ILS. It provides real-time analytics, automated scheduled reports, and secure dashboards for administrators, heads of departments (HODs), and class teachers—enabling data-driven decisions and streamlined library management.
 
 ---
 
