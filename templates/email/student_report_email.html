@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <style>
+      body { font-family: "Segoe UI", Tahoma, sans-serif; background:#f8f9fa; padding:20px; }
+      .card { background:#fff; border:1px solid #ddd; border-radius:8px; padding:20px; max-width:600px; margin:auto; }
+      h2 { color:#0d6efd; }
+      p { line-height:1.5; }
+      .footer { margin-top:20px; font-size:0.9em; color:#666; border-top:1px solid #eee; padding-top:10px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>👩‍🎓 Student Library Report</h2>
+      <p>Dear {{ student_name }},</p>
+
+      <p>
+        Please find attached your personal library activity report. It includes details about books borrowed, due dates, and any fines paid.
+      </p>
+
+      <p>Regards,<br><strong>Maktabat al-Jamea Library Team</strong></p>
+
+      <div class="footer">
+        <p>
+          This is an automated message. Do not reply directly.<br>
+          For assistance, contact <a href="mailto:{{ current_app.config['ADMIN_EMAIL'] }}">{{ current_app.config['ADMIN_EMAIL'] }}</a>.
+        </p>
+      </div>
+    </div>
+  </body>
+</html>

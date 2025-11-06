@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block title %}⚙️ Admin Settings - Maktabat al-Jamea{% endblock %}
+
+{% block content %}
+<h2>⚙️ Admin Settings</h2>
+<p class="text-muted">Manage users, mappings, departments, emails, and database connections.</p>
+
+<div class="row">
+  <!-- Upload Mapping -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-primary text-white">📂 Upload Student-Class-Teacher Mapping</div>
+      <div class="card-body">
+        <form id="uploadForm" enctype="multipart/form-data">
+          <input type="file" id="mappingFile" name="mapping_file" class="form-control mb-3" accept=".csv,.xlsx" required>
+          <button type="submit" class="btn btn-primary w-100">⬆️ Upload Mapping File</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Management -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-success text-white">👤 Manage User Accounts</div>
+      <div class="card-body">
+        <form id="userForm" class="mb-3">
+          <input type="text" id="username" name="username" class="form-control mb-2" placeholder="Username *" required>
+          <input type="email" id="email" name="email" class="form-control mb-2" placeholder="Email *" required>
+
+          <!-- 🔐 Password field with toggle -->
+          <div class="input-group mb-2">
+            <input type="password" id="password" name="password" class="form-control" placeholder="Password *" required>
+            <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+
+          <select id="role" name="role" class="form-select mb-2" required>
+            <option value="">Select Role *</option>
+            <option value="admin">Admin</option>
+            <option value="hod">Head of Department</option>
+            <option value="teacher">Class Teacher</option>
+          </select>
+
+          <!-- Department name (for HOD) -->
+          <input type="text" id="departmentField" name="department_name"
+                 class="form-control mb-2 d-none" placeholder="Department Name (HOD only)">
+
+          <!-- Class name (for Teacher) -->
+          <input type="text" id="classField" name="class_name"
+                 class="form-control mb-2 d-none" placeholder="Class Name (Teacher only)">
+
+          <button type="submit" class="btn btn-success w-100 mb-2">➕ Add User</button>
+          <button type="button" id="removeUserBtn" class="btn btn-danger w-100">🗑️ Remove User</button>
+        </form>
+
+        <h6>Existing Users</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped" id="usersTable">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Department</th>
+                <th>Class</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Email Settings -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-info text-white">📧 Configure Auto Email Reports</div>
+      <div class="card-body">
+        <form id="emailForm">
+          <input type="email" id="emailSender" name="email_sender" class="form-control mb-3"
+                 placeholder="Sender Email (example@domain.com)" required>
+          <select id="emailFrequency" name="email_frequency" class="form-select mb-3" required>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly">Monthly</option>
+          </select>
+          <div id="weeklyOptions" class="mb-3 d-none">
+            <label for="dayOfWeek">Day of Week</label>
+            <select id="dayOfWeek" name="day_of_week" class="form-select">
+              <option value="mon">Monday</option>
+              <option value="tue">Tuesday</option>
+              <option value="wed">Wednesday</option>
+              <option value="thu">Thursday</option>
+              <option value="fri">Friday</option>
+            </select>
+          </div>
+          <div id="monthlyOptions" class="mb-3 d-none">
+            <label for="dayOfMonth">Day of Month (1–28)</label>
+            <input type="number" id="dayOfMonth" name="day_of_month" class="form-control" min="1" max="28">
+          </div>
+          <div class="row mb-3">
+            <div class="col">
+              <input type="number" id="sendHour" name="send_hour" class="form-control" min="0" max="23" value="8">
+            </div>
+            <div class="col">
+              <input type="number" id="sendMinute" name="send_minute" class="form-control" min="0" max="59" value="0">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-info w-100">💾 Save Email Settings</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- DB Settings -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-warning text-dark">🗄️ Database Connection Settings</div>
+      <div class="card-body">
+        <form id="dbForm">
+          <input type="text" id="dbHost" name="db_host" class="form-control mb-2" placeholder="Host (e.g., localhost)" required>
+          <input type="text" id="dbName" name="db_name" class="form-control mb-2" placeholder="Database Name *" required>
+          <input type="text" id="dbUser" name="db_user" class="form-control mb-2" placeholder="DB Username *" required>
+          <input type="password" id="dbPass" name="db_pass" class="form-control mb-3" placeholder="Password *" required>
+          <button type="submit" class="btn btn-warning w-100">💾 Save DB Settings</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Department Heads -->
+  <div class="col-md-12">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-secondary text-white">🏫 Manage Department Heads</div>
+      <div class="card-body">
+        <form id="deptHeadForm" class="mb-3">
+          <input type="text" id="deptName" name="department_name" class="form-control mb-2" placeholder="Department Name *" required>
+          <input type="text" id="headName" name="head_name" class="form-control mb-2" placeholder="Head Name">
+          <input type="email" id="deptEmail" name="email" class="form-control mb-2" placeholder="Head Email *" required>
+          <button type="submit" class="btn btn-secondary w-100 mb-2">➕ Add Department Head</button>
+          <button type="button" id="removeDeptBtn" class="btn btn-danger w-100">🗑️ Remove Department Head</button>
+        </form>
+
+        <h6>Existing Department Heads</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped" id="deptTable">
+            <thead>
+              <tr>
+                <th>Department</th>
+                <th>Head Name</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  // 👁️ Toggle show/hide password
+  const toggleBtn = document.getElementById("togglePassword");
+  const passwordField = document.getElementById("password");
+  toggleBtn.addEventListener("click", function() {
+    const isHidden = passwordField.type === "password";
+    passwordField.type = isHidden ? "text" : "password";
+    this.innerHTML = isHidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+  });
+
+  // Toggle weekly/monthly fields
+  document.getElementById("emailFrequency").addEventListener("change", function(){
+    document.getElementById("weeklyOptions").classList.toggle("d-none", this.value !== "weekly");
+    document.getElementById("monthlyOptions").classList.toggle("d-none", this.value !== "monthly");
+  });
+
+  // Toggle department/class input visibility
+  const roleSelect = document.getElementById("role");
+  const deptField = document.getElementById("departmentField");
+  const classField = document.getElementById("classField");
+
+  roleSelect.addEventListener("change", function() {
+    const role = this.value;
+    deptField.classList.toggle("d-none", role !== "hod");
+    classField.classList.toggle("d-none", role !== "teacher");
+  });
+
+  // ---- Upload Mapping ----
+  document.getElementById("uploadForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/upload_mapping", { method:"POST", body:new FormData(this) })
+      .then(r=>r.json())
+      .then(j=>showToast(j.success ? "✅ Mapping uploaded successfully" : "❌ Upload failed", j.success?"success":"danger"));
+  });
+
+  // ---- USERS ----
+  function loadUsers(){
+    fetch("/api/list_users")
+      .then(r=>r.json())
+      .then(data=>{
+        const tbody=document.querySelector("#usersTable tbody");
+        tbody.innerHTML="";
+        data.forEach(u=>{
+          tbody.innerHTML+=`
+            <tr>
+              <td>${u.username}</td>
+              <td>${u.email}</td>
+              <td>${u.role}</td>
+              <td>${u.department_name || "-"}</td>
+              <td>${u.class_name || "-"}</td>
+            </tr>`;
+        });
+      });
+  }
+  loadUsers();
+
+  document.getElementById("userForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/add_user", { method:"POST", body:new FormData(this) })
+      .then(r=>r.json())
+      .then(j=>{
+        showToast(j.success ? "✅ User added successfully and email sent" : (j.error || "❌ Failed to add user"), j.success?"success":"danger");
+        if(j.success) {
+          this.reset();
+          deptField.classList.add("d-none");
+          classField.classList.add("d-none");
+          loadUsers();
+        }
+      });
+  });
+
+  document.getElementById("removeUserBtn").addEventListener("click", function(){
+    const username=document.getElementById("username").value;
+    if(!username) return showToast("Enter a username to remove", "warning");
+    if(!confirm(`Remove user '${username}'?`)) return;
+    fetch("/api/remove_user", {
+      method:"POST",
+      body:JSON.stringify({username}),
+      headers:{"Content-Type":"application/json"}
+    })
+      .then(r=>r.json())
+      .then(j=>{
+        showToast(j.success ? `✅ User ${username} removed` : "❌ Failed to remove user", j.success?"success":"danger");
+        if(j.success) loadUsers();
+      });
+  });
+
+  // ---- EMAIL SETTINGS ----
+  document.getElementById("emailForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/save_email_settings", { method:"POST", body:new FormData(this) })
+      .then(r=>r.json())
+      .then(j=>showToast(j.success ? "✅ Email settings saved" : "❌ Failed to save email settings", j.success?"success":"danger"));
+  });
+
+  // ---- DB SETTINGS ----
+  document.getElementById("dbForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/save_db_settings", { method:"POST", body:new FormData(this) })
+      .then(r=>r.json())
+      .then(j=>showToast(j.success ? "✅ DB settings saved" : "❌ Failed to save DB settings", j.success?"success":"danger"));
+  });
+
+  // ---- DEPARTMENT HEADS ----
+  function loadDepts(){
+    fetch("/api/list_department_heads")
+      .then(r=>r.json())
+      .then(data=>{
+        const tbody=document.querySelector("#deptTable tbody");
+        tbody.innerHTML="";
+        data.forEach(d=>{
+          tbody.innerHTML+=`
+            <tr>
+              <td>${d.department_name}</td>
+              <td>${d.head_name || ""}</td>
+              <td>${d.email}</td>
+            </tr>`;
+        });
+      });
+  }
+  loadDepts();
+
+  document.getElementById("deptHeadForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/add_department_head", { method:"POST", body:new FormData(this) })
+      .then(r=>r.json())
+      .then(j=>{
+        showToast(j.success ? "✅ Department head added" : "❌ Failed to add department head", j.success?"success":"danger");
+        if(j.success) loadDepts();
+      });
+  });
+
+  document.getElementById("removeDeptBtn").addEventListener("click", function(){
+    const dept_name=document.getElementById("deptName").value;
+    if(!dept_name) return showToast("Enter department name to remove", "warning");
+    if(!confirm(`Remove department head for '${dept_name}'?`)) return;
+    fetch("/api/remove_department_head", {
+      method:"POST",
+      body:JSON.stringify({department_name:dept_name}),
+      headers:{"Content-Type":"application/json"}
+    })
+      .then(r=>r.json())
+      .then(j=>{
+        showToast(j.success ? `✅ Department head for ${dept_name} removed` : "❌ Failed to remove department head", j.success?"success":"danger");
+        if(j.success) loadDepts();
+      });
+  });
+});
+</script>
+{% endblock %}

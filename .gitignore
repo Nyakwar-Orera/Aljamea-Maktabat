@@ -1,0 +1,20 @@
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+env/
+
+# Environment variables
+.env
+
+# Databases
+appdata.db
+*.sqlite3
+
+# System
+.DS_Store
+Thumbs.db

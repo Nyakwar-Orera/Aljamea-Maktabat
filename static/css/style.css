@@ -1,0 +1,204 @@
+/* ================================================
+   THEME COLORS & GLOBAL VARIABLES
+================================================= */
+:root {
+  --primary-color: #a45a26;        /* Main brand brown */
+  --primary-hover: #8c4519;        /* Darker brown for hover */
+  --accent-bg: #fff8ef;            /* Soft beige background */
+  --light-bg: #fffaf4;             /* Slightly lighter beige for cards */
+  --text-dark: #3a2a1a;            /* Deep brown text */
+  --text-muted: #6b3b16;
+  --border-color: #e6d8c3;
+  --shadow-color: rgba(0, 0, 0, 0.08);
+  --nav-h: 70px;
+  --footer-h: 56px;
+  --content-gap: 24px;
+}
+
+/* ================================================
+   BASE LAYOUT
+================================================= */
+html, body {
+  min-height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--accent-bg);
+  color: var(--text-dark);
+}
+
+body {
+  padding-top: var(--nav-h);
+  padding-bottom: calc(var(--footer-h) + var(--content-gap));
+}
+
+/* Keep main content centered and breathable */
+main.container {
+  flex: 1;
+  margin-top: 0;
+  padding-bottom: var(--content-gap);
+}
+
+/* ================================================
+   NAVBAR
+================================================= */
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1030;
+  background-color: var(--accent-bg) !important;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 6px var(--shadow-color);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--primary-color) !important;
+}
+
+.nav-link {
+  color: var(--primary-color) !important;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--primary-hover) !important;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+/* ================================================
+   FOOTER
+================================================= */
+footer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 1020;
+  background-color: var(--accent-bg);
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+  width: 100%;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  padding: 8px 0;
+  min-height: var(--footer-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -1px 3px var(--shadow-color);
+}
+
+footer a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+footer a:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+/* ================================================
+   KPI GRID
+================================================= */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.kpi-card {
+  background-color: var(--light-bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 1rem;
+  padding: 14px 10px;
+  min-height: 100px;
+  text-align: center;
+  box-shadow: 0 2px 5px var(--shadow-color);
+  border: 1px solid var(--border-color);
+  transition: transform 0.2s ease;
+}
+
+.kpi-card:hover {
+  transform: translateY(-3px);
+}
+
+.kpi-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  opacity: 0.9;
+  line-height: 1.2;
+}
+
+.kpi-value {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin-top: 6px;
+  color: var(--primary-color);
+}
+
+/* Responsive KPI grid */
+@media (max-width: 1199px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 767px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .kpi-card { min-height: 88px; padding: 10px 8px; }
+  .kpi-value { font-size: 1.5rem; }
+}
+@media (max-width: 420px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* ================================================
+   CARDS & CHARTS
+================================================= */
+.card {
+  background-color: var(--light-bg);
+  box-shadow: 0 2px 6px var(--shadow-color);
+  border-radius: 1rem;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+}
+
+canvas {
+  width: 100% !important;
+  height: auto !important;
+}
+
+/* ================================================
+   TOASTS
+================================================= */
+#toastContainer {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2000;
+}
+
+.toast {
+  opacity: 0.95;
+  min-width: 220px;
+  border-radius: 0.5rem;
+}
+
+/* ================================================
+   RESPONSIVE & TYPOGRAPHY TWEAKS
+================================================= */
+@media (max-width: 767px) {
+  .card { margin-bottom: 1rem; }
+  h2, h3, h6 { font-size: 90%; }
+  .navbar-brand { font-size: 1rem; }
+}
+
+h1, h2, h3, h4, h5 {
+  color: var(--primary-color);
+  font-weight: 600;
+}

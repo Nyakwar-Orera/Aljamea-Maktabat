@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Login | Maktabat al-Jamea{% endblock %}
+
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 90vh;">
+  <div class="row w-100 shadow-lg rounded-4 overflow-hidden" style="max-width: 900px; background-color: #fff8ef;">
+
+    <!-- Left Side: Building Image -->
+    <div class="col-md-6 d-none d-md-flex align-items-center justify-content-center p-4" style="background-color: #fffaf4;">
+      <img src="{{ url_for('static', filename='images/Maktabat.jpg') }}" 
+           alt="Maktabat al-Jamea Building" 
+           class="img-fluid rounded-4 shadow-sm" 
+           style="max-height:330px;">
+    </div>
+
+    <!-- Right Side: Login Form -->
+    <div class="col-md-6 p-5">
+      <h3 class="mb-4 text-center fw-bold" style="color:#a45a26;">
+        <i class="bi bi-book-half me-2"></i> Maktabat al-Jamea
+      </h3>
+
+      <!-- Flash Messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="alert alert-{{ category }} alert-dismissible fade show small" role="alert">
+              {{ message }}
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <!-- Login Form -->
+      <form method="post" action="{{ url_for('auth_bp.login') }}">
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-muted">Username</label>
+          <input name="username" class="form-control form-control-lg rounded-pill border-0 shadow-sm px-4" placeholder="Enter username" required autofocus>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold text-muted">Password</label>
+          <input name="password" type="password" class="form-control form-control-lg rounded-pill border-0 shadow-sm px-4" placeholder="Enter password" required>
+        </div>
+
+        <div class="d-grid gap-3 mt-4">
+          <button class="btn text-white btn-lg rounded-pill shadow-sm" type="submit" style="background-color:#a45a26; border:none;">
+            <i class="bi bi-box-arrow-in-right me-1"></i> Login
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-lg rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#helpModal">
+            <i class="bi bi-question-circle me-1"></i> Help
+          </button>
+        </div>
+      </form>
+
+      <!-- Contact + Forgot Password -->
+      <div class="text-center mt-4 small">
+        <a href="{{ url_for('password_reset_bp.forgot_password') }}" class="text-decoration-none" style="color:#a45a26;">
+          <i class="bi bi-lock me-1"></i>Forgot your password?
+        </a>
+      </div>
+
+      <div class="text-center text-muted small mt-2">
+        <i class="bi bi-envelope-at me-1"></i>
+        Need help? Contact the library admin:
+        <a href="mailto:{{ config.ADMIN_EMAIL or 'admin@maktabat.local' }}" class="fw-semibold text-decoration-none" style="color:#a45a26;">
+          {{ config.ADMIN_EMAIL or 'admin@maktabat.local' }}
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 rounded-4 shadow">
+      <div class="modal-header" style="background-color:#a45a26; color:#fff;">
+        <h5 class="modal-title" id="helpModalLabel">
+          <i class="bi bi-info-circle me-1"></i> Need Assistance?
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2">If you’re having trouble logging in:</p>
+        <ul>
+          <li>Ensure your username and password are correct.</li>
+          <li>If forgotten, reset your password using the link provided.</li>
+          <li>For further help, contact your library admin below.</li>
+        </ul>
+        <div class="mt-3">
+          <strong>📧 Admin Email:</strong><br>
+          <a href="mailto:{{ config.ADMIN_EMAIL or 'admin@maktabat.local' }}" class="text-decoration-none" style="color:#a45a26;">
+            {{ config.ADMIN_EMAIL or 'admin@maktabat.local' }}
+          </a>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn text-white rounded-pill shadow-sm px-4" data-bs-dismiss="modal" style="background-color:#a45a26;">
+          <i class="bi bi-x-circle me-1"></i> Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

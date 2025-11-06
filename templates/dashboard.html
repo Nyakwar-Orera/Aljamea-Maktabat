@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="mb-4">📊 Dashboard</h2>
+
+<!-- KPI Grid -->
+<div class="kpi-grid mb-3">
+  <div class="kpi-card bg-primary text-white">
+    <div class="kpi-label">Users</div>
+    <div class="kpi-value">{{ total_patrons }}</div>
+  </div>
+
+  <div class="kpi-card bg-success text-white">
+    <div class="kpi-label">Total Issues</div>
+    <div class="kpi-value">{{ total_issues }}</div>
+  </div>
+
+  <div class="kpi-card bg-warning text-dark">
+    <div class="kpi-label">Total Fines Paid</div>
+    <div class="kpi-value">{{ "%.2f"|format(total_fines) }}</div>
+  </div>
+
+  <div class="kpi-card bg-dark text-white">
+    <div class="kpi-label">Checkouts Today</div>
+    <div class="kpi-value">{{ today_checkouts }}</div>
+  </div>
+
+  <div class="kpi-card bg-secondary text-white">
+    <div class="kpi-label">Checkins Today</div>
+    <div class="kpi-value">{{ today_checkins }}</div>
+  </div>
+</div>
+
+<!-- Charts Section -->
+<div class="row mt-3 g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">📈 Academic Borrowing Trends</div>
+      <div class="card-body">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">📊 Issues by Class</div>
+      <div class="card-body">
+        <canvas id="classChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mt-4 g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">Department Distribution</div>
+      <div class="card-body">
+        <canvas id="deptChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">🏆 Top 25 Borrowed Titles (All)</div>
+      <div class="card-body" style="max-height:300px; overflow:auto;">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr><th>Count</th><th>Title</th><th>Last Issued</th></tr>
+          </thead>
+          <tbody>
+            {% for title, val, date in zip(top_all_labels, top_all_values, top_all_dates) %}
+            <tr>
+              <td>{{ val }}</td>
+              <td>{{ title }}</td>
+              <td>{{ date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row mt-4 g-3">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">🏆 Top 25 Arabic Titles</div>
+      <div class="card-body" style="max-height:300px; overflow:auto;">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr><th>Count</th><th>Title</th><th>Last Issued</th></tr>
+          </thead>
+          <tbody>
+            {% for title, val, date in zip(top_ar_labels, top_ar_values, top_ar_dates) %}
+            <tr>
+              <td>{{ val }}</td>
+              <td>{{ title }}</td>
+              <td>{{ date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header">🏆 Top 25 English Titles</div>
+      <div class="card-body" style="max-height:300px; overflow:auto;">
+        <table class="table table-sm table-striped mb-0">
+          <thead>
+            <tr><th>Count</th><th>Title</th><th>Last Issued</th></tr>
+          </thead>
+          <tbody>
+            {% for title, val, date in zip(top_non_ar_labels, top_non_ar_values, top_non_ar_dates) %}
+            <tr>
+              <td>{{ val }}</td>
+              <td>{{ title }}</td>
+              <td>{{ date }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Borrowing trends line chart
+  const trendLabels = {{ trend_labels | tojson | safe }};
+  const trendValues = {{ trend_values | tojson | safe }};
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: { labels: trendLabels, datasets: [{ label: 'Issues', data: trendValues, borderColor: 'rgba(75,192,192,1)', tension: 0.3 }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
+
+  // Class chart (Male vs Female, stacked, sorted by class number from backend)
+  const classLabels = {{ class_labels | tojson }};
+  const classMale = {{ class_male_values | tojson }};
+  const classFemale = {{ class_female_values | tojson }};
+
+  new Chart(document.getElementById('classChart'), {
+    type: 'bar',
+    data: {
+      labels: classLabels,
+      datasets: [
+        { label: 'Boys (M)',   data: classMale,   backgroundColor: 'rgba(54,162,235,0.7)' },
+        { label: 'Girls (F)',  data: classFemale, backgroundColor: 'rgba(255,99,132,0.7)' }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: { 
+        x: { stacked: true },
+        y: { beginAtZero: true, stacked: true }
+      },
+      plugins: {
+        tooltip: {
+          callbacks: {
+            footer: (items) => {
+              // show total for that class in tooltip footer
+              const sum = items.reduce((a,i)=>a + i.parsed.y, 0);
+              return 'Total: ' + sum;
+            }
+          }
+        }
+      }
+    }
+  });
+
+  // Department pie chart
+  const deptLabels = {{ dept_labels | tojson }};
+  const deptValues = {{ dept_values | tojson }};
+  const totalDept = deptValues.reduce((a, b) => a + b, 0);
+  new Chart(document.getElementById('deptChart'), {
+    type: 'pie',
+    data: { labels: deptLabels, datasets: [{ data: deptValues, backgroundColor: deptLabels.map(() => `hsl(${Math.random()*360},70%,60%)`) }] },
+    options: { responsive: true, plugins: { tooltip: { callbacks: { label: ctx => `${ctx.label}: ${((ctx.raw/totalDept)*100).toFixed(1)}% (${ctx.raw})` } } } }
+  });
+</script>
+{% endblock %}

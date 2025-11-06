@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Forgot Password | Maktabat{% endblock %}
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center vh-100">
+  <div class="col-md-6 col-lg-5 bg-white shadow-lg rounded p-4">
+    <h4 class="text-primary mb-3 text-center">Forgot Password</h4>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+      <div class="mb-3">
+        <label class="form-label">Email address</label>
+        <input name="email" type="email" class="form-control" placeholder="Enter your registered email" required autofocus>
+      </div>
+      <div class="d-grid">
+        <button class="btn btn-primary" type="submit">
+          <i class="bi bi-envelope-at me-1"></i> Send Reset Link
+        </button>
+      </div>
+    </form>
+
+    <div class="text-center mt-3 small">
+      <a href="{{ url_for('auth_bp.login') }}" class="text-decoration-none">
+        <i class="bi bi-arrow-left-circle me-1"></i> Back to Login
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}

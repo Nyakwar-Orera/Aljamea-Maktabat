@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Reset Password | Maktabat{% endblock %}
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center vh-100">
+  <div class="col-md-6 col-lg-5 bg-white shadow-lg rounded p-4">
+    <h4 class="text-primary mb-3 text-center">Set a New Password</h4>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="post">
+      <div class="mb-3">
+        <label class="form-label">New Password</label>
+        <input name="password" type="password" class="form-control" placeholder="Enter new password" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Confirm Password</label>
+        <input name="confirm" type="password" class="form-control" placeholder="Re-enter password" required>
+      </div>
+      <div class="d-grid">
+        <button class="btn btn-success" type="submit">
+          <i class="bi bi-check-circle me-1"></i> Reset Password
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block content %}
+<h2 class="d-flex align-items-center justify-content-between">
+  <span>📄 Reports</span>
+</h2>
+
+<div class="row g-3 align-items-stretch" id="reportsLayout">
+  <!-- Report selection (sidebar) -->
+  <div class="col-12 col-lg-3 selector-col">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span>Choose Report</span>
+        <button id="toggleExpand" type="button" class="btn btn-sm btn-outline-secondary" title="Expand / Collapse sidebar">
+          <i class="bi bi-arrows-fullscreen me-1"></i>Expand
+        </button>
+      </div>
+      <div class="card-body">
+        <form id="reportForm">
+          <div class="mb-3">
+            <label for="reportType" class="form-label">Report Type</label>
+            <select id="reportType" name="report_type" class="form-select" required>
+              <option value="class_wise">Class-wise (Daraja)</option>
+              <option value="department_wise">Department-wise</option>
+              <option value="individual">Individual Student</option>
+              <option value="top_books">Top 25 Books (All)</option>
+              <option value="top_arabic">Top 25 Arabic Books</option>
+            </select>
+          </div>
+
+          <!-- Class field -->
+          <div id="classField" class="mb-3 d-none">
+            <label for="classValue" class="form-label">Daraja</label>
+            <select id="classValue" name="class_value" class="form-select">
+              <option value="">All</option>
+              {% for c in classes %}
+              <option value="{{ c }}">{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Department field -->
+          <div id="deptField" class="mb-3 d-none">
+            <label for="departmentValue" class="form-label">Department</label>
+            <select id="departmentValue" name="department_value" class="form-select">
+              <option value="">All</option>
+              {% for d in departments %}
+              <option value="{{ d }}">{{ d }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Individual student -->
+          <div id="individualField" class="mb-3 d-none">
+            <label for="identifier" class="form-label">Search Student</label>
+            <input id="identifier" name="identifier" class="form-control"
+                   placeholder="Enter Card Number, ITS ID, TR Number, or Borrower Number">
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100">Generate</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report output -->
+  <div class="col-12 col-lg-9 output-col">
+    <div class="card h-100" id="reportCard">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span id="currentReportTitle">Report Output</span>
+        <div class="d-flex gap-2 flex-wrap">
+          <button id="btnFullscreen" class="btn btn-sm btn-outline-secondary" type="button" title="Fullscreen report">
+            <i class="bi bi-fullscreen me-1"></i>Fullscreen
+          </button>
+          <div id="exportButtons" class="d-none"></div>
+        </div>
+      </div>
+
+      <!-- Flexible, scrollable body -->
+      <div class="card-body p-0 d-flex flex-column">
+        <!-- Helper text -->
+        <div class="px-3 pt-3 pb-2 border-bottom bg-light">
+          <p class="text-muted mb-0 small">Select report options and click <strong>Generate</strong>.</p>
+        </div>
+
+        <!-- Output area grows and scrolls -->
+        <div class="report-output-wrap flex-grow-1">
+          <div id="reportOutput" class="p-3">
+            <p class="text-muted">No report yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .report-output-wrap {
+    max-height: calc(100vh - 280px);
+    overflow: auto;
+  }
+  #reportOutput table thead th {
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 2;
+    box-shadow: inset 0 -1px 0 rgba(0,0,0,.05);
+  }
+  #reportsLayout.expanded .selector-col { display: none !important; }
+  #reportsLayout.expanded .output-col   { flex: 0 0 100%; max-width: 100%; }
+  #reportOutput table {
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .table-responsive { overflow-x: auto; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function(){
+  const reportType = document.getElementById("reportType");
+  const classField = document.getElementById("classField");
+  const deptField = document.getElementById("deptField");
+  const individualField = document.getElementById("individualField");
+  const identifierInput = document.getElementById("identifier");
+  const form = document.getElementById("reportForm");
+  const output = document.getElementById("reportOutput");
+  const exportButtons = document.getElementById("exportButtons");
+  const reportCard = document.getElementById("reportCard");
+  const layout = document.getElementById("reportsLayout");
+  const toggleExpandBtn = document.getElementById("toggleExpand");
+  const fullscreenBtn = document.getElementById("btnFullscreen");
+  const titleSpan = document.getElementById("currentReportTitle");
+
+  // Report export endpoints (PDF + Excel)
+  const CLASS_PDF  = "{{ url_for('reports_bp.export_class_pdf', class_val='__CLASS__') }}";
+  const CLASS_XLS  = "{{ url_for('reports_bp.export_class_excel', class_val='__CLASS__') }}";
+  const DEPT_PDF   = "{{ url_for('reports_bp.export_department_pdf', dept_val='__DEPT__') }}";
+  const DEPT_XLS   = "{{ url_for('reports_bp.export_department_excel', dept_val='__DEPT__') }}";
+  const TOPALL_PDF = "{{ url_for('reports_bp.export_top_books_pdf') }}";
+  const TOPALL_XLS = "{{ url_for('reports_bp.export_top_books_excel') }}";
+  const TOPAR_PDF  = "{{ url_for('reports_bp.export_top_arabic_pdf') }}";
+  const TOPAR_XLS  = "{{ url_for('reports_bp.export_top_arabic_excel') }}";
+
+  function toggleFields(){
+    const t = reportType.value;
+    classField.classList.toggle("d-none", t !== "class_wise");
+    deptField.classList.toggle("d-none", t !== "department_wise");
+    individualField.classList.toggle("d-none", t !== "individual");
+    if (identifierInput) identifierInput.required = (t === "individual");
+  }
+  reportType.addEventListener("change", toggleFields);
+  toggleFields();
+
+  // Expand/collapse sidebar
+  toggleExpandBtn.addEventListener("click", () => {
+    layout.classList.toggle("expanded");
+    toggleExpandBtn.innerHTML = layout.classList.contains("expanded")
+      ? '<i class="bi bi-aspect-ratio me-1"></i>Collapse'
+      : '<i class="bi bi-arrows-fullscreen me-1"></i>Expand';
+  });
+
+  // Fullscreen the output card
+  fullscreenBtn.addEventListener("click", async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await reportCard.requestFullscreen();
+        fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit me-1"></i>Exit Fullscreen';
+      } else {
+        await document.exitFullscreen();
+        fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen me-1"></i>Fullscreen';
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
+  function buildTitle(type, classValue, deptValue, identifierVal){
+    if (type === "class_wise") {
+      return `Class-wise${classValue ? `: ${classValue}` : ""}`;
+    }
+    if (type === "department_wise") {
+      return `Department-wise${deptValue ? `: ${deptValue}` : ""}`;
+    }
+    if (type === "individual") {
+      return `Individual Student: ${identifierVal || "Unknown"}`;
+    }
+    if (type === "top_books") return "Top 25 Books (All)";
+    if (type === "top_arabic") return "Top 25 Arabic Books";
+    return "Report Output";
+  }
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    const data = new FormData(form);
+
+    const type = reportType.value;
+    const classValue = document.getElementById("classValue")?.value || "";
+    const deptValue  = document.getElementById("departmentValue")?.value || "";
+    const identifierVal = (identifierInput?.value || "").trim();
+
+    // Update header title to reflect exact search
+    const niceTitle = buildTitle(type, classValue, deptValue, identifierVal);
+    titleSpan.textContent = niceTitle;
+
+    // Status
+    output.innerHTML = "<p class='text-info mb-0'>Generating report, please wait...</p>";
+    exportButtons.classList.add("d-none");
+    exportButtons.innerHTML = "";
+
+    fetch("{{ url_for('reports_bp.generate_report') }}", { method: "POST", body: data })
+      .then(r => r.json())
+      .then(j => {
+        if (j.success && j.html) {
+          let links = "";
+
+          // Build export buttons with nice labels (names match the searched report)
+          if (type === "class_wise") {
+            const pdf = CLASS_PDF.replace("__CLASS__", encodeURIComponent(classValue || "All"));
+            const xls = CLASS_XLS.replace("__CLASS__", encodeURIComponent(classValue || "All"));
+            links = `
+              <a href="${pdf}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">📄 Export PDF — ${niceTitle}</a>
+              <a href="${xls}" class="btn btn-success btn-sm" aria-label="Export Excel — ${niceTitle}">🧾 Export Excel — ${niceTitle}</a>
+            `;
+          } else if (type === "department_wise") {
+            const pdf = DEPT_PDF.replace("__DEPT__", encodeURIComponent(deptValue || "All"));
+            const xls = DEPT_XLS.replace("__DEPT__", encodeURIComponent(deptValue || "All"));
+            links = `
+              <a href="${pdf}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">📄 Export PDF — ${niceTitle}</a>
+              <a href="${xls}" class="btn btn-success btn-sm" aria-label="Export Excel — ${niceTitle}">🧾 Export Excel — ${niceTitle}</a>
+            `;
+          } else if (type === "individual") {
+            // Only PDF for individual profile
+            const pdfUrl = "/students/" + encodeURIComponent(identifierVal) + "/pdf";
+            links = `<a href="${pdfUrl}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">📄 Export PDF — ${niceTitle}</a>`;
+          } else if (type === "top_books") {
+            links = `
+              <a href="${TOPALL_PDF}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">📄 Export PDF — ${niceTitle}</a>
+              <a href="${TOPALL_XLS}" class="btn btn-success btn-sm" aria-label="Export Excel — ${niceTitle}">🧾 Export Excel — ${niceTitle}</a>
+            `;
+          } else if (type === "top_arabic") {
+            links = `
+              <a href="${TOPAR_PDF}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">📄 Export PDF — ${niceTitle}</a>
+              <a href="${TOPAR_XLS}" class="btn btn-success btn-sm" aria-label="Export Excel — ${niceTitle}">🧾 Export Excel — ${niceTitle}</a>
+            `;
+          }
+
+          // Render result (no DataTables here; we handle exports ourselves)
+          if (type === "class_wise" || type === "department_wise" || type === "top_books" || type === "top_arabic") {
+            output.innerHTML = `<div class="table-responsive">${j.html}</div>`;
+          } else {
+            output.innerHTML = j.html;
+          }
+
+          if (links) {
+            exportButtons.innerHTML = links;
+            exportButtons.classList.remove("d-none");
+          }
+
+          if (window.showToast) showToast("Report generated successfully!", "success");
+        } else {
+          output.innerHTML = "<p class='text-warning mb-0'>No data found for the selected report.</p>";
+          if (window.showToast) showToast("No data found for this selection", "warning");
+        }
+      })
+      .catch(err => {
+        output.innerHTML = "<p class='text-danger mb-0'>Error requesting report.</p>";
+        if (window.showToast) showToast("Error requesting report", "danger");
+        console.error(err);
+      });
+  });
+});
+</script>
+{% endblock %}
