@@ -62,8 +62,6 @@ A professional, role-based dashboard built with Flask and seamlessly integrated 
 
 ## 🖼️ Dashboard Preview
 
-> Showcase the system visually — replace the image paths below with your own screenshots from `/static/screenshots/`.
-
 | Role                        | Screenshot                                                     |
 | --------------------------- | -------------------------------------------------------------- |
 | 🧭 **Admin Dashboard**      | ![Admin Dashboard](static/screenshots/admin_dashboard.png)     |
@@ -72,7 +70,6 @@ A professional, role-based dashboard built with Flask and seamlessly integrated 
 | 🧾 **Reports View**         | ![Reports View](static/screenshots/reports_view.png)           |
 | 🔐 **Login Page**           | ![Login Page](static/screenshots/login_page.png)               |
 
-*(Tip: Create a `static/screenshots/` folder and drop your images there for GitHub to render them.)*
 
 ---
 
