@@ -13,11 +13,12 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib import colors
 from services.exports import _ensure_font_registered, dataframe_to_pdf_bytes
 import os
+import pandas as pd
 
 bp = Blueprint("hod_dashboard_bp", __name__)
 
 # --------------------------------------------------
-# AY RANGE  (April 1 → Today; if before April, use last AY)
+# AY RANGE
 # --------------------------------------------------
 def _ay_bounds():
     today = date.today()
@@ -31,13 +32,10 @@ def _ay_bounds():
 # KPIs (Department)
 # --------------------------------------------------
 def get_department_kpis(department):
-    """Department-level KPIs (borrowers, issues, fines, overdues, active loans)."""
+    """Department-level KPIs."""
     start, end = _ay_bounds()
-
     conn = get_koha_conn()
     cur = conn.cursor()
-
-    # Make the filter forgiving: match on categorycode OR description (LIKE)
     like = f"%{department}%"
 
     # Borrowers
@@ -61,7 +59,7 @@ def get_department_kpis(department):
     """, (like, like, start, end))
     total_issues = int(cur.fetchone()[0] or 0)
 
-    # Fines paid (AY) — payments stored as negatives; flip sign
+    # Fines paid
     cur.execute("""
         SELECT COALESCE(SUM(
             CASE
@@ -77,7 +75,7 @@ def get_department_kpis(department):
     """, (start, end, like, like))
     total_fines = float(cur.fetchone()[0] or 0.0)
 
-    # Active loans (now)
+    # Active loans
     cur.execute("""
         SELECT COUNT(*)
         FROM issues i
@@ -88,7 +86,7 @@ def get_department_kpis(department):
     """, (like, like))
     active_loans = int(cur.fetchone()[0] or 0)
 
-    # Overdues (now)
+    # Overdues
     cur.execute("""
         SELECT COUNT(*)
         FROM issues i
@@ -105,7 +103,7 @@ def get_department_kpis(department):
 
 
 # --------------------------------------------------
-# DAILY TREND (current month)  — mirrors admin style, returns continuous days
+# DAILY TREND
 # --------------------------------------------------
 def get_monthly_trend(department):
     today = date.today()
@@ -130,7 +128,6 @@ def get_monthly_trend(department):
     rows = cur.fetchall()
     conn.close()
 
-    # Build a continuous series
     by_day = {r[0]: int(r[1]) for r in rows}
     labels, values = [], []
     d = month_start
@@ -138,20 +135,17 @@ def get_monthly_trend(department):
         labels.append(d.strftime("%d %b"))
         values.append(by_day.get(d, 0))
         d += timedelta(days=1)
-
-    # Fallback: if still empty, show last 7 days with zeros (so Chart shows axes)
     if not labels:
         d = today - timedelta(days=6)
         while d <= today:
             labels.append(d.strftime("%d %b"))
             values.append(0)
             d += timedelta(days=1)
-
     return labels, values
 
 
 # --------------------------------------------------
-# CLASS BREAKDOWN (AY) — same philosophy as admin: group + return arrays
+# CLASS BREAKDOWN
 # --------------------------------------------------
 def get_class_breakdown(department):
     start, end = _ay_bounds()
@@ -175,14 +169,8 @@ def get_class_breakdown(department):
     """, (like, like, start, end))
     rows = cur.fetchall()
     conn.close()
-
-    labels = [r[0] for r in rows]
-    values = [int(r[1]) for r in rows]
-
-    # Fallback so the bar chart has axes if no data
-    if not labels:
-        labels, values = ["—"], [0]
-
+    labels = [r[0] for r in rows] or ["—"]
+    values = [int(r[1]) for r in rows] or [0]
     return labels, values
 
 
@@ -200,16 +188,12 @@ def dashboard():
         flash("⚠️ No department assigned to your account.", "warning")
         return redirect(url_for("auth_bp.login"))
 
-    # KPIs & charts
     total_borrowers, total_issues, total_fines, active_loans, overdues = get_department_kpis(dept_name)
     trend_labels, trend_values = get_monthly_trend(dept_name)
     class_labels, class_values = get_class_breakdown(dept_name)
-
-    # Leaderboards (reuse your service)
     top_ar = top_titles(limit=10, arabic=True)
     top_non_ar = top_titles(limit=10, non_arabic=True)
 
-    # Department summary table (group by class)
     df = department_report(dept_name)
     summary_table = []
     if not df.empty:
@@ -217,22 +201,15 @@ def dashboard():
             if col in df.columns:
                 summary_table = (
                     df.groupby(col)[["Issues_AY", "FinesPaid_AY", "ActiveLoans", "Overdues"]]
-                    .sum()
-                    .reset_index()
-                    .to_dict("records")
+                    .sum().reset_index().to_dict("records")
                 )
                 break
 
-    # Quick class KPIs used by the right list
     class_kpis = {
         "Total Classes": len(class_labels) if class_labels else 0,
         "Top Class Issues": max(class_values) if class_values else 0,
-        "Average Issues per Class": round(sum(class_values)/len(class_values), 1) if class_values else 0
+        "Average Issues per Class": round(sum(class_values) / len(class_values), 1) if class_values else 0
     }
-
-    # Handy server-side log for sanity checks
-    print("📆 Trend sample:", trend_labels[:5], trend_values[:5])
-    print("🏫 Class sample:", class_labels[:5], class_values[:5])
 
     return render_template(
         "hod_dashboard.html",
@@ -274,7 +251,6 @@ def search():
         return redirect(url_for("hod_dashboard_bp.dashboard"))
 
     students, classes = [], []
-
     if "FullName" in df.columns:
         students = df[
             df["FullName"].str.contains(query, case=False, na=False)
@@ -285,8 +261,7 @@ def search():
         class_df = (
             df[df["Class"].astype(str).str.contains(query, case=False, na=False)]
             .groupby("Class")[["Issues_AY", "FinesPaid_AY", "ActiveLoans", "Overdues"]]
-            .agg("sum")
-            .reset_index()
+            .agg("sum").reset_index()
             .assign(StudentCount=lambda x: x["Class"].map(df["Class"].value_counts()))
         )
         classes = class_df.to_dict("records")
@@ -315,16 +290,16 @@ def download_department_pdf():
         return redirect(url_for("hod_dashboard_bp.dashboard"))
 
     pdf_bytes = dataframe_to_pdf_bytes(f"Department Report - {dept_name}", df)
-    return send_file(
-        BytesIO(pdf_bytes),
+    return send_file(BytesIO(pdf_bytes),
         as_attachment=True,
         download_name=f"department_report_{dept_name}.pdf",
-        mimetype="application/pdf",
+        mimetype="application/pdf"
     )
 
 
 @bp.route("/download/class/<class_name>")
 def download_class_pdf(class_name):
+    """Generate class PDF but skip blank or incomplete student rows."""
     if not session.get("logged_in") or session.get("role") != "hod":
         return redirect(url_for("auth_bp.login"))
 
@@ -333,12 +308,27 @@ def download_class_pdf(class_name):
         flash(f"⚠️ No data found for class {class_name}.", "warning")
         return redirect(url_for("hod_dashboard_bp.dashboard"))
 
+    # --- 🔧 NEW: Drop incomplete or blank rows ---
+    # Keep rows that have either a TRNumber or a FullName
+    df = df.dropna(subset=["FullName", "TRNumber"], how="all")
+    df = df[~df["FullName"].isin(["", None, "NaN", "nan"])]
+    df = df[~df["TRNumber"].isin(["", None, "NaN", "nan"])]
+
+    # If still empty, alert the user
+    if df.empty:
+        flash(f"⚠️ All rows in class {class_name} were empty and skipped.", "warning")
+        return redirect(url_for("hod_dashboard_bp.dashboard"))
+
+    # --- Safe cleaning ---
+    df = df.fillna("")
+    if "Titles_AY" in df.columns:
+        df["Titles_AY"] = df["Titles_AY"].astype(str).apply(lambda x: x[:250] + "…" if len(x) > 250 else x)
+
     pdf_bytes = dataframe_to_pdf_bytes(f"Class Report - {class_name}", df)
-    return send_file(
-        BytesIO(pdf_bytes),
+    return send_file(BytesIO(pdf_bytes),
         as_attachment=True,
         download_name=f"class_report_{class_name}.pdf",
-        mimetype="application/pdf",
+        mimetype="application/pdf"
     )
 
 
@@ -365,7 +355,6 @@ def download_student_pdf(identifier):
     photo_path = os.path.join(current_app.root_path, "static", info.get("Photo", "images/avatar.png"))
     if not os.path.exists(photo_path):
         photo_path = os.path.join(current_app.root_path, "static", "images", "avatar.png")
-
     if os.path.exists(photo_path):
         elements.append(Image(photo_path, width=4 * cm, height=4 * cm))
         elements.append(Spacer(1, 0.3 * cm))
@@ -376,7 +365,7 @@ def download_student_pdf(identifier):
         ["🗓️ AY Issues", metrics.get("AYIssues", 0)],
         ["📖 Active Loans", metrics.get("ActiveLoans", 0)],
         ["⏰ Overdue Now", metrics.get("OverdueNow", 0)],
-        ["💰 Fines Paid", f"{metrics.get('TotalFinesPaid', 0):.2f}"],
+        ["💰 Fines Paid", f"{metrics.get("TotalFinesPaid", 0):.2f}"],
         ["🏷️ Class", info.get("Class") or "-"],
         ["🧾 TR Number", info.get("TRNumber") or "-"],
     ]
@@ -390,9 +379,8 @@ def download_student_pdf(identifier):
 
     doc.build(elements)
     buffer.seek(0)
-    return send_file(
-        buffer,
+    return send_file(buffer,
         as_attachment=True,
         download_name=f"student_report_{identifier}.pdf",
-        mimetype="application/pdf",
+        mimetype="application/pdf"
     )

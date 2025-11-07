@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash
 from config import Config
 from db_app import get_conn
 from tasks.scheduler import reload_scheduler
+from tasks.monthly_reports import send_all_reports
 
 bp = Blueprint("admin_bp", __name__)
 
@@ -98,7 +99,7 @@ def add_user():
         conn.commit()
         conn.close()
 
-        # ✅ Send email to user
+        # ✅ Send account email
         try:
             from flask_mail import Message
             mail = current_app.extensions.get("mail")
@@ -346,3 +347,23 @@ def list_department_heads():
     except Exception as e:
         current_app.logger.error(f"List department heads error: {e}")
         return jsonify([])
+
+
+# ---------------- MANUAL EMAIL TRIGGER ----------------
+@bp.route("/run_email_reports_now", methods=["POST"])
+def run_email_reports_now():
+    """Admin button: manually send all class + department email reports."""
+    if not session.get("logged_in"):
+        flash("Unauthorized access.", "danger")
+        return redirect(url_for("admin_bp.index"))
+
+    try:
+        # ✅ get the mail instance safely (avoid circular import)
+        mail = current_app.extensions.get("mail")
+        send_all_reports(current_app, mail)
+        flash("✅ Email reports sent successfully. Check your inbox/logs.", "success")
+    except Exception as e:
+        current_app.logger.exception("Manual email trigger failed")
+        flash(f"❌ Error sending reports: {e}", "danger")
+
+    return redirect(url_for("admin_bp.admin_settings"))

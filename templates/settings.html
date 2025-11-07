@@ -81,16 +81,18 @@
     <div class="card mb-3 shadow-sm">
       <div class="card-header bg-info text-white">📧 Configure Auto Email Reports</div>
       <div class="card-body">
-        <form id="emailForm">
+        <form id="emailForm" class="mb-3">
           <input type="email" id="emailSender" name="email_sender" class="form-control mb-3"
                  placeholder="Sender Email (example@domain.com)" required>
+
           <select id="emailFrequency" name="email_frequency" class="form-select mb-3" required>
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
             <option value="monthly">Monthly</option>
           </select>
+
           <div id="weeklyOptions" class="mb-3 d-none">
-            <label for="dayOfWeek">Day of Week</label>
+            <label for="dayOfWeek" class="form-label">Day of Week</label>
             <select id="dayOfWeek" name="day_of_week" class="form-select">
               <option value="mon">Monday</option>
               <option value="tue">Tuesday</option>
@@ -99,10 +101,12 @@
               <option value="fri">Friday</option>
             </select>
           </div>
+
           <div id="monthlyOptions" class="mb-3 d-none">
-            <label for="dayOfMonth">Day of Month (1–28)</label>
+            <label for="dayOfMonth" class="form-label">Day of Month (1–28)</label>
             <input type="number" id="dayOfMonth" name="day_of_month" class="form-control" min="1" max="28">
           </div>
+
           <div class="row mb-3">
             <div class="col">
               <input type="number" id="sendHour" name="send_hour" class="form-control" min="0" max="23" value="8">
@@ -111,7 +115,15 @@
               <input type="number" id="sendMinute" name="send_minute" class="form-control" min="0" max="59" value="0">
             </div>
           </div>
+
           <button type="submit" class="btn btn-info w-100">💾 Save Email Settings</button>
+        </form>
+
+        <!-- Manual trigger -->
+        <form method="post" action="{{ url_for('admin_bp.run_email_reports_now') }}">
+          <button class="btn btn-outline-primary w-100" type="submit">
+            🚀 Send Email Reports Now
+          </button>
         </form>
       </div>
     </div>
@@ -189,7 +201,6 @@ document.addEventListener("DOMContentLoaded", function(){
   const roleSelect = document.getElementById("role");
   const deptField = document.getElementById("departmentField");
   const classField = document.getElementById("classField");
-
   roleSelect.addEventListener("change", function() {
     const role = this.value;
     deptField.classList.toggle("d-none", role !== "hod");
