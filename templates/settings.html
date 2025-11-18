@@ -2,18 +2,40 @@
 {% block title %}⚙️ Admin Settings - Maktabat al-Jamea{% endblock %}
 
 {% block content %}
-<h2>⚙️ Admin Settings</h2>
-<p class="text-muted">Manage users, mappings, departments, emails, and database connections.</p>
+<h2 class="mb-1">⚙️ Admin Settings</h2>
+<p class="text-muted mb-4">Brand your portal, manage users & departments, configure email automation, and run diagnostics.</p>
 
 <div class="row">
-  <!-- Upload Mapping -->
+  <!-- Branding & Appearance -->
   <div class="col-md-6">
     <div class="card mb-3 shadow-sm">
-      <div class="card-header bg-primary text-white">📂 Upload Student-Class-Teacher Mapping</div>
+      <div class="card-header bg-primary text-white">🎨 Branding & Appearance</div>
       <div class="card-body">
-        <form id="uploadForm" enctype="multipart/form-data">
-          <input type="file" id="mappingFile" name="mapping_file" class="form-control mb-3" accept=".csv,.xlsx" required>
-          <button type="submit" class="btn btn-primary w-100">⬆️ Upload Mapping File</button>
+        <form id="brandingForm" class="mb-3">
+          <input type="text" id="orgName" name="org_name" class="form-control mb-2" placeholder="Organization Name" required>
+          <input type="text" id="siteName" name="site_name" class="form-control mb-2" placeholder="Site Name" required>
+
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Theme Color</label>
+              <input type="color" id="themeColor" name="theme_color" class="form-control form-control-color" value="#004080" title="Pick a color">
+            </div>
+            <div class="col">
+              <label class="form-label">Footer Text</label>
+              <input type="text" id="footerText" name="footer_text" class="form-control" placeholder="© Maktabat al-Jamea">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 mt-3">💾 Save Branding</button>
+        </form>
+
+        <form id="logoForm" enctype="multipart/form-data">
+          <label class="form-label">Logo (PNG/JPG)</label>
+          <input type="file" id="logoFile" name="logo_file" class="form-control mb-2" accept=".png,.jpg,.jpeg,.gif,.webp">
+          <button type="submit" class="btn btn-outline-primary w-100">⬆️ Upload Logo</button>
+          <div class="text-center mt-2">
+            <img id="logoPreview" src="" alt="Logo preview" style="max-height:60px;">
+          </div>
         </form>
       </div>
     </div>
@@ -28,7 +50,6 @@
           <input type="text" id="username" name="username" class="form-control mb-2" placeholder="Username *" required>
           <input type="email" id="email" name="email" class="form-control mb-2" placeholder="Email *" required>
 
-          <!-- 🔐 Password field with toggle -->
           <div class="input-group mb-2">
             <input type="password" id="password" name="password" class="form-control" placeholder="Password *" required>
             <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">
@@ -43,13 +64,8 @@
             <option value="teacher">Class Teacher</option>
           </select>
 
-          <!-- Department name (for HOD) -->
-          <input type="text" id="departmentField" name="department_name"
-                 class="form-control mb-2 d-none" placeholder="Department Name (HOD only)">
-
-          <!-- Class name (for Teacher) -->
-          <input type="text" id="classField" name="class_name"
-                 class="form-control mb-2 d-none" placeholder="Class Name (Teacher only)">
+          <input type="text" id="departmentField" name="department_name" class="form-control mb-2 d-none" placeholder="Department Name (HOD only)">
+          <input type="text" id="classField" name="class_name" class="form-control mb-2 d-none" placeholder="Class Name (Teacher only)">
 
           <button type="submit" class="btn btn-success w-100 mb-2">➕ Add User</button>
           <button type="button" id="removeUserBtn" class="btn btn-danger w-100">🗑️ Remove User</button>
@@ -59,13 +75,7 @@
         <div class="table-responsive">
           <table class="table table-sm table-striped" id="usersTable">
             <thead>
-              <tr>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Department</th>
-                <th>Class</th>
-              </tr>
+              <tr><th>Username</th><th>Email</th><th>Role</th><th>Department</th><th>Class</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -76,60 +86,59 @@
 </div>
 
 <div class="row">
-  <!-- Email Settings -->
+  <!-- Email Settings (Schedule) -->
   <div class="col-md-6">
     <div class="card mb-3 shadow-sm">
       <div class="card-header bg-info text-white">📧 Configure Auto Email Reports</div>
       <div class="card-body">
         <form id="emailForm" class="mb-3">
-          <input type="email" id="emailSender" name="email_sender" class="form-control mb-3"
-                 placeholder="Sender Email (example@domain.com)" required>
+          <input type="email" id="emailSender" name="email_sender" class="form-control mb-3" placeholder="Sender Email (example@domain.com)" required>
 
           <select id="emailFrequency" name="email_frequency" class="form-select mb-3" required>
             <option value="daily">Daily</option>
             <option value="weekly">Weekly</option>
-            <option value="monthly">Monthly</option>
+            <option value="monthly" selected>Monthly</option>
           </select>
 
           <div id="weeklyOptions" class="mb-3 d-none">
             <label for="dayOfWeek" class="form-label">Day of Week</label>
             <select id="dayOfWeek" name="day_of_week" class="form-select">
-              <option value="mon">Monday</option>
-              <option value="tue">Tuesday</option>
-              <option value="wed">Wednesday</option>
-              <option value="thu">Thursday</option>
+              <option value="mon">Monday</option><option value="tue">Tuesday</option>
+              <option value="wed">Wednesday</option><option value="thu">Thursday</option>
               <option value="fri">Friday</option>
             </select>
           </div>
 
-          <div id="monthlyOptions" class="mb-3 d-none">
+          <div id="monthlyOptions" class="mb-3">
             <label for="dayOfMonth" class="form-label">Day of Month (1–28)</label>
-            <input type="number" id="dayOfMonth" name="day_of_month" class="form-control" min="1" max="28">
+            <input type="number" id="dayOfMonth" name="day_of_month" class="form-control" min="1" max="28" value="1">
           </div>
 
           <div class="row mb-3">
-            <div class="col">
-              <input type="number" id="sendHour" name="send_hour" class="form-control" min="0" max="23" value="8">
-            </div>
-            <div class="col">
-              <input type="number" id="sendMinute" name="send_minute" class="form-control" min="0" max="59" value="0">
-            </div>
+            <div class="col"><input type="number" id="sendHour" name="send_hour" class="form-control" min="0" max="23" value="8"></div>
+            <div class="col"><input type="number" id="sendMinute" name="send_minute" class="form-control" min="0" max="59" value="0"></div>
           </div>
 
-          <button type="submit" class="btn btn-info w-100">💾 Save Email Settings</button>
+          <button type="submit" class="btn btn-info w-100 mb-2">💾 Save Email Settings</button>
         </form>
 
-        <!-- Manual trigger -->
-        <form method="post" action="{{ url_for('admin_bp.run_email_reports_now') }}">
-          <button class="btn btn-outline-primary w-100" type="submit">
-            🚀 Send Email Reports Now
-          </button>
-        </form>
+        <div class="d-flex gap-2">
+          <form method="post" action="{{ url_for('admin_bp.run_email_reports_now') }}" class="flex-grow-1">
+            <button class="btn btn-outline-primary w-100" type="submit">🚀 Send Email Reports Now</button>
+          </form>
+          <form id="testEmailForm" class="flex-grow-1">
+            <div class="input-group">
+              <input type="email" name="to" class="form-control" placeholder="Test email to..." required>
+              <button class="btn btn-outline-secondary" type="submit">Send Test</button>
+            </div>
+          </form>
+        </div>
+
       </div>
     </div>
   </div>
 
-  <!-- DB Settings -->
+  <!-- Database Settings -->
   <div class="col-md-6">
     <div class="card mb-3 shadow-sm">
       <div class="card-header bg-warning text-dark">🗄️ Database Connection Settings</div>
@@ -147,29 +156,82 @@
 </div>
 
 <div class="row">
-  <!-- Department Heads -->
+  <!-- Email Templates -->
   <div class="col-md-12">
     <div class="card mb-3 shadow-sm">
-      <div class="card-header bg-secondary text-white">🏫 Manage Department Heads</div>
+      <div class="card-header bg-secondary text-white">✉️ Email Templates</div>
+      <div class="card-body">
+        <form id="templateForm" class="mb-3">
+          <div class="row g-2">
+            <div class="col-md-3">
+              <label class="form-label">Template</label>
+              <select id="templateKey" name="template_key" class="form-select" required>
+                <option value="class_report">Class Report</option>
+                <option value="department_report">Department Report</option>
+                <option value="account_created">Account Created</option>
+              </select>
+            </div>
+            <div class="col-md-9">
+              <label class="form-label">Subject</label>
+              <input type="text" id="templateSubject" name="subject" class="form-control" required>
+            </div>
+          </div>
+          <label class="form-label mt-2">HTML Body</label>
+          <textarea id="templateHtml" name="html" class="form-control" rows="6" required></textarea>
+          <small class="text-muted">
+            Available placeholders: <code>{{ "{{ class_name }}" }}</code>,
+            <code>{{ "{{ dept }}" }}</code>, <code>{{ "{{ head_name }}" }}</code>,
+            <code>{{ "{{ username }}" }}</code>, <code>{{ "{{ role }}" }}</code>,
+            <code>{{ "{{ password }}" }}</code>, <code>{{ "{{ login_url }}" }}</code>
+          </small>
+          <button type="submit" class="btn btn-secondary w-100 mt-2">💾 Save Template</button>
+        </form>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-striped" id="templatesTable">
+            <thead><tr><th>Key</th><th>Subject</th><th>Preview</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Department Heads -->
+  <div class="col-md-8">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-dark text-white">🏫 Manage Department Heads</div>
       <div class="card-body">
         <form id="deptHeadForm" class="mb-3">
           <input type="text" id="deptName" name="department_name" class="form-control mb-2" placeholder="Department Name *" required>
           <input type="text" id="headName" name="head_name" class="form-control mb-2" placeholder="Head Name">
           <input type="email" id="deptEmail" name="email" class="form-control mb-2" placeholder="Head Email *" required>
-          <button type="submit" class="btn btn-secondary w-100 mb-2">➕ Add Department Head</button>
+          <button type="submit" class="btn btn-dark w-100 mb-2">➕ Add Department Head</button>
           <button type="button" id="removeDeptBtn" class="btn btn-danger w-100">🗑️ Remove Department Head</button>
         </form>
 
         <h6>Existing Department Heads</h6>
         <div class="table-responsive">
           <table class="table table-sm table-striped" id="deptTable">
-            <thead>
-              <tr>
-                <th>Department</th>
-                <th>Head Name</th>
-                <th>Email</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Department</th><th>Head Name</th><th>Email</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit Log -->
+  <div class="col-md-4">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-light">🧾 Recent Activity (Audit)</div>
+      <div class="card-body">
+        <div class="table-responsive" style="max-height:300px; overflow:auto;">
+          <table class="table table-sm" id="auditTable">
+            <thead><tr><th>Time</th><th>Actor</th><th>Action</th><th>Details</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -192,10 +254,13 @@ document.addEventListener("DOMContentLoaded", function(){
   });
 
   // Toggle weekly/monthly fields
-  document.getElementById("emailFrequency").addEventListener("change", function(){
-    document.getElementById("weeklyOptions").classList.toggle("d-none", this.value !== "weekly");
-    document.getElementById("monthlyOptions").classList.toggle("d-none", this.value !== "monthly");
-  });
+  const freqSel = document.getElementById("emailFrequency");
+  function toggleSched() {
+    document.getElementById("weeklyOptions").classList.toggle("d-none", freqSel.value !== "weekly");
+    document.getElementById("monthlyOptions").classList.toggle("d-none", freqSel.value !== "monthly");
+  }
+  freqSel.addEventListener("change", toggleSched);
+  toggleSched();
 
   // Toggle department/class input visibility
   const roleSelect = document.getElementById("role");
@@ -207,47 +272,61 @@ document.addEventListener("DOMContentLoaded", function(){
     classField.classList.toggle("d-none", role !== "teacher");
   });
 
-  // ---- Upload Mapping ----
-  document.getElementById("uploadForm").addEventListener("submit", function(e){
-    e.preventDefault();
-    fetch("/api/upload_mapping", { method:"POST", body:new FormData(this) })
+  // ---------- Branding ----------
+  function loadBranding(){
+    fetch("/api/get_site_settings")
       .then(r=>r.json())
-      .then(j=>showToast(j.success ? "✅ Mapping uploaded successfully" : "❌ Upload failed", j.success?"success":"danger"));
+      .then(s=>{
+        document.getElementById("orgName").value = s.org_name || "";
+        document.getElementById("siteName").value = s.site_name || "";
+        document.getElementById("themeColor").value = s.theme_color || "#004080";
+        document.getElementById("footerText").value = s.footer_text || "";
+        if(s.logo_path){
+          document.getElementById("logoPreview").src = `/static/${s.logo_path}`;
+        }
+      });
+  }
+  loadBranding();
+
+  document.getElementById("brandingForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/save_site_settings", { method:"POST", body:new FormData(this) })
+      .then(r=>r.json())
+      .then(j=>showToast(j.success ? "✅ Branding saved" : "❌ Failed to save branding", j.success?"success":"danger"));
   });
 
-  // ---- USERS ----
-  function loadUsers(){
-    fetch("/api/list_users")
+  document.getElementById("logoForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/upload_logo", { method:"POST", body:new FormData(this) })
       .then(r=>r.json())
-      .then(data=>{
-        const tbody=document.querySelector("#usersTable tbody");
-        tbody.innerHTML="";
-        data.forEach(u=>{
-          tbody.innerHTML+=`
-            <tr>
-              <td>${u.username}</td>
-              <td>${u.email}</td>
-              <td>${u.role}</td>
-              <td>${u.department_name || "-"}</td>
-              <td>${u.class_name || "-"}</td>
-            </tr>`;
-        });
+      .then(j=>{
+        showToast(j.success ? "✅ Logo uploaded" : (j.error || "❌ Failed to upload"), j.success?"success":"danger");
+        if(j.success && j.logo_path){
+          document.getElementById("logoPreview").src = `/static/${j.logo_path}`;
+        }
       });
+  });
+
+  // ---------- USERS ----------
+  function loadUsers(){
+    fetch("/api/list_users").then(r=>r.json()).then(data=>{
+      const tbody=document.querySelector("#usersTable tbody"); tbody.innerHTML="";
+      data.forEach(u=>{
+        tbody.innerHTML+=`<tr>
+          <td>${u.username}</td><td>${u.email}</td><td>${u.role}</td>
+          <td>${u.department_name || "-"}</td><td>${u.class_name || "-"}</td>
+        </tr>`;
+      });
+    });
   }
   loadUsers();
 
   document.getElementById("userForm").addEventListener("submit", function(e){
     e.preventDefault();
     fetch("/api/add_user", { method:"POST", body:new FormData(this) })
-      .then(r=>r.json())
-      .then(j=>{
-        showToast(j.success ? "✅ User added successfully and email sent" : (j.error || "❌ Failed to add user"), j.success?"success":"danger");
-        if(j.success) {
-          this.reset();
-          deptField.classList.add("d-none");
-          classField.classList.add("d-none");
-          loadUsers();
-        }
+      .then(r=>r.json()).then(j=>{
+        showToast(j.success ? "✅ User added" : (j.error || "❌ Failed to add user"), j.success?"success":"danger");
+        if(j.success){ this.reset(); deptField.classList.add("d-none"); classField.classList.add("d-none"); loadUsers(); }
       });
   });
 
@@ -256,18 +335,15 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!username) return showToast("Enter a username to remove", "warning");
     if(!confirm(`Remove user '${username}'?`)) return;
     fetch("/api/remove_user", {
-      method:"POST",
-      body:JSON.stringify({username}),
-      headers:{"Content-Type":"application/json"}
-    })
-      .then(r=>r.json())
-      .then(j=>{
-        showToast(j.success ? `✅ User ${username} removed` : "❌ Failed to remove user", j.success?"success":"danger");
-        if(j.success) loadUsers();
-      });
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({username})
+    }).then(r=>r.json()).then(j=>{
+      showToast(j.success ? `✅ User ${username} removed` : "❌ Failed to remove user", j.success?"success":"danger");
+      if(j.success) loadUsers();
+    });
   });
 
-  // ---- EMAIL SETTINGS ----
+  // ---------- EMAIL SETTINGS ----------
   document.getElementById("emailForm").addEventListener("submit", function(e){
     e.preventDefault();
     fetch("/api/save_email_settings", { method:"POST", body:new FormData(this) })
@@ -275,7 +351,15 @@ document.addEventListener("DOMContentLoaded", function(){
       .then(j=>showToast(j.success ? "✅ Email settings saved" : "❌ Failed to save email settings", j.success?"success":"danger"));
   });
 
-  // ---- DB SETTINGS ----
+  // Test email
+  document.getElementById("testEmailForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/test_email", { method:"POST", body:new FormData(this) })
+      .then(r=>r.json())
+      .then(j=>showToast(j.success ? "✅ Test email sent" : (j.error || "❌ Test email failed"), j.success?"success":"danger"));
+  });
+
+  // ---------- DB SETTINGS ----------
   document.getElementById("dbForm").addEventListener("submit", function(e){
     e.preventDefault();
     fetch("/api/save_db_settings", { method:"POST", body:new FormData(this) })
@@ -283,22 +367,14 @@ document.addEventListener("DOMContentLoaded", function(){
       .then(j=>showToast(j.success ? "✅ DB settings saved" : "❌ Failed to save DB settings", j.success?"success":"danger"));
   });
 
-  // ---- DEPARTMENT HEADS ----
+  // ---------- DEPARTMENT HEADS ----------
   function loadDepts(){
-    fetch("/api/list_department_heads")
-      .then(r=>r.json())
-      .then(data=>{
-        const tbody=document.querySelector("#deptTable tbody");
-        tbody.innerHTML="";
-        data.forEach(d=>{
-          tbody.innerHTML+=`
-            <tr>
-              <td>${d.department_name}</td>
-              <td>${d.head_name || ""}</td>
-              <td>${d.email}</td>
-            </tr>`;
-        });
+    fetch("/api/list_department_heads").then(r=>r.json()).then(data=>{
+      const tbody=document.querySelector("#deptTable tbody"); tbody.innerHTML="";
+      data.forEach(d=>{
+        tbody.innerHTML+=`<tr><td>${d.department_name}</td><td>${d.head_name || ""}</td><td>${d.email}</td></tr>`;
       });
+    });
   }
   loadDepts();
 
@@ -306,10 +382,7 @@ document.addEventListener("DOMContentLoaded", function(){
     e.preventDefault();
     fetch("/api/add_department_head", { method:"POST", body:new FormData(this) })
       .then(r=>r.json())
-      .then(j=>{
-        showToast(j.success ? "✅ Department head added" : "❌ Failed to add department head", j.success?"success":"danger");
-        if(j.success) loadDepts();
-      });
+      .then(j=>{ showToast(j.success ? "✅ Department head added" : "❌ Failed to add department head", j.success?"success":"danger"); if(j.success) loadDepts(); });
   });
 
   document.getElementById("removeDeptBtn").addEventListener("click", function(){
@@ -317,16 +390,57 @@ document.addEventListener("DOMContentLoaded", function(){
     if(!dept_name) return showToast("Enter department name to remove", "warning");
     if(!confirm(`Remove department head for '${dept_name}'?`)) return;
     fetch("/api/remove_department_head", {
-      method:"POST",
-      body:JSON.stringify({department_name:dept_name}),
-      headers:{"Content-Type":"application/json"}
-    })
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({department_name:dept_name})
+    }).then(r=>r.json()).then(j=>{
+      showToast(j.success ? `✅ Department head for ${dept_name} removed` : "❌ Failed to remove department head", j.success?"success":"danger");
+      if(j.success) loadDepts();
+    });
+  });
+
+  // ---------- Email Templates ----------
+  function loadTemplates(){
+    fetch("/api/get_email_templates").then(r=>r.json()).then(rows=>{
+      const tbl=document.querySelector("#templatesTable tbody"); tbl.innerHTML="";
+      rows.forEach(t=>{
+        tbl.innerHTML+=`<tr>
+          <td>${t.template_key}</td>
+          <td>${t.subject}</td>
+          <td><button class="btn btn-sm btn-outline-secondary" data-key="${t.template_key}" data-subj="${encodeURIComponent(t.subject)}" data-html="${encodeURIComponent(t.html)}">Load</button></td>
+        </tr>`;
+      });
+      tbl.querySelectorAll("button").forEach(b=>{
+        b.addEventListener("click", ()=>{
+          document.getElementById("templateKey").value = b.dataset.key;
+          document.getElementById("templateSubject").value = decodeURIComponent(b.dataset.subj);
+          document.getElementById("templateHtml").value = decodeURIComponent(b.dataset.html);
+          showToast("Template loaded into editor", "info");
+        });
+      });
+    });
+  }
+  loadTemplates();
+
+  document.getElementById("templateForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    fetch("/api/save_email_template", { method:"POST", body:new FormData(this) })
       .then(r=>r.json())
       .then(j=>{
-        showToast(j.success ? `✅ Department head for ${dept_name} removed` : "❌ Failed to remove department head", j.success?"success":"danger");
-        if(j.success) loadDepts();
+        showToast(j.success ? "✅ Template saved" : (j.error || "❌ Failed to save template"), j.success?"success":"danger");
+        if(j.success) loadTemplates();
       });
   });
+
+  // ---------- Audit ----------
+  function loadAudit(){
+    fetch("/api/list_audit").then(r=>r.json()).then(rows=>{
+      const tbody=document.querySelector("#auditTable tbody"); tbody.innerHTML="";
+      rows.forEach(a=>{
+        tbody.innerHTML+=`<tr><td>${a.ts}</td><td>${a.actor || "-"}</td><td>${a.action}</td><td>${a.details || ""}</td></tr>`;
+      });
+    });
+  }
+  loadAudit();
 });
 </script>
 {% endblock %}

@@ -100,16 +100,46 @@
         <ul class="navbar-nav ms-5 me-auto mb-2 mb-lg-0 gap-4">
           {% if session.get('logged_in') %}
             {% if session.get('role') == 'admin' %}
-              <li class="nav-item"><a class="nav-link {% if 'dashboard_bp' in request.blueprint %}active{% endif %}" href="{{ url_for('dashboard_bp.dashboard') }}"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a></li>
-              <li class="nav-item"><a class="nav-link {% if 'reports_bp' in request.blueprint %}active{% endif %}" href="{{ url_for('reports_bp.reports_page') }}"><i class="bi bi-table me-1"></i>Reports</a></li>
-              <li class="nav-item"><a class="nav-link {% if 'admin_bp' in request.blueprint %}active{% endif %}" href="{{ url_for('admin_bp.admin_settings') }}"><i class="bi bi-gear me-1"></i>Settings</a></li>
+              <li class="nav-item">
+                <a class="nav-link {% if 'dashboard_bp' in request.blueprint %}active{% endif %}"
+                   href="{{ url_for('dashboard_bp.dashboard') }}">
+                  <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link {% if 'reports_bp' in request.blueprint %}active{% endif %}"
+                   href="{{ url_for('reports_bp.reports_page') }}">
+                  <i class="bi bi-table me-1"></i>Reports
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link {% if 'admin_bp' in request.blueprint %}active{% endif %}"
+                   href="{{ url_for('admin_bp.admin_settings') }}">
+                  <i class="bi bi-gear me-1"></i>Settings
+                </a>
+              </li>
 
             {% elif session.get('role') == 'hod' %}
-              <li class="nav-item"><a class="nav-link {% if 'hod_dashboard_bp' in request.blueprint %}active{% endif %}" href="{{ url_for('hod_dashboard_bp.dashboard') }}"><i class="bi bi-building me-1"></i>My Department</a></li>
-              <li class="nav-item"><a class="nav-link {% if 'reports_bp' in request.blueprint %}active{% endif %}" href="{{ url_for('reports_bp.reports_page') }}"><i class="bi bi-graph-up me-1"></i>Reports</a></li>
+              <li class="nav-item">
+                <a class="nav-link {% if 'hod_dashboard_bp' in request.blueprint %}active{% endif %}"
+                   href="{{ url_for('hod_dashboard_bp.dashboard') }}">
+                  <i class="bi bi-building me-1"></i>My Department
+                </a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link {% if 'reports_bp' in request.blueprint %}active{% endif %}"
+                   href="{{ url_for('reports_bp.reports_page') }}">
+                  <i class="bi bi-graph-up me-1"></i>Reports
+                </a>
+              </li>
 
             {% elif session.get('role') == 'teacher' %}
-              <li class="nav-item"><a class="nav-link {% if 'teacher_dashboard_bp' in request.blueprint %}active{% endif %}" href="{{ url_for('teacher_dashboard_bp.dashboard') }}"><i class="bi bi-people me-1"></i>My Class</a></li>
+              <li class="nav-item">
+                <a class="nav-link {% if 'teacher_dashboard_bp' in request.blueprint %}active{% endif %}"
+                   href="{{ url_for('teacher_dashboard_bp.dashboard') }}">
+                  <i class="bi bi-people me-1"></i>My Class
+                </a>
+              </li>
             {% endif %}
           {% endif %}
         </ul>
@@ -117,30 +147,75 @@
         <!-- Right Links -->
         <ul class="navbar-nav align-items-center gap-3">
           {% if session.get('logged_in') %}
+            <!-- Notifications -->
             <li class="nav-item position-relative">
-              <a href="#" class="nav-link position-relative" title="Notifications">
+              <a href="#" class="nav-link position-relative" title="Notifications" data-bs-toggle="dropdown">
                 <i class="bi bi-bell fs-5"></i>
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger small">3</span>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notification-badge">3</span>
               </a>
+              <ul class="dropdown-menu dropdown-menu-end shadow" id="notification-dropdown">
+                <li class="dropdown-header">Notifications</li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#">New library books added</a></li>
+                <li><a class="dropdown-item" href="#">You have overdue books</a></li>
+                <li><a class="dropdown-item" href="#">Department meeting tomorrow</a></li>
+                <li><a class="dropdown-item" href="#">More notifications...</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-center" href="#">View all</a></li>
+              </ul>
             </li>
+            
+            <!-- Theme Toggle -->
             <li class="nav-item">
-              <button class="btn btn-sm btn-outline-light" id="themeToggle" title="Toggle theme"><i class="bi bi-brightness-high"></i></button>
+              <button class="btn btn-sm btn-outline-light" id="themeToggle" title="Toggle theme">
+                <i class="bi bi-brightness-high"></i>
+              </button>
             </li>
+            
+            <!-- Profile Dropdown with avatar -->
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-                <i class="bi bi-person-circle fs-5 me-1"></i> <span>{{ session.get('username', 'User') }}</span>
+                {% set nav_pic = session.get('profile_picture', 'images/avatar.png') %}
+                <img src="{{ url_for('static', filename=nav_pic) }}"
+                     alt="Profile"
+                     class="nav-profile-avatar me-1">
+                <span>{{ session.get('username', 'User') }}</span>
               </a>
               <ul class="dropdown-menu dropdown-menu-end shadow">
-                <li class="dropdown-header text-center"><strong>{{ session.get('username', 'User') }}</strong><br><small class="text-muted text-capitalize">{{ session.get('role') }}</small></li>
+                <li class="dropdown-header text-center">
+                  <strong>{{ session.get('username', 'User') }}</strong><br>
+                  <small class="text-muted text-capitalize">{{ session.get('role') }}</small>
+                </li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="#"><i class="bi bi-person"></i> Profile</a></li>
-                <li><a class="dropdown-item" href="#"><i class="bi bi-question-circle"></i> Help</a></li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('profile_bp.view_profile') }}">
+                    <i class="bi bi-person"></i> View Profile
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('profile_bp.edit_profile') }}">
+                    <i class="bi bi-pencil-square"></i> Edit Profile
+                  </a>
+                </li>
+                <li>
+                  <a class="dropdown-item" href="{{ url_for('profile_bp.change_password') }}">
+                    <i class="bi bi-lock"></i> Change Password
+                  </a>
+                </li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-danger" href="{{ url_for('auth_bp.logout') }}"><i class="bi bi-box-arrow-right"></i> Logout</a></li>
+                <li>
+                  <a class="dropdown-item text-danger" href="{{ url_for('auth_bp.logout') }}">
+                    <i class="bi bi-box-arrow-right"></i> Logout
+                  </a>
+                </li>
               </ul>
             </li>
           {% else %}
-            <li class="nav-item"><a class="btn btn-outline-light btn-sm" href="{{ url_for('auth_bp.login') }}"><i class="bi bi-person-lock me-1"></i>Login</a></li>
+            <li class="nav-item">
+              <a class="btn btn-outline-light btn-sm" href="{{ url_for('auth_bp.login') }}">
+                <i class="bi bi-person-lock me-1"></i>Login
+              </a>
+            </li>
           {% endif %}
         </ul>
       </div>

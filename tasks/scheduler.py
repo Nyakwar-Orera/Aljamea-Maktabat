@@ -1,5 +1,6 @@
 # tasks/scheduler.py
 from flask_apscheduler import APScheduler
+from flask import current_app
 from tasks.monthly_reports import send_all_reports
 from db_app import get_appdata_conn
 
@@ -27,6 +28,8 @@ def _get_email_settings():
             "send_hour": send_hour or 8,
             "send_minute": send_minute or 0,
         }
+
+    # Defaults if not configured
     return {
         "sender_email": None,
         "frequency": "monthly",
@@ -35,6 +38,17 @@ def _get_email_settings():
         "send_hour": 8,
         "send_minute": 0,
     }
+
+
+def _run_reports_job(app, mail):
+    """Wrapper to ensure all report emails (class + HoD) run inside Flask app context."""
+    with app.app_context():
+        try:
+            app.logger.info("📤 Starting scheduled report job (class + department)...")
+            send_all_reports(app, mail)
+            app.logger.info("✅ Scheduled report job completed successfully.")
+        except Exception as e:
+            app.logger.error(f"❌ Scheduled report job failed: {e}", exc_info=True)
 
 
 def _register_job(app, mail, settings: dict):
@@ -47,10 +61,11 @@ def _register_job(app, mail, settings: dict):
     hour = settings["send_hour"]
     minute = settings["send_minute"]
 
+    # Choose trigger type
     if freq == "daily":
         scheduler.add_job(
             id="library-report-job",
-            func=lambda: send_all_reports(app, mail),
+            func=lambda: _run_reports_job(app, mail),
             trigger="cron",
             hour=hour,
             minute=minute,
@@ -61,7 +76,7 @@ def _register_job(app, mail, settings: dict):
     elif freq == "weekly":
         scheduler.add_job(
             id="library-report-job",
-            func=lambda: send_all_reports(app, mail),
+            func=lambda: _run_reports_job(app, mail),
             trigger="cron",
             day_of_week=settings["day_of_week"],  # e.g. mon, tue
             hour=hour,
@@ -73,7 +88,7 @@ def _register_job(app, mail, settings: dict):
     else:  # monthly
         scheduler.add_job(
             id="library-report-job",
-            func=lambda: send_all_reports(app, mail),
+            func=lambda: _run_reports_job(app, mail),
             trigger="cron",
             day=settings["day_of_month"],  # admin-chosen day
             hour=hour,
@@ -84,11 +99,12 @@ def _register_job(app, mail, settings: dict):
 
 
 def register_scheduler(app, mail):
+    """Initialize and start the APScheduler with current app settings."""
     scheduler.init_app(app)
     settings = _get_email_settings()
     _register_job(app, mail, settings)
     scheduler.start()
-    app.logger.info("✅ APScheduler started")
+    app.logger.info("✅ APScheduler started successfully.")
     return scheduler
 
 
@@ -96,4 +112,4 @@ def reload_scheduler(app, mail):
     """Reload scheduler when admin updates email_settings from UI."""
     settings = _get_email_settings()
     _register_job(app, mail, settings)
-    app.logger.info(f"🔄 Scheduler reloaded with {settings}")
+    app.logger.info(f"🔄 Scheduler reloaded with settings: {settings}")

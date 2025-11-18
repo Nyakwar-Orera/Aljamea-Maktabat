@@ -43,3 +43,6 @@ Werkzeug==2.3.8
 # ---------------- Misc Utilities ----------------
 requests==2.32.3
 python-dateutil==2.9.0.post0
+
+# ---------------- WSGI Server (Production) ----------------
+waitress==3.0.2                  # Production WSGI server for Windows/Linux

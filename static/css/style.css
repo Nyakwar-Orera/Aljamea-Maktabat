@@ -70,6 +70,15 @@ main.container {
   border-bottom: 2px solid var(--primary-color);
 }
 
+.nav-profile-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-color);
+}
+
+
 /* ================================================
    FOOTER
 ================================================= */
@@ -201,4 +210,104 @@ canvas {
 h1, h2, h3, h4, h5 {
   color: var(--primary-color);
   font-weight: 600;
+}
+
+/* ================================================
+   LOGIN PAGE STYLING
+================================================= */
+
+/* Wrapper around the whole login card */
+.login-shell,
+.login-page-wrapper {
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 0;
+  /* subtle radial background for a softer, Islamic-inspired feel */
+  background: radial-gradient(circle at top left,
+                              #fff4e0 0,
+                              #fbe6cf 40%,
+                              #f9e2c3 100%);
+}
+
+/* Main login card */
+.login-card {
+  background-color: #fffaf4;
+  border-radius: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+/* Left hero image column */
+.login-hero {
+  background: linear-gradient(145deg,
+                              rgba(164,90,38,0.08),
+                              rgba(255,248,239,0.9));
+  padding: 2.5rem !important;
+}
+
+.login-hero-img {
+  max-height: 330px;
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 20px var(--shadow-color);
+  border: 3px solid rgba(255, 255, 255, 0.9);
+}
+
+/* Avatar & headings */
+.login-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--primary-color);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  background-color: #fff;
+}
+
+.login-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.login-title {
+  color: var(--primary-color);
+}
+
+.login-bismillah {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+/* Show / hide password button */
+.password-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 0;
+  line-height: 1;
+}
+
+.password-toggle-btn:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Mobile adjustments for login card */
+@media (max-width: 767.98px) {
+  .login-card {
+    border-radius: 1.25rem;
+  }
+
+  .login-hero {
+    display: none !important;
+  }
+
+  .login-shell,
+  .login-page-wrapper {
+    padding: 0.5rem;
+  }
 }

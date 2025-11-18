@@ -4,11 +4,12 @@ from db_app import get_conn
 
 bp = Blueprint("auth_bp", __name__)
 
+
 @bp.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
+        username = (request.form.get("username") or "").strip()
+        password = request.form.get("password") or ""
 
         conn = get_conn()
         cur = conn.cursor()
@@ -20,7 +21,9 @@ def login():
             flash("❌ Invalid username", "danger")
             return render_template("index.html", hide_nav=True)
 
-        # Map row to dict
+        # Expected columns (from appdata_init.py):
+        # 0 id, 1 username, 2 email, 3 role, 4 password_hash,
+        # 5 department_name, 6 class_name, 7 profile_picture, ...
         user = {
             "id": row[0],
             "username": row[1],
@@ -29,6 +32,7 @@ def login():
             "password_hash": row[4],
             "department_name": row[5],
             "class_name": row[6],
+            "profile_picture": row[7] if len(row) > 7 else None,
         }
 
         # Check password
@@ -36,12 +40,17 @@ def login():
             flash("❌ Incorrect password", "danger")
             return render_template("index.html", hide_nav=True)
 
+        # Determine profile picture path (fallback to avatar)
+        profile_pic = user["profile_picture"] or "images/avatar.png"
+
         # Save session
+        session.clear()
         session["logged_in"] = True
         session["username"] = user["username"]
         session["role"] = user["role"]
         session["department_name"] = user["department_name"]
         session["class_name"] = user["class_name"]
+        session["profile_picture"] = profile_pic
 
         # Redirect based on role
         if user["role"] == "admin":

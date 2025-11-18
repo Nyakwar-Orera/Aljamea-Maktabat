@@ -1,51 +1,74 @@
+# config.py
 import os
+from dotenv import load_dotenv
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# ✅ Ensure .env is loaded immediately when config.py is imported
+load_dotenv()
+
+
+def _get_bool(name: str, default: str = "False") -> bool:
+    """Read an environment variable as a boolean."""
+    value = os.getenv(name, default)
+    return str(value).strip().lower() in ("true", "1", "yes", "y")
+
 
 class Config:
     # ---- Flask / Security ----
-    SECRET_KEY = os.environ.get("SECRET_KEY", "dev_secret_key_change_me")
+    SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret_key_change_me")
 
     # ---- Admin login ----
-    ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-    ADMIN_PASS = os.environ.get("ADMIN_PASS", "adminpass")
+    ADMIN_USER = os.getenv("ADMIN_USER", "admin")
+    ADMIN_PASS = os.getenv("ADMIN_PASS", "adminpass")
 
     # ---- Email (Flask-Mail) ----
-    MAIL_SERVER = os.environ.get("MAIL_SERVER", "smtp.gmail.com")
-    MAIL_PORT = int(os.environ.get("MAIL_PORT", "587"))
-    MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS", "True") == "True"
-    MAIL_USE_SSL = os.environ.get("MAIL_USE_SSL", "False") == "True"
-    MAIL_USERNAME = os.environ.get("MAIL_USERNAME", "")
-    MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD", "")
+    MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    MAIL_PORT = int(os.getenv("MAIL_PORT", "587"))
+    MAIL_USE_TLS = _get_bool("MAIL_USE_TLS", "True")
+    MAIL_USE_SSL = _get_bool("MAIL_USE_SSL", "False")
+    MAIL_USERNAME = os.getenv("MAIL_USERNAME", "")
+    MAIL_PASSWORD = os.getenv("MAIL_PASSWORD", "")
 
-    # ✅ Default sender & behavior
-    MAIL_DEFAULT_SENDER = (
-        os.environ.get("MAIL_DEFAULT_NAME", "Maktabat al-Jamea"),
-        os.environ.get("MAIL_USERNAME", ""),
+    MAIL_DEFAULT_SENDER = os.getenv(
+        "MAIL_DEFAULT_SENDER",
+        f"Maktabat al-Jamea <{MAIL_USERNAME}>",
     )
-    MAIL_SUPPRESS_SEND = os.environ.get("MAIL_SUPPRESS_SEND", "False") == "True"
+    MAIL_SUPPRESS_SEND = _get_bool("MAIL_SUPPRESS_SEND", "False")
 
-    ADMIN_EMAIL = os.environ.get("ADMIN_EMAIL", MAIL_USERNAME)
-    ADMINS = [a.strip() for a in os.environ.get("ADMINS", ADMIN_EMAIL).split(",")]
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", MAIL_USERNAME)
+    ADMINS = [a.strip() for a in os.getenv("ADMINS", ADMIN_EMAIL).split(",")]
 
     # ---- Koha DB (read-only user) ----
-    KOHA_DB_HOST = os.environ.get("DB_HOST", "197.211.6.51")
-    KOHA_DB_USER = os.environ.get("DB_USER", "library_read")
-    KOHA_DB_PASS = os.environ.get("DB_PASS", "Library@5152")
-    KOHA_DB_NAME = os.environ.get("DB_NAME", "koha_library")
+    KOHA_DB_HOST = os.getenv("KOHA_DB_HOST", os.getenv("DB_HOST", "197.211.6.51"))
+    KOHA_DB_USER = os.getenv("KOHA_DB_USER", os.getenv("DB_USER", "library_read"))
+    KOHA_DB_PASS = os.getenv("KOHA_DB_PASS", os.getenv("DB_PASS", "Library@5152"))
+    KOHA_DB_NAME = os.getenv("KOHA_DB_NAME", os.getenv("DB_NAME", "koha_library"))
 
     # ---- Local App DB ----
-    APP_SQLITE_PATH = os.environ.get(
+    APP_SQLITE_PATH = os.getenv(
         "APP_SQLITE_PATH",
-        os.path.join(os.path.dirname(__file__), "appdata.db")
+        os.path.join(BASE_DIR, "appdata.db"),
     )
 
     # ---- Scheduler defaults ----
-    REPORT_SEND_DAY = int(os.environ.get("REPORT_SEND_DAY", "1"))
-    REPORT_SEND_HOUR = int(os.environ.get("REPORT_SEND_HOUR", "8"))
-    REPORT_SEND_MINUTE = int(os.environ.get("REPORT_SEND_MINUTE", "0"))
+    REPORT_SEND_DAY = int(os.getenv("REPORT_SEND_DAY", "1"))
+    REPORT_SEND_HOUR = int(os.getenv("REPORT_SEND_HOUR", "8"))
+    REPORT_SEND_MINUTE = int(os.getenv("REPORT_SEND_MINUTE", "0"))
 
     # ✅ APScheduler config
     SCHEDULER_API_ENABLED = True
-    SCHEDULER_TIMEZONE = os.environ.get("TZ", "Africa/Nairobi")
+    SCHEDULER_TIMEZONE = os.getenv("TZ", "Africa/Nairobi")
 
     # ---- UI ----
-    PAGE_SIZE = int(os.environ.get("PAGE_SIZE", "25"))
+    PAGE_SIZE = int(os.getenv("PAGE_SIZE", "25"))
+
+    # ---- Session / cookie security ----
+    SESSION_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+    SESSION_COOKIE_SECURE = _get_bool("SESSION_COOKIE_SECURE", "False")
+
+    # ---- Profile picture uploads ----
+    PROFILE_UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "images", "profiles")
+    ALLOWED_PROFILE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}

@@ -171,7 +171,7 @@ def download_report():
 # --------------------------------------------------
 @bp.route("/download_class/pdf")
 def download_class_pdf():
-    """Generate a full detailed class PDF — all students with books and metrics."""
+    """Generate a visually polished full class report — professional layout with photos and branding."""
     if not session.get("logged_in") or session.get("role") != "teacher":
         return redirect(url_for("auth_bp.login"))
 
@@ -181,62 +181,181 @@ def download_class_pdf():
         flash("⚠️ No data found for your class.", "warning")
         return redirect(url_for("teacher_dashboard_bp.dashboard"))
 
+    # Skip missing name/TR rows
+    df = df[df["FullName"].notna() & df["TRNumber"].notna()]
+    if df.empty:
+        flash("⚠️ No valid student records found for your class.", "warning")
+        return redirect(url_for("teacher_dashboard_bp.dashboard"))
+
+    from datetime import datetime
     font_name = _ensure_font_registered()
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4)
+
+    # --- Setup styles ---
+    from reportlab.lib.enums import TA_CENTER
     styles = getSampleStyleSheet()
     for key in ("Title", "Normal", "Heading2", "Heading3"):
         styles[key].fontName = font_name
+    styles.add(ParagraphStyle(name="CenterTitle", alignment=TA_CENTER, fontName=font_name, fontSize=16, leading=20))
+    styles.add(ParagraphStyle(name="SectionHeader", fontName=font_name, fontSize=12, textColor=colors.HexColor("#004080")))
+    styles.add(ParagraphStyle(name="Small", fontName=font_name, fontSize=9))
+    styles.add(ParagraphStyle(name="Tiny", fontName=font_name, fontSize=8, textColor=colors.grey))
     S = lambda x: _shape_if_rtl(str(x) if x is not None else "-")
 
-    elements = []
-    elements.append(Paragraph(S(f"📘 Full Class Report — {class_name}"), styles["Title"]))
-    elements.append(Spacer(1, 0.3 * cm))
+    # --- PDF layout setup ---
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        leftMargin=2 * cm,
+        rightMargin=2 * cm,
+        topMargin=2 * cm,
+        bottomMargin=2 * cm,
+        title=f"Class Report - {class_name}",
+    )
 
-    # Loop through each student
-    for idx, row in df.iterrows():
+    def footer(canvas, _doc):
+        canvas.saveState()
+        canvas.setFont(font_name, 8)
+        page_str = f"Page {_doc.page}"
+        date_str = datetime.now().strftime("%d %b %Y")
+        canvas.drawRightString(A4[0] - 2 * cm, 1.5 * cm, page_str)
+        canvas.drawString(2 * cm, 1.5 * cm, date_str)
+        canvas.restoreState()
+
+    elements = []
+
+    # --- Cover Page ---
+    import os
+    logo_path = os.path.join(current_app.root_path, "static", "images", "logo.png")
+    if os.path.exists(logo_path):
+        img = Image(logo_path)
+        img._restrictSize(5 * cm, 5 * cm)
+        elements.append(img)
+        elements.append(Spacer(1, 0.3 * cm))
+
+    elements.append(Paragraph(S("Al-Jamea tus-Saifiyah • Maktabat"), styles["CenterTitle"]))
+    elements.append(Spacer(1, 0.1 * cm))
+    elements.append(Paragraph(S("📘 Monthly Class Library Report"), styles["CenterTitle"]))
+    elements.append(Spacer(1, 0.3 * cm))
+    elements.append(Paragraph(S(f"Class: {class_name}"), styles["CenterTitle"]))
+    elements.append(Spacer(1, 0.1 * cm))
+    elements.append(Paragraph(datetime.now().strftime("%d %B %Y"), styles["CenterTitle"]))
+    elements.append(Spacer(1, 1 * cm))
+    elements.append(
+        Paragraph(
+            S("This report provides a detailed breakdown of student borrowing activity, fines, and engagement metrics for the current academic period."),
+            styles["Small"],
+        )
+    )
+    elements.append(PageBreak())
+
+    # --- Class Summary ---
+    total_students = len(df)
+    total_issues = int(df.get("Issues_AY", 0).sum())
+    total_fines = float(df.get("FinesPaid_AY", 0).sum())
+    total_overdues = int(df.get("Overdues", 0).sum())
+    summary_table = Table(
+        [
+            ["Total Students", total_students],
+            ["Total Issues (AY)", total_issues],
+            ["Total Overdues", total_overdues],
+            ["Total Fines Paid", f"{total_fines:.2f}"],
+        ],
+        colWidths=[7 * cm, 7 * cm],
+    )
+    summary_table.setStyle(
+        TableStyle(
+            [
+                ("FONTNAME", (0, 0), (-1, -1), font_name),
+                ("GRID", (0, 0), (-1, -1), 0.4, colors.grey),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#004080")),
+                ("FONTSIZE", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    elements.append(Paragraph(S("📊 Class Summary"), styles["Heading2"]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 0.6 * cm))
+
+    # --- Each Student Section ---
+    for _, row in df.iterrows():
         trno = str(row.get("TRNumber", "")).strip()
         if not trno:
             continue
-
         info = get_student_info(trno)
-        if not info:
+        if not info or not info.get("FullName"):
             continue
 
-        # --- Student header
-        elements.append(Paragraph(S(f"👤 {info.get('FullName', 'Unknown')} ({trno})"), styles["Heading2"]))
-        elements.append(Spacer(1, 0.2 * cm))
+        elements.append(Paragraph(S(f"👤 {info.get('FullName')} ({trno})"), styles["SectionHeader"]))
+        elements.append(Spacer(1, 0.15 * cm))
 
-        # --- Summary table
+        # --- Photo
+        photo_rel = info.get("Photo") or "images/avatar.png"
+        photo_path = os.path.join(current_app.root_path, "static", photo_rel)
+        if not os.path.exists(photo_path):
+            photo_path = os.path.join(current_app.root_path, "static", "images", "avatar.png")
+        if os.path.exists(photo_path):
+            photo_img = Image(photo_path)
+            photo_img._restrictSize(3.2 * cm, 3.2 * cm)
+        else:
+            photo_img = None
+
+        # --- Metrics table
         met = info.get("Metrics", {})
         summary_data = [
-            ["📚 Lifetime Issues", met.get("LifetimeIssues", 0)],
-            ["🗓️ AY Issues", met.get("AYIssues", 0)],
-            ["📖 Active Loans", met.get("ActiveLoans", 0)],
-            ["⏰ Overdue Now", met.get("OverdueNow", 0)],
-            ["💰 Total Fines Paid", f"{met.get('TotalFinesPaid', 0):.2f}"],
-            ["💳 Outstanding Balance", f"{met.get('OutstandingBalance', 0):.2f}"],
-            ["🕒 Last Issue", met.get("LastIssueDate") or "-"],
-            ["🕒 Last Return", met.get("LastReturnDate") or "-"],
-            ["🏢 Department", info.get("Department") or "-"],
-            ["🏷️ Class", info.get("Class") or "-"],
+            ["Lifetime Issues", met.get("LifetimeIssues", 0)],
+            ["AY Issues", met.get("AYIssues", 0)],
+            ["Active Loans", met.get("ActiveLoans", 0)],
+            ["Overdue Now", met.get("OverdueNow", 0)],
+            ["Total Fines Paid", f"{met.get('TotalFinesPaid', 0):.2f}"],
+            ["Outstanding Balance", f"{met.get('OutstandingBalance', 0):.2f}"],
+            ["Last Issue", met.get("LastIssueDate") or "-"],
+            ["Last Return", met.get("LastReturnDate") or "-"],
+            ["Department", info.get("Department") or "-"],
+            ["Class", info.get("Class") or "-"],
         ]
         t = Table(summary_data, colWidths=[6 * cm, 6 * cm])
-        t.setStyle(TableStyle([
-            ("FONTNAME", (0, 0), (-1, -1), font_name),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-            ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ]))
-        elements.append(t)
-        elements.append(Spacer(1, 0.3 * cm))
+        t.setStyle(
+            TableStyle(
+                [
+                    ("FONTNAME", (0, 0), (-1, -1), font_name),
+                    ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
+                    ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
+                    ("FONTSIZE", (0, 0), (-1, -1), 8),
+                    ("TOPPADDING", (0, 0), (-1, -1), 4),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                ]
+            )
+        )
 
-        # --- Borrowed books
-        elements.append(Paragraph(S("📖 Borrowed Books"), styles["Heading3"]))
+        if photo_img:
+            layout = Table([[photo_img, t]], colWidths=[3.5 * cm, 10.5 * cm])
+            layout.setStyle(
+                TableStyle(
+                    [
+                        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                        ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                        ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                        ("TOPPADDING", (0, 0), (-1, -1), 0),
+                        ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+                    ]
+                )
+            )
+            elements.append(layout)
+        else:
+            elements.append(t)
+
+        elements.append(Spacer(1, 0.25 * cm))
+
+        # --- Borrowed Books
         borrowed = info.get("BorrowedBooks", [])
+        elements.append(Paragraph(S("📖 Borrowed Books"), styles["Heading3"]))
         if borrowed:
             books_data = [["Title", "Issued", "Due", "Returned", "Status"]]
-            for b in borrowed[:20]:  # limit per student to avoid overflow
+            for b in borrowed[:15]:
                 books_data.append([
                     S(b.get("title", "N/A")),
                     S(b.get("date_issued") or "-"),
@@ -247,41 +366,21 @@ def download_class_pdf():
             book_table = Table(books_data, repeatRows=1, colWidths=[6*cm, 3*cm, 3*cm, 2*cm, 2*cm])
             book_table.setStyle(TableStyle([
                 ("FONTNAME", (0, 0), (-1, -1), font_name),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.grey),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#004080")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.whitesmoke, colors.lightgrey]),
                 ("FONTSIZE", (0, 0), (-1, -1), 8),
             ]))
             elements.append(book_table)
         else:
             elements.append(Paragraph(S("No borrowed books."), styles["Normal"]))
 
-        # --- Fines (if any)
-        fines = info.get("FinesList") or []
-        if fines:
-            elements.append(Spacer(1, 0.2 * cm))
-            elements.append(Paragraph(S("💰 Fines / Payments"), styles["Heading3"]))
-            fine_data = [["Date", "Amount", "Description", "Note"]]
-            for f in fines[:10]:  # limit to keep layout neat
-                fine_data.append([
-                    S(f.get("date", "-")),
-                    S(f.get("amount", "-")),
-                    S(f.get("description", "-")),
-                    S(f.get("note", "-")),
-                ])
-            ft = Table(fine_data, repeatRows=1, colWidths=[3*cm, 2*cm, 5*cm, 4*cm])
-            ft.setStyle(TableStyle([
-                ("FONTNAME", (0, 0), (-1, -1), font_name),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-                ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-            ]))
-            elements.append(ft)
+        elements.append(Spacer(1, 0.4 * cm))
+        elements.append(Paragraph("<hr width='100%' color='#cccccc'/>", styles["Normal"]))
+        elements.append(Spacer(1, 0.4 * cm))
 
-        # Add page break after each student (except last)
-        elements.append(PageBreak())
-
-    # Build the full report
-    doc.build(elements)
+    doc.build(elements, onFirstPage=footer, onLaterPages=footer)
     buffer.seek(0)
 
     return send_file(
