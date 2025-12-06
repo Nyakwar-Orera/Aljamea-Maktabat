@@ -7,30 +7,42 @@ from services.exports import dataframe_to_pdf_bytes
 # Dashboard Payload
 # -------------------------
 def dashboard_payload() -> Dict[str, Any]:
+    """
+    Build dashboard payload for legacy/other views (AY-based).
+
+    - KQ.get_summary() is AY-scoped.
+    - 'active_patrons' = DISTINCT borrowers with ≥1 issue in AY.
+    """
     s = KQ.get_summary()
 
-    # class chart
+    # Prefer active_patrons if provided, fall back to total_patrons.
+    active_patrons = s.get("active_patrons", s.get("total_patrons", 0))
+
+    # class chart (AY-scoped inside koha_queries)
     class_rows = KQ.class_issues()
     class_labels = [r[0] for r in class_rows]
     class_values = [int(r[1]) for r in class_rows]
 
-    # dept chart
+    # dept chart (AY-scoped)
     dept_rows = KQ.departments_breakdown()
     dept_labels = [r[0] for r in dept_rows]
     dept_values = [int(r[1]) for r in dept_rows]
 
-    # trends
+    # trends (AY monthly, from koha_queries.borrowing_trend_monthly)
     trend_rows = KQ.borrowing_trend_monthly()
     trend_labels = [ym for ym, _ in trend_rows]
     trend_values = [int(cnt) for _, cnt in trend_rows]
 
-    # top titles (All + Arabic via language code; Non-Arabic = All minus Arabic)
-    top_all_rows: List[Tuple] = KQ.top_titles(limit=25, lang=None)  # (title, times, last_issued)
-    top_ar_rows: List[Tuple]  = KQ.top_titles(limit=25, lang="ar")
+    # top titles (All + Arabic via title REGEXP; Non-Arabic = All minus Arabic)
+    top_all_rows: List[Tuple] = KQ.top_titles(limit=25, arabic=False, non_arabic=False)
+    top_ar_rows: List[Tuple]  = KQ.top_titles(limit=25, arabic=True, non_arabic=False)
 
     # normalize to dicts for easy subtraction
     def to_map(rows):
-        return {t: {"count": int(c), "last": str(d) if d is not None else ""} for t, c, d in rows}
+        return {
+            t: {"count": int(c), "last": str(d) if d is not None else ""}
+            for t, c, d in rows
+        }
 
     all_map = to_map(top_all_rows)
     ar_map  = to_map(top_ar_rows)
@@ -38,7 +50,11 @@ def dashboard_payload() -> Dict[str, Any]:
     # Non-Arabic = titles in ALL that are not in AR
     non_ar_map = {t: v for t, v in all_map.items() if t not in ar_map}
     # Take top 25 of non_ar by count
-    non_ar_sorted = sorted(non_ar_map.items(), key=lambda kv: kv[1]["count"], reverse=True)[:25]
+    non_ar_sorted = sorted(
+        non_ar_map.items(),
+        key=lambda kv: kv[1]["count"],
+        reverse=True
+    )[:25]
 
     # unpack lists for template
     top_all_labels  = [t for t, _, _ in top_all_rows]
@@ -53,15 +69,16 @@ def dashboard_payload() -> Dict[str, Any]:
     top_non_ar_values = [v["count"] for _, v in non_ar_sorted]
     top_non_ar_dates  = [v["last"]  for _, v in non_ar_sorted]
 
-    # today's activity (checkouts/returns)
+    # today's activity (checkouts/returns) – per day, not AY
     today_checkouts, today_checkins = KQ.today_activity()
 
     return dict(
         parse_failed=False,
-        total_patrons=s["total_patrons"],
-        total_issues=s["total_issues"],
-        total_fines=s["fines_paid"],
-        total_titles_issued=s["total_titles"],
+        # Semantics: this is ACTIVE patrons in AY
+        total_patrons=active_patrons,
+        total_issues=s.get("total_issues", 0),
+        total_fines=s.get("fines_paid", 0.0),
+        total_titles_issued=s.get("total_titles_issued", 0),
         today_checkouts=today_checkouts,
         today_checkins=today_checkins,
         class_labels=class_labels,

@@ -1,48 +1,70 @@
-# ---------------- Core ----------------
+# ============================
+# Core Web Framework
+# ============================
 Flask==2.2.5
-python-dotenv==1.0.1
 itsdangerous==2.1.2
+Werkzeug==2.3.8
+python-dotenv==1.0.1
 
-# ---------------- Database ----------------
-mysql-connector-python==9.0.0    # For Koha DB (MySQL/MariaDB)
-sqlite-utils==3.35
-SQLAlchemy==2.0.36               # ORM (optional, future use)
+# ============================
+# Database & Persistence
+# ============================
+mysql-connector-python==9.0.0    # Koha DB (MySQL/MariaDB) via connection pool
+sqlite-utils==3.35               # Lightweight helpers on top of SQLite
+SQLAlchemy==2.0.36               # ORM (optional / future use)
 
-# ---------------- Data Handling ----------------
-# pandas 2.2.3 has official Windows wheels for Python 3.13 (unlike 2.2.2)
+# ============================
+# Data Handling & Exports
+# ============================
+# pandas 2.2.3 has Windows wheels for newer Python versions
 pandas==2.2.3
-openpyxl==3.1.5
-XlsxWriter==3.2.0
-odfpy==1.4.1                     # For writing .ods files
+openpyxl==3.1.5                  # Excel .xlsx support
+XlsxWriter==3.2.0                # Writing styled Excel files
+odfpy==1.4.1                     # OpenDocument (.ods) export
 
-# ---------------- PDF Generation ----------------
-reportlab==4.2.2
-Pillow==10.4.0                   # For image formats (PNG, etc.)
+# ============================
+# PDF Generation & Imaging
+# ============================
+reportlab==4.2.2                 # PDF generation for reports
+Pillow==10.4.0                   # Image handling (avatars, logos, etc.)
 
-# RTL shaping for Arabic (so text joins correctly)
+# RTL shaping for Arabic (so text joins correctly in PDFs)
 arabic-reshaper>=3.0.0,<4.0.0
 python-bidi==0.4.2
 
-# WeasyPrint requires system-level dependencies (GTK, Cairo, Pango).
-# Optional on Windows; uncomment only if you have these installed.
+# Optional HTML → PDF (requires system libs: GTK, Cairo, Pango)
+# Uncomment ONLY if these are installed on the server.
 # weasyprint==61.2 ; sys_platform != "win32"
 
-# ---------------- Email ----------------
-email-validator==2.2.0
+# ============================
+# Email & Notifications
+# ============================
 Flask-Mail==0.9.1
+email-validator==2.2.0
 
-# ---------------- Scheduling ----------------
+# ============================
+# Scheduling & Time Utilities
+# ============================
 APScheduler==3.10.4
 Flask-APScheduler==1.13.1
+python-dateutil==2.9.0.post0
+pytz==2024.1                      # Timezone utilities (used by schedulers)
 
-# ---------------- Authentication & Security ----------------
+# Hijri calendar conversion (for dashboard dates)
+hijri-converter>=2.3.0,<3.0.0
+
+# ============================
+# Authentication & Forms
+# ============================
 Flask-Login==0.6.3
 Flask-WTF==1.2.1
-Werkzeug==2.3.8
 
-# ---------------- Misc Utilities ----------------
+# ============================
+# Misc Utilities
+# ============================
 requests==2.32.3
-python-dateutil==2.9.0.post0
 
-# ---------------- WSGI Server (Production) ----------------
-waitress==3.0.2                  # Production WSGI server for Windows/Linux
+# ============================
+# WSGI Server (Production)
+# ============================
+waitress==3.0.2                  # Production WSGI server (Windows/Linux)

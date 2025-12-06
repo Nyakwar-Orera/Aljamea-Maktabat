@@ -2,80 +2,709 @@
 
 {% block content %}
 <style>
-  body { background-color: #f8f9fa; }
-  .card { border-radius: 1rem; border: none; }
-  .kpi-card { transition: transform .2s ease; }
-  .kpi-card:hover { transform: translateY(-4px); }
-  .chart-wrap { height: 300px; position: relative; }
-  .table thead { background-color: #0d6efd; color: #fff; }
-  .table-hover tbody tr:hover { background: #f3f6ff; }
-  .truncate-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  body {
+    background-color: #f9f9f9;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+
+  .dashboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .card {
+    border-radius: 12px;
+    border: 1px solid #eaeaea;
+    background: white;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+  }
+
+  .card-header {
+    border-bottom: 1px solid #f0f0f0;
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
+    padding: 1.25rem 1.5rem;
+    border-radius: 12px 12px 0 0 !important;
+  }
+
+  /* Enhanced KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+    margin-bottom: 2rem;
+  }
+
+  .kpi-card {
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    color: white;
+    position: relative;
+    overflow: hidden;
+    border: none;
+  }
+
+  .kpi-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+  }
+
+  .kpi-icon {
+    font-size: 1.8rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.9;
+  }
+
+  .kpi-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 0.5rem;
+  }
+
+  .kpi-value {
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 0.5rem;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .kpi-trend {
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.9;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Enhanced Color Classes for KPI cards */
+  .kpi-card-blue { 
+    background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+    border-left: 5px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .kpi-card-green { 
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border-left: 5px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .kpi-card-gold { 
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    border-left: 5px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .kpi-card-teal { 
+    background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+    border-left: 5px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  .kpi-card-purple { 
+    background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    border-left: 5px solid rgba(255, 255, 255, 0.3);
+  }
+
+  /* Department Header */
+  .dept-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border: 1px solid #eaeaea;
+    position: relative;
+  }
+
+  .dept-header::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 5px;
+    background: linear-gradient(to bottom, #3b82f6, #8b5cf6);
+    border-radius: 12px 0 0 12px;
+  }
+
+  .dept-title {
+    color: #1e293b;
+    font-weight: 700;
+    font-size: 1.5rem;
+  }
+
+  .dept-subtitle {
+    color: #64748b;
+    font-size: 0.95rem;
+  }
+
+  .date-badge {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  /* Search Bar */
+  .search-container {
+    position: relative;
+    margin-bottom: 2rem;
+  }
+
+  .search-container .form-control {
+    border-radius: 25px;
+    padding: 0.75rem 1.25rem;
+    border: 2px solid #e2e8f0;
+    font-size: 0.95rem;
+    transition: all 0.3s ease;
+  }
+
+  .search-container .form-control:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .search-container .btn {
+    border-radius: 25px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 500;
+  }
+
+  /* Insight Strip */
+  .insight-strip {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .insight-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1rem;
+    border: 1px solid #f1f5f9;
+    transition: all 0.2s ease;
+  }
+
+  .insight-card:hover {
+    border-color: #3b82f6;
+    transform: translateY(-2px);
+  }
+
+  .insight-label {
+    font-size: 0.8rem;
+    color: #64748b;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .insight-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-top: 0.25rem;
+  }
+
+  /* Class Cards */
+  .class-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+
+  .class-card {
+    background: white;
+    border-radius: 10px;
+    padding: 1.25rem 1rem;
+    border: 1px solid #f1f5f9;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .class-card:hover {
+    border-color: #3b82f6;
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(59, 130, 246, 0.1);
+  }
+
+  .class-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(to right, #3b82f6, #8b5cf6);
+  }
+
+  .class-year {
+    font-size: 0.75rem;
+    color: #64748b;
+    font-weight: 500;
+  }
+
+  .class-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0.5rem 0;
+  }
+
+  .class-badge {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+  }
+
+  /* Charts */
+  .chart-wrap {
+    height: 300px;
+    position: relative;
+    padding: 0.5rem;
+  }
+
   .chart-empty {
-    position: absolute; top: 50%; left: 50%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
     transform: translate(-50%, -50%);
-    color: #adb5bd; font-style: italic;
+    color: #94a3b8;
+    text-align: center;
+  }
+
+  /* Tables */
+  .table {
+    margin-bottom: 0;
+  }
+
+  .table thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 0.875rem 1rem;
+  }
+
+  .table tbody td {
+    padding: 0.875rem 1rem;
+    border-color: #f1f5f9;
+    vertical-align: middle;
+  }
+
+  .table-striped tbody tr:nth-of-type(odd) {
+    background-color: #f8fafc;
+  }
+
+  .table-hover tbody tr:hover {
+    background-color: #f1f5f9;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+  }
+
+  .btn-sm {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  /* Empty States */
+  .empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: #64748b;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 2px dashed #e2e8f0;
+  }
+
+  .empty-state-icon {
+    font-size: 3.5rem;
+    margin-bottom: 1rem;
+    opacity: 0.4;
+  }
+
+  .empty-state h4 {
+    color: #475569;
+    margin-bottom: 0.5rem;
+  }
+
+  /* Department Selector */
+  .dept-selector-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 1.5rem;
+    color: white;
+    margin-bottom: 2rem;
+    border: none;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+  }
+
+  .dept-selector-card h4 {
+    color: white;
+    font-weight: 600;
+  }
+
+  .dept-selector-card .form-select {
+    border-radius: 8px;
+    border: none;
+    padding: 0.5rem 1rem;
+    font-size: 0.95rem;
+  }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .kpi-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+    }
+    
+    .kpi-value {
+      font-size: 1.75rem;
+    }
+    
+    .class-grid {
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    }
+    
+    .dept-title {
+      font-size: 1.25rem;
+    }
+    
+    .insight-strip {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .kpi-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .action-buttons {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
   }
 </style>
 
-<div class="container mt-4">
-  <h2>🏛 {{ dept_name }} — Department Dashboard</h2>
-  <p class="text-muted mb-4">Welcome {{ username }}, here’s your department’s performance snapshot.</p>
+<div class="dashboard-container">
+  <!-- Debug panel (enable only when needed - set to false in production) -->
+  {% if false %}
+  <div class="debug-panel">
+    <strong>Debug Info:</strong><br>
+    Department Code: {{ dept_name }}<br>
+    Department Name: {{ dept_display_name }}<br>
+    Total Borrowers: {{ total_borrowers }}<br>
+    Has Summary Data: {{ summary_table|length > 0 }}<br>
+    Has Classes: {{ classes_in_dept|length > 0 }}<br>
+    Trend Labels: {{ trend_labels|length }} items<br>
+    Class Labels: {{ class_labels|length }} items
+  </div>
+  {% endif %}
 
-  <!-- Search -->
-  <form action="{{ url_for('hod_dashboard_bp.search') }}" method="get" class="mb-4">
-    <div class="input-group shadow-sm">
-      <input type="text" name="q" class="form-control" placeholder="🔎 Search student name, TR number, or class…" required>
-      <button class="btn btn-primary" type="submit">Search</button>
+  <!-- No department selected -->
+  {% if not dept_name %}
+  <div class="empty-state">
+    <div class="empty-state-icon">🏛️</div>
+    <h4>No Department Selected</h4>
+    <p class="mb-3">Please select a department to view its dashboard.</p>
+    {% if is_admin %}
+    <a href="{{ url_for('hod_dashboard_bp.department_explorer') }}" class="btn btn-primary">
+      <i class="bi bi-building me-2"></i>Browse All Departments
+    </a>
+    {% else %}
+    <div class="alert alert-warning mt-3" style="max-width: 500px; margin: 0 auto;">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      Your account is not linked to any department. Please contact the administrator.
     </div>
-  </form>
-
-  <!-- Department KPIs -->
-<div class="row g-3 mb-4">
-  {% set kpis = [
-    {'label':'Borrowers','value':total_borrowers,'icon':'bi-people','color':'primary'},
-    {'label':'Issues (AY)','value':total_issues,'icon':'bi-graph-up-arrow','color':'success'},
-    {'label':'Fines Paid','value':"%.2f"|format(total_fines),'icon':'bi-cash-stack','color':'warning'},
-    {'label':'Active Loans','value':active_loans,'icon':'bi-book','color':'info'},
-    {'label':'Overdues','value':overdues,'icon':'bi-alarm','color':'danger'}
-  ] %}
-  {% for k in kpis %}
-  <div class="col-6 col-sm-4 col-md-3 col-lg-2">
-    <div class="card shadow-sm border-0 h-100 text-center py-3 px-2">
-      <div class="card-body">
-        <div class="mb-2">
-          <span class="rounded-circle d-inline-flex align-items-center justify-content-center bg-{{ k.color }} bg-opacity-10 p-3">
-            <i class="bi {{ k.icon }} text-{{ k.color }} fs-3"></i>
-          </span>
+    {% endif %}
+  </div>
+  
+  {% elif total_borrowers == 0 %}
+  <!-- Department has no active borrowers -->
+  <div class="empty-state">
+    <div class="empty-state-icon">📊</div>
+    <h4>{{ dept_display_name }}</h4>
+    <p class="text-muted mb-2">Department Dashboard</p>
+    
+    <div class="alert alert-info mt-3 mb-4" style="max-width: 500px; margin: 0 auto;">
+      <i class="bi bi-info-circle me-2"></i>
+      No active borrowers found in this department.
+    </div>
+    
+    <div class="row mt-4">
+      <div class="col-md-6 offset-md-3">
+        <div class="card">
+          <div class="card-body text-center">
+            <h6 class="mb-3">Quick Info</h6>
+            <p class="mb-2"><strong>Today:</strong> {{ today_hijri }}</p>
+            <p class="mb-0"><strong>Academic Year:</strong> {{ ay_period_label }}</p>
+          </div>
         </div>
-        <div class="fw-semibold text-secondary small">{{ k.label }}</div>
-        <div class="fw-bold fs-5 text-{{ k.color }}">{{ k.value }}</div>
       </div>
     </div>
   </div>
-  {% endfor %}
-</div>
+  
+  {% else %}
+  <!-- Normal dashboard content - only shown when we have a department with data -->
 
+  <!-- Department Selector for Admin -->
+  {% if is_admin and all_departments %}
+  <div class="dept-selector-card shadow">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h4 class="mb-2"><i class="bi bi-buildings me-2"></i>Department Explorer</h4>
+        <p class="mb-0">Currently viewing: <strong>{{ dept_display_name }}</strong></p>
+      </div>
+      <div class="col-md-4">
+        <div class="input-group">
+          <select class="form-select" id="deptSelect" onchange="window.location.href=this.value">
+            <option value="{{ url_for('hod_dashboard_bp.dashboard') }}">Select Department...</option>
+            {% for dept in all_departments %}
+            <option value="{{ url_for('hod_dashboard_bp.dashboard', dept=dept.code) }}"
+                    {% if dept.code == dept_name %}selected{% endif %}>
+              {{ dept.name }} ({{ dept.total_members }} members)
+            </option>
+            {% endfor %}
+          </select>
+          <a href="{{ url_for('hod_dashboard_bp.department_explorer') }}" class="btn btn-light">
+            <i class="bi bi-grid-3x3-gap me-1"></i>Explorer
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 
-  <!-- Daily Trend -->
-  <div class="card shadow-sm mb-4">
-    <div class="card-header fw-bold">📆 Daily Borrowing Trend (This Month)</div>
-    <div class="card-body position-relative">
-      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
-      {% if trend_values|sum == 0 %}
-      <div class="chart-empty">No borrowing activity recorded this month.</div>
-      {% endif %}
+  <!-- Department Header -->
+  <div class="dept-header shadow-sm">
+    <div class="row align-items-center">
+      <div class="col-md-8">
+        <h1 class="dept-title mb-2">
+          {% if is_admin %}<i class="bi bi-shield-check text-primary me-2"></i>{% endif %}
+          <i class="bi bi-building text-primary me-2"></i>
+          {{ dept_display_name }} Dashboard
+        </h1>
+        <p class="dept-subtitle mb-0">
+          Welcome <strong class="text-dark">{{ username }}</strong> 
+          {% if user_role %}<span class="badge bg-light text-dark ms-2">{{ user_role|title }}</span>{% endif %}
+        </p>
+      </div>
+      <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <div class="d-flex flex-column align-items-md-end gap-2">
+          <span class="date-badge">
+            <i class="bi bi-calendar3 me-1"></i>{{ today_hijri }}
+          </span>
+          <span class="date-badge">
+            <i class="bi bi-mortarboard me-1"></i>{{ ay_period_label }}
+          </span>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Class Breakdown + Class KPIs -->
+  <!-- Search Bar -->
+  <div class="search-container">
+    <form action="{{ url_for('hod_dashboard_bp.search') }}" method="get">
+      <div class="input-group input-group-lg shadow-sm">
+        <span class="input-group-text bg-white border-end-0">
+          <i class="bi bi-search text-muted"></i>
+        </span>
+        <input type="text" name="q" class="form-control border-start-0" 
+               placeholder="Search student name, TR number, or class..." required>
+        {% if is_admin and dept_name %}
+        <input type="hidden" name="dept" value="{{ dept_name }}">
+        {% endif %}
+        <button class="btn btn-primary px-4" type="submit">
+          <i class="bi bi-arrow-right me-2"></i>Search
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Department KPIs -->
+  <div class="kpi-grid">
+    <div class="kpi-card kpi-card-blue">
+      <div class="kpi-icon">👨‍🎓</div>
+      <div class="kpi-label">Total Students</div>
+      <div class="kpi-value">{{ total_borrowers }}</div>
+      <div class="kpi-trend">
+        <i class="bi bi-graph-up"></i> Active Department
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-card-green">
+      <div class="kpi-icon">📚</div>
+      <div class="kpi-label">Books Issued (AY)</div>
+      <div class="kpi-value">{{ total_issues_ay }}</div>
+      <div class="kpi-trend">
+        <i class="bi bi-arrow-up-right"></i> {{ engagement_index }} per student
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-card-gold">
+      <div class="kpi-icon">💰</div>
+      <div class="kpi-label">Fines Paid (AY)</div>
+      <div class="kpi-value">{{ "%.2f"|format(total_fines_ay) }}</div>
+      <div class="kpi-trend">
+        <i class="bi bi-cash-stack"></i> Paid
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-card-teal">
+      <div class="kpi-icon">⏰</div>
+      <div class="kpi-label">Overdues</div>
+      <div class="kpi-value">{{ overdues_now }}</div>
+      <div class="kpi-trend">
+        <i class="bi bi-exclamation-triangle"></i> {{ overdue_rate }}% rate
+      </div>
+    </div>
+
+    <div class="kpi-card kpi-card-purple">
+      <div class="kpi-icon">📖</div>
+      <div class="kpi-label">Active Loans</div>
+      <div class="kpi-value">{{ active_loans }}</div>
+      <div class="kpi-trend">
+        <i class="bi bi-book"></i> Currently borrowed
+      </div>
+    </div>
+  </div>
+
+  <!-- Quick Insight Strip -->
+  <div class="insight-strip">
+    <div class="insight-card">
+      <div class="insight-label">Most Active Class</div>
+      <div class="insight-value">
+        {% if top_class_name != "—" %}
+        {{ top_class_name }}
+        <small class="text-muted d-block">{{ top_class_issues }} issues</small>
+        {% else %}
+        No class data
+        {% endif %}
+      </div>
+    </div>
+    
+    <div class="insight-card">
+      <div class="insight-label">Overdue Rate</div>
+      <div class="insight-value">{{ overdue_rate }}%</div>
+    </div>
+    
+    <div class="insight-card">
+      <div class="insight-label">Engagement Index</div>
+      <div class="insight-value">{{ engagement_index }} issues/student</div>
+    </div>
+    
+    <div class="insight-card">
+      <div class="insight-label">Peak Activity</div>
+      <div class="insight-value">{{ peak_month_label }}</div>
+    </div>
+  </div>
+
+  <!-- Classes in Department -->
+  {% if classes_in_dept and classes_in_dept|length > 0 %}
+  <div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">
+        <i class="bi bi-people-fill text-primary me-2"></i>
+        Classes in {{ dept_display_name }}
+      </h5>
+      <span class="badge bg-light text-dark">{{ classes_in_dept|length }} classes</span>
+    </div>
+    <div class="card-body">
+      <div class="class-grid">
+        {% for class in classes_in_dept %}
+        <div class="class-card">
+          <div class="class-year">
+            {% if class.gender == 'Male' %}<i class="bi bi-gender-male text-primary"></i>
+            {% elif class.gender == 'Female' %}<i class="bi bi-gender-female text-danger"></i>
+            {% else %}<i class="bi bi-people text-secondary"></i>{% endif %}
+            {{ class.year or '' }}
+          </div>
+          <div class="class-name">{{ class.display }}</div>
+          {% if class.is_arabic %}
+          <span class="badge bg-info class-badge">Arabic</span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Borrowing Trend -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">
+        <i class="bi bi-graph-up text-primary me-2"></i>
+        Borrowing Trend (AY)
+      </h5>
+      <span class="text-muted small">Period: {{ trend_period_label }}</span>
+    </div>
+    <div class="card-body position-relative">
+      <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+      {% if trend_values|sum == 0 %}
+      <div class="chart-empty">
+        <i class="bi bi-bar-chart" style="font-size: 2rem;"></i>
+        <p class="mt-2">No borrowing activity for this AY.</p>
+      </div>
+      {% endif %}
+      <div class="row text-center text-muted small mt-4">
+        <div class="col-md-4"><strong>Total Issues:</strong> {{ ay_total_issues_trend }}</div>
+        <div class="col-md-4"><strong>Avg per Month:</strong> {{ avg_issues_month }}</div>
+        <div class="col-md-4"><strong>Peak Month:</strong> {{ peak_month_label }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Class Breakdown -->
   <div class="row mb-4">
-    <div class="col-md-7">
+    <div class="col-md-7 mb-3 mb-md-0">
       <div class="card shadow-sm h-100">
-        <div class="card-header fw-bold">🏫 Issues by Class (AY)</div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-pie-chart text-primary me-2"></i>
+            Issues by Class
+          </h5>
+          <span class="text-muted small">Top {{ class_labels|length }} classes</span>
+        </div>
         <div class="card-body position-relative">
           <div class="chart-wrap"><canvas id="classChart"></canvas></div>
           {% if class_values|sum == 0 %}
-          <div class="chart-empty">No issue data available for this academic year.</div>
+          <div class="chart-empty">
+            <i class="bi bi-pie-chart" style="font-size: 2rem;"></i>
+            <p class="mt-2">No class issue data for this AY.</p>
+          </div>
           {% endif %}
         </div>
       </div>
@@ -83,18 +712,33 @@
 
     <div class="col-md-5">
       <div class="card shadow-sm h-100">
-        <div class="card-header fw-bold">📊 Class-Level KPIs</div>
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="bi bi-trophy text-primary me-2"></i>
+            Top Classes
+          </h5>
+        </div>
         <div class="card-body">
-          <ul class="list-group list-group-flush">
-            {% for label, val in zip(class_labels, class_values) %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-              {{ label }}
-              <span class="badge bg-primary rounded-pill">{{ val }}</span>
-            </li>
-            {% else %}
-            <li class="list-group-item text-muted text-center">No KPI data available</li>
+          {% if class_labels and class_labels|length > 0 and class_labels[0] != "—" %}
+          <div class="list-group list-group-flush">
+            {% for i in range(class_labels|length) %}
+            {% if class_labels[i] and class_labels[i] != "—" %}
+            <div class="list-group-item d-flex justify-content-between align-items-center py-3">
+              <div class="d-flex align-items-center">
+                <span class="badge bg-primary me-3">{{ loop.index }}</span>
+                <span>{{ class_labels[i] }}</span>
+              </div>
+              <span class="badge bg-secondary rounded-pill px-3">{{ class_values[i] }}</span>
+            </div>
+            {% endif %}
             {% endfor %}
-          </ul>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">
+            <i class="bi bi-bar-chart" style="font-size: 3rem; opacity: 0.3;"></i>
+            <p class="mt-3">No class data available.</p>
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -102,38 +746,98 @@
 
   <!-- Top Titles -->
   <div class="row mb-4">
-    <div class="col-md-6">
+    <div class="col-md-6 mb-3 mb-md-0">
       <div class="card shadow-sm h-100">
-        <div class="card-header fw-bold">📗 Top Arabic Titles</div>
-        <div class="card-body table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead><tr><th>#</th><th>Title</th><th>Times Borrowed</th></tr></thead>
-            <tbody>
-              {% for t in top_arabic %}
-              <tr><td>{{ loop.index }}</td><td class="truncate-2">{{ t[0] }}</td><td class="fw-bold">{{ t[1] }}</td></tr>
-              {% else %}
-              <tr><td colspan="3" class="text-center text-muted">No Arabic data</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-book text-primary me-2"></i>
+            Top Arabic Titles
+          </h5>
+          <span class="badge bg-info">Arabic</span>
+        </div>
+        <div class="card-body">
+          {% if top_arabic and top_arabic|length > 0 %}
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th width="60%">Title</th>
+                  <th>Collection</th>
+                  <th class="text-center">Issues</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for book in top_arabic[:5] %}
+                <tr>
+                  <td title="{{ book.Title }}">
+                    <div class="d-flex align-items-center">
+                      <span class="badge bg-light text-dark me-2">{{ loop.index }}</span>
+                      <span>{{ book.Title[:45] }}{% if book.Title|length > 45 %}...{% endif %}</span>
+                    </div>
+                  </td>
+                  <td><small class="text-muted">{{ book.Collections or '—' }}</small></td>
+                  <td class="text-center">
+                    <span class="badge bg-primary rounded-pill px-3">{{ book.Times_Issued }}</span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">
+            <i class="bi bi-book" style="font-size: 3rem; opacity: 0.3;"></i>
+            <p class="mt-3">No Arabic titles issued.</p>
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
 
     <div class="col-md-6">
       <div class="card shadow-sm h-100">
-        <div class="card-header fw-bold">📘 Top Non-Arabic Titles</div>
-        <div class="card-body table-responsive">
-          <table class="table table-hover align-middle mb-0">
-            <thead><tr><th>#</th><th>Title</th><th>Times Borrowed</th></tr></thead>
-            <tbody>
-              {% for t in top_non_arabic %}
-              <tr><td>{{ loop.index }}</td><td class="truncate-2">{{ t[0] }}</td><td class="fw-bold">{{ t[1] }}</td></tr>
-              {% else %}
-              <tr><td colspan="3" class="text-center text-muted">No Non-Arabic data</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="bi bi-book text-primary me-2"></i>
+            Top English Titles
+          </h5>
+          <span class="badge bg-success">English</span>
+        </div>
+        <div class="card-body">
+          {% if top_english and top_english|length > 0 %}
+          <div class="table-responsive">
+            <table class="table table-hover">
+              <thead>
+                <tr>
+                  <th width="60%">Title</th>
+                  <th>Collection</th>
+                  <th class="text-center">Issues</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for book in top_english[:5] %}
+                <tr>
+                  <td title="{{ book.Title }}">
+                    <div class="d-flex align-items-center">
+                      <span class="badge bg-light text-dark me-2">{{ loop.index }}</span>
+                      <span>{{ book.Title[:45] }}{% if book.Title|length > 45 %}...{% endif %}</span>
+                    </div>
+                  </td>
+                  <td><small class="text-muted">{{ book.Collections or '—' }}</small></td>
+                  <td class="text-center">
+                    <span class="badge bg-primary rounded-pill px-3">{{ book.Times_Issued }}</span>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">
+            <i class="bi bi-book" style="font-size: 3rem; opacity: 0.3;"></i>
+            <p class="mt-3">No English titles issued.</p>
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -142,87 +846,220 @@
   <!-- Department Summary -->
   <div class="card shadow-sm mb-5">
     <div class="card-header d-flex justify-content-between align-items-center">
-      <span class="fw-bold">📋 Department Summary (by Class)</span>
-      <a href="{{ url_for('hod_dashboard_bp.download_department_pdf') }}" class="btn btn-sm btn-outline-primary">⬇️ Export PDF</a>
+      <h5 class="mb-0">
+        <i class="bi bi-table text-primary me-2"></i>
+        Department Summary by Class (AY)
+      </h5>
+      <div class="action-buttons">
+        {% if dept_name %}
+        <a href="{{ url_for('hod_dashboard_bp.download_department_pdf') }}{% if is_admin %}?dept={{ dept_name }}{% endif %}" 
+           class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
+        </a>
+        {% endif %}
+      </div>
     </div>
     <div class="table-responsive">
-      <table class="table table-striped table-hover align-middle mb-0">
+      <table class="table table-striped table-hover mb-0 align-middle">
         <thead>
           <tr>
-            <th>Class</th><th>Issues</th><th>Fines Paid</th><th>Active Loans</th><th>Overdues</th><th></th>
+            <th>Class</th>
+            <th class="text-center">Students</th>
+            <th class="text-center">Issues</th>
+            <th class="text-center">Fines Paid</th>
+            <th class="text-center">Active Loans</th>
+            <th class="text-center">Overdues</th>
+            <th class="text-center">Actions</th>
           </tr>
         </thead>
         <tbody>
+          {% if summary_table and summary_table|length > 0 %}
           {% for row in summary_table %}
-          {% set cname = row.get('ClassName') or row.get('Class') or row.get('STD') or '—' %}
           <tr>
-            <td class="fw-semibold">{{ cname }}</td>
-            <td>{{ row.get('Issues_AY', 0) }}</td>
-            <td>{{ "%.2f"|format(row.get('FinesPaid_AY', 0)) }}</td>
-            <td>{{ row.get('ActiveLoans', 0) }}</td>
-            <td>{{ row.get('Overdues', 0) }}</td>
-            <td><a href="{{ url_for('hod_dashboard_bp.download_class_pdf', class_name=cname) }}" class="btn btn-sm btn-outline-secondary">⬇️</a></td>
+            <td class="fw-semibold">{{ row.ClassName or 'Unknown' }}</td>
+            <td class="text-center">
+              <span class="badge bg-light text-dark px-3">{{ row.StudentCount or 0 }}</span>
+            </td>
+            <td class="text-center">{{ row.Issues_AY or 0 }}</td>
+            <td class="text-center">{{ "%.2f"|format(row.FinesPaid_AY or 0) }}</td>
+            <td class="text-center">
+              <span class="badge {% if row.ActiveLoans and row.ActiveLoans > 0 %}bg-info{% else %}bg-light text-dark{% endif %}">
+                {{ row.ActiveLoans or 0 }}
+              </span>
+            </td>
+            <td class="text-center">
+              <span class="badge {% if row.Overdues and row.Overdues > 0 %}bg-warning{% else %}bg-light text-dark{% endif %}">
+                {{ row.Overdues or 0 }}
+              </span>
+            </td>
+            <td class="text-center">
+              {% if row.ClassName and row.ClassName != 'Unknown' %}
+              <a href="{{ url_for('hod_dashboard_bp.download_class_pdf', class_name=row.ClassName) }}" 
+                 class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-download me-1"></i>PDF
+              </a>
+              {% endif %}
+            </td>
           </tr>
-          {% else %}
-          <tr><td colspan="6" class="text-center text-muted">No class data available</td></tr>
           {% endfor %}
+          {% else %}
+          <tr>
+            <td colspan="7" class="text-center text-muted py-5">
+              <i class="bi bi-table" style="font-size: 3rem; opacity: 0.3;"></i>
+              <p class="mt-3">No class data available for this department.</p>
+            </td>
+          </tr>
+          {% endif %}
         </tbody>
       </table>
     </div>
   </div>
+
+  <!-- Footer -->
+  <div class="text-center text-muted small mb-5">
+    <p>
+      <i class="bi bi-clock-history me-1"></i>
+      Last updated: {{ today_greg }} • Dashboard refreshed on page load
+    </p>
+  </div>
+
 </div>
+{% endif %} <!-- End of conditional for active department -->
+
 {% endblock %}
 
 {% block scripts %}
+<!-- Only load charts if we have a department with data -->
+{% if dept_name and total_borrowers > 0 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // --- Trend Chart ---
-  const tCtx = document.getElementById('trendChart');
-  if (tCtx) {
-    new Chart(tCtx, {
-      type: 'line',
-      data: {
-        labels: {{ trend_labels|tojson }},
-        datasets: [{
-          label: 'Issues',
-          data: {{ trend_values|tojson }},
-          borderColor: '#0d6efd',
-          backgroundColor: 'rgba(13,110,253,0.1)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5
-        }]
-      },
-      options: {
-        scales: { y: { beginAtZero: true } },
-        plugins: { legend: { display: false } },
-        responsive: true,
-        maintainAspectRatio: false
+  document.addEventListener('DOMContentLoaded', function() {
+    
+    // --- Trend Chart ---
+    const tCtx = document.getElementById('trendChart');
+    if (tCtx) {
+      const labels = {{ trend_labels|tojson }};
+      const dataValues = {{ trend_values|tojson }};
+      
+      if (labels.length > 0 && labels[0] !== "—") {
+        new Chart(tCtx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [{
+              label: "Issues (AY)",
+              data: dataValues,
+              borderColor: "#3b82f6",
+              backgroundColor: "rgba(59, 130, 246, 0.1)",
+              pointBackgroundColor: "#3b82f6",
+              pointBorderColor: "#ffffff",
+              pointBorderWidth: 2,
+              fill: true,
+              tension: 0.4,
+              pointRadius: 5,
+              pointHoverRadius: 7
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { 
+              y: { 
+                beginAtZero: true,
+                ticks: { precision: 0 },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+              },
+              x: {
+                grid: { color: 'rgba(0,0,0,0.05)' }
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { 
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: 12,
+                cornerRadius: 8,
+                callbacks: { 
+                  label: c => "Issues: " + c.parsed.y 
+                }
+              }
+            }
+          }
+        });
       }
-    });
-  }
+    }
 
-  // --- Class Chart ---
-  const cCtx = document.getElementById('classChart');
-  if (cCtx) {
-    new Chart(cCtx, {
-      type: 'bar',
-      data: {
-        labels: {{ class_labels|tojson }},
-        datasets: [{
-          label: 'Issues',
-          data: {{ class_values|tojson }},
-          backgroundColor: '#198754',
-          maxBarThickness: 32
-        }]
-      },
-      options: {
-        scales: { y: { beginAtZero: true } },
-        plugins: { legend: { display: false } },
-        responsive: true,
-        maintainAspectRatio: false
+    // --- Class Breakdown Bar Chart ---
+    const cCtx = document.getElementById('classChart');
+    if (cCtx) {
+      const classLabels = {{ class_labels|tojson }};
+      const classValues = {{ class_values|tojson }};
+      
+      if (classLabels.length > 0 && classLabels[0] !== "—") {
+        // Create gradient colors for bars
+        const ctx = cCtx.getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+        gradient.addColorStop(0, 'rgba(59, 130, 246, 0.9)');
+        gradient.addColorStop(1, 'rgba(29, 78, 216, 0.9)');
+        
+        new Chart(cCtx, {
+          type: "bar",
+          data: {
+            labels: classLabels,
+            datasets: [{
+              label: "Issues (AY)",
+              data: classValues,
+              backgroundColor: gradient,
+              borderColor: "#1d4ed8",
+              borderWidth: 1,
+              borderRadius: 6,
+              maxBarThickness: 40
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { 
+              y: { 
+                beginAtZero: true,
+                ticks: { precision: 0 },
+                grid: { color: 'rgba(0,0,0,0.05)' }
+              },
+              x: {
+                grid: { display: false },
+                ticks: {
+                  autoSkip: true,
+                  maxRotation: 45,
+                  minRotation: 0
+                }
+              }
+            },
+            plugins: {
+              legend: { display: false },
+              tooltip: { 
+                backgroundColor: 'rgba(0,0,0,0.8)',
+                padding: 12,
+                cornerRadius: 8,
+                callbacks: { 
+                  label: c => "Issues: " + c.parsed.y 
+                }
+              }
+            }
+          }
+        });
       }
-    });
-  }
+    }
+
+    // Department selector change handler
+    const deptSelect = document.getElementById('deptSelect');
+    if (deptSelect) {
+      deptSelect.addEventListener('change', function() {
+        if (this.value) {
+          window.location.href = this.value;
+        }
+      });
+    }
+  });
 </script>
+{% endif %}
 {% endblock %}

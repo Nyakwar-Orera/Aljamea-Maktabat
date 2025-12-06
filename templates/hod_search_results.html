@@ -3,13 +3,17 @@
 {% block content %}
 
 <div class="container mt-4">
-  <h2>🔍 Search Results for “{{ query }}”</h2>
-  <p class="text-muted">Department: <strong>{{ dept_name }}</strong></p>
+  <h2 class="text-center">🔍 Search Results for “{{ query }}”</h2>
+  <p class="text-muted text-center mb-3">
+    Department: <strong>{{ dept_name }}</strong>
+  </p>
 
   <!-- Back button -->
-  <a href="{{ url_for('hod_dashboard_bp.dashboard') }}" class="btn btn-outline-secondary btn-sm mb-3">
-    ← Back to Dashboard
-  </a>
+  <div class="text-start mb-3">
+    <a href="{{ url_for('hod_dashboard_bp.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+      ← Back to Dashboard
+    </a>
+  </div>
 
   <!-- === STUDENT RESULTS === -->
   {% if students %}
@@ -25,28 +29,42 @@
             <th>TR Number</th>
             <th>Full Name</th>
             <th>Class</th>
-            <th>Issues (AY)</th>
-            <th>Fines Paid</th>
-            <th>Active Loans</th>
-            <th>Overdues</th>
-            <th>Download</th>
+            <th class="text-center">Issues (AY)</th>
+            <th class="text-center">Fines Paid (AY)</th>
+            <th class="text-center">Active Loans</th>
+            <th class="text-center">Overdues</th>
+            <th class="text-center">Download</th>
           </tr>
         </thead>
         <tbody>
           {% for s in students %}
+          {% set tr = s.get('TRNumber') or s.get('TRNO') %}
           <tr>
-            <td>{{ s.get('TRNumber') or s.get('TRNO') or '—' }}</td>
-            <td>{{ s.get('FullName') or '—' }}</td>
-            <td>{{ s.get('Class') or s.get('STD') or '—' }}</td>
-            <td>{{ s.get('Issues_AY', 0) }}</td>
-            <td>{{ "%.2f"|format(s.get('FinesPaid_AY', 0)) }}</td>
-            <td>{{ s.get('ActiveLoans', 0) }}</td>
-            <td>{{ s.get('Overdues', 0) }}</td>
+            <td>{{ tr or '—' }}</td>
             <td>
-              <a href="{{ url_for('hod_dashboard_bp.download_student_pdf', identifier=s.get('TRNumber') or s.get('TRNO')) }}"
+              {% if tr %}
+                <a href="{{ url_for('students_bp.student', identifier=tr) }}"
+                   class="link-primary text-decoration-none">
+                  {{ s.get('FullName') or '—' }}
+                </a>
+              {% else %}
+                {{ s.get('FullName') or '—' }}
+              {% endif %}
+            </td>
+            <td>{{ s.get('Class') or s.get('STD') or '—' }}</td>
+            <td class="text-center">{{ s.get('Issues_AY', 0) }}</td>
+            <td class="text-center">{{ "%.2f"|format(s.get('FinesPaid_AY', 0) or 0) }}</td>
+            <td class="text-center">{{ s.get('ActiveLoans', 0) }}</td>
+            <td class="text-center">{{ s.get('Overdues', 0) }}</td>
+            <td class="text-center">
+              {% if tr %}
+              <a href="{{ url_for('hod_dashboard_bp.download_student_pdf', identifier=tr) }}"
                  class="btn btn-sm btn-outline-success">
                 ⬇️ PDF
               </a>
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -68,28 +86,33 @@
         <thead class="table-light">
           <tr>
             <th>Class Name</th>
-            <th>Total Students</th>
-            <th>Issues (AY)</th>
-            <th>Fines Paid</th>
-            <th>Active Loans</th>
-            <th>Overdues</th>
-            <th>Download</th>
+            <th class="text-center">Total Students</th>
+            <th class="text-center">Issues (AY)</th>
+            <th class="text-center">Fines Paid (AY)</th>
+            <th class="text-center">Active Loans</th>
+            <th class="text-center">Overdues</th>
+            <th class="text-center">Download</th>
           </tr>
         </thead>
         <tbody>
           {% for c in classes %}
+          {% set cname = c.get('ClassName') or c.get('Class') or c.get('STD') or '—' %}
           <tr>
-            <td>{{ c.get('ClassName') or c.get('Class') or c.get('STD') or '—' }}</td>
-            <td>{{ c.get('StudentCount', 0) }}</td>
-            <td>{{ c.get('Issues_AY', 0) }}</td>
-            <td>{{ "%.2f"|format(c.get('FinesPaid_AY', 0)) }}</td>
-            <td>{{ c.get('ActiveLoans', 0) }}</td>
-            <td>{{ c.get('Overdues', 0) }}</td>
-            <td>
-              <a href="{{ url_for('hod_dashboard_bp.download_class_pdf', class_name=c.get('ClassName') or c.get('Class')) }}"
+            <td>{{ cname }}</td>
+            <td class="text-center">{{ c.get('StudentCount', 0) }}</td>
+            <td class="text-center">{{ c.get('Issues_AY', 0) }}</td>
+            <td class="text-center">{{ "%.2f"|format(c.get('FinesPaid_AY', 0) or 0) }}</td>
+            <td class="text-center">{{ c.get('ActiveLoans', 0) }}</td>
+            <td class="text-center">{{ c.get('Overdues', 0) }}</td>
+            <td class="text-center">
+              {% if cname and cname != '—' %}
+              <a href="{{ url_for('hod_dashboard_bp.download_class_pdf', class_name=cname) }}"
                  class="btn btn-sm btn-outline-primary">
                 ⬇️ PDF
               </a>
+              {% else %}
+              <span class="text-muted small">—</span>
+              {% endif %}
             </td>
           </tr>
           {% endfor %}

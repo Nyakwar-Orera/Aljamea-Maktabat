@@ -1,3 +1,4 @@
+-- sql/koha.sql
 -- name: patron_title_agg_between_dates
 -- purpose: Per-patron title aggregation with first issue date within a date range
 -- params: from_date (DATE), to_date (DATE), exclude_category (e.g., 'T-KG')
@@ -31,6 +32,7 @@ WHERE b.categorycode <> %s
 GROUP BY b.borrowernumber
 ORDER BY class_std, patron_name;
 
+
 -- name: top_borrowed_titles
 -- purpose: Top-N borrowed titles overall or filtered by language code (from biblioitems.language)
 -- params: lang_filter (nullable VARCHAR), limit (INT)
@@ -48,6 +50,7 @@ GROUP BY bi.title
 ORDER BY times_borrowed DESC
 LIMIT %s;
 
+
 -- name: sip_activity_counts
 -- purpose: SIP2 events by type over a rolling window (days)
 -- params: days_window (INT)
@@ -56,6 +59,7 @@ FROM statistics s
 WHERE s.datetime >= (CURRENT_DATE - INTERVAL %s DAY)
   AND s.interface = 'SIP2'
 GROUP BY s.type;
+
 
 -- name: class_issue_counts_by_std
 -- purpose: Count issues grouped by STD borrower attribute (class), with Unknown fallback
@@ -68,6 +72,7 @@ LEFT JOIN borrower_attributes std
 LEFT JOIN issues iss ON iss.borrowernumber = b.borrowernumber
 GROUP BY class_name
 ORDER BY issues DESC;
+
 
 -- name: patron_list_by_class_std
 -- purpose: List patrons in a given class (STD), with totals
@@ -97,6 +102,7 @@ LEFT JOIN (
 WHERE std.attribute = %s OR b.branchcode = %s
 ORDER BY FullName ASC;
 
+
 -- name: patron_list_by_department
 -- purpose: List patrons in a department (by Koha category or description)
 -- params: dept (VARCHAR)
@@ -125,6 +131,7 @@ LEFT JOIN (
 WHERE (c.description = %s OR b.categorycode = %s)
 ORDER BY FullName ASC;
 
+
 -- name: daraja_buckets_from_std
 -- purpose: Bucket students into Daraja groups based on numeric STD attribute
 -- params: none
@@ -147,3 +154,77 @@ ORDER BY MIN(CASE daraja_group
   WHEN 'Daraja 5–7' THEN 3
   WHEN 'Daraja 8–11' THEN 4
   ELSE 9 END);
+
+
+-- name: arabic_top25
+-- purpose: Top 25 Arabic books by issues, using MARC 041$a language field (~ 'Arabic')
+-- params: none
+SELECT
+    bib.biblionumber                               AS Biblio_ID,
+    bib.title                                      AS Title,
+    ExtractValue(
+        bmd.metadata,
+        '//datafield[@tag="041"]/subfield[@code="a"]'
+    )                                              AS Language,
+    GROUP_CONCAT(DISTINCT it.ccode SEPARATOR ', ') AS Collections,
+    COUNT(*)                                       AS Times_Issued
+FROM issues i
+INNER JOIN items it
+       ON i.itemnumber = it.itemnumber
+INNER JOIN biblio bib
+       ON it.biblionumber = bib.biblionumber
+INNER JOIN biblio_metadata bmd
+       ON bib.biblionumber = bmd.biblionumber
+WHERE ExtractValue(
+          bmd.metadata,
+          '//datafield[@tag="041"]/subfield[@code="a"]'
+      ) LIKE '%Arabic%'
+GROUP BY
+    bib.biblionumber,
+    bib.title,
+    Language
+ORDER BY
+    Times_Issued DESC
+LIMIT 25;
+
+
+-- name: english_top25
+-- purpose: Top 25 English books by issues, using MARC 041$a language field (~ 'English')
+-- params: none
+SELECT
+    bib.biblionumber                               AS Biblio_ID,
+    bib.title                                      AS Title,
+    ExtractValue(
+        bmd.metadata,
+        '//datafield[@tag="041"]/subfield[@code="a"]'
+    )                                              AS Language,
+    GROUP_CONCAT(DISTINCT it.ccode SEPARATOR ', ') AS Collections,
+    COUNT(*)                                       AS Times_Issued
+FROM issues i
+INNER JOIN items it
+       ON i.itemnumber = it.itemnumber
+INNER JOIN biblio bib
+       ON it.biblionumber = bib.biblionumber
+INNER JOIN biblio_metadata bmd
+       ON bib.biblionumber = bmd.biblionumber
+WHERE ExtractValue(
+          bmd.metadata,
+          '//datafield[@tag="041"]/subfield[@code="a"]'
+      ) LIKE '%English%'
+GROUP BY
+    bib.biblionumber,
+    bib.title,
+    Language
+ORDER BY
+    Times_Issued DESC
+LIMIT 25;
+
+
+-- name: darajah_max_books
+-- purpose: Static mapping of maximum concurrent issues allowed per Darajah group
+-- params: none
+SELECT 'Darajah 1–4'  AS darajah_group, 4 AS max_books
+UNION ALL
+SELECT 'Darajah 5–7', 5 AS max_books
+UNION ALL
+SELECT 'Darajah 8–11', 6 AS max_books;

@@ -64,6 +64,13 @@ def init_appdata():
     if added_cols:
         print("🔄 Migrated users table, added columns:", ", ".join(added_cols))
 
+    # ✅ Ensure email is unique via index (NULLs allowed)
+    cur.execute("""
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique
+        ON users(email)
+        WHERE email IS NOT NULL;
+    """)
+
     # 🔄 FIX OLD AVATAR PATHS
     # If any user still has the old default 'images/default-avatar.png'
     # or empty value, update to the new 'images/avatar.png'
@@ -151,12 +158,32 @@ def init_appdata():
     );
     """)
     defaults = [
-        ("class_report", "Monthly Library Report – Class {{ class_name }}",
-         "<p>Dear Teacher,</p><p>Please find attached the monthly report for class <b>{{ class_name }}</b>.</p><p>Regards,<br>Maktabat al-Jamea</p>"),
-        ("department_report", "Monthly Library Report – {{ dept }} Department",
-         "<p>Dear {{ head_name }},</p><p>Attached is the monthly library report for <b>{{ dept }}</b>.</p><p>Regards,<br>Maktabat al-Jamea</p>"),
-        ("account_created", "Your Maktabat al-Jamea Account",
-         "<p>Dear {{ username }},</p><p>Your account has been created.<br>Role: {{ role }}<br>Username: {{ username }}<br>Password: {{ password }}</p><p>Login: {{ login_url }}</p>")
+        (
+            "class_report",
+            "Monthly Library Report – Class {{ class_name }}",
+            "<p>Dear Teacher,</p>"
+            "<p>Please find attached the monthly report for class "
+            "<b>{{ class_name }}</b>.</p>"
+            "<p>Regards,<br>Maktabat al-Jamea</p>"
+        ),
+        (
+            "department_report",
+            "Monthly Library Report – {{ dept }} Department",
+            "<p>Dear {{ head_name }},</p>"
+            "<p>Attached is the monthly library report for "
+            "<b>{{ dept }}</b>.</p>"
+            "<p>Regards,<br>Maktabat al-Jamea</p>"
+        ),
+        (
+            "account_created",
+            "Your Maktabat al-Jamea Account",
+            "<p>Dear {{ username }},</p>"
+            "<p>Your account has been created.<br>"
+            "Role: {{ role }}<br>"
+            "Username: {{ username }}<br>"
+            "Password: {{ password }}</p>"
+            "<p>Login: {{ login_url }}</p>"
+        ),
     ]
     for k, s, h in defaults:
         cur.execute(
@@ -180,6 +207,10 @@ def init_appdata():
     cur.execute("CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);")
     cur.execute("CREATE INDEX IF NOT EXISTS idx_audit_ts ON audit_log(ts);")
+    cur.execute("""
+        CREATE INDEX IF NOT EXISTS idx_department_heads_name
+        ON department_heads(department_name);
+    """)
 
     conn.commit()
     conn.close()

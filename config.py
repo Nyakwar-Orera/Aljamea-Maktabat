@@ -45,6 +45,9 @@ class Config:
     KOHA_DB_PASS = os.getenv("KOHA_DB_PASS", os.getenv("DB_PASS", "Library@5152"))
     KOHA_DB_NAME = os.getenv("KOHA_DB_NAME", os.getenv("DB_NAME", "koha_library"))
 
+    # ---- Koha OPAC Base URL ----
+    KOHA_OPAC_BASE_URL = os.getenv("KOHA_OPAC_BASE_URL", "https://library-opac.ajsn.co.ke")
+
     # ---- Local App DB ----
     APP_SQLITE_PATH = os.getenv(
         "APP_SQLITE_PATH",

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Login | Maktabat al-Jamea{% endblock %}
+{% block title %}Login | Aljamea-tus-Saifiyah – Library{% endblock %}
 
 {% block content %}
 <div class="login-shell">
@@ -9,18 +9,18 @@
     <div class="col-md-6 d-none d-md-flex align-items-center justify-content-center login-hero">
       <!-- Replace Maktabat.jpg with any Islamic/library image if you like -->
       <img src="{{ url_for('static', filename='images/Maktabat.jpg') }}"
-           alt="Maktabat al-Jamea"
+           alt="Aljamea-tus-Saifiyah – Library"
            class="img-fluid login-hero-img">
     </div>
 
     <!-- Right Side: Login Form -->
     <div class="col-md-6 p-5">
       <h3 class="mb-1 text-center fw-bold login-title">
-        <i class="bi bi-book-half me-2"></i> Maktabat al-Jamea
+        <i class="bi bi-book-half me-2"></i> Aljamea-tus-Saifiyah – Library
       </h3>
-      <p class="text-center mb-3 login-bismillah">
-        بسم الله الرحمن الرحيم
-      </p>
+      <div class="text-center text-muted mb-3 small">
+        Maktabat al-Jamea Portal
+      </div>
 
       <!-- Avatar above username -->
       <div class="text-center mb-3">
@@ -45,6 +45,7 @@
       {% endwith %}
 
       <!-- Login Form -->
+      <!-- 🔁 CHANGED: post to auth_bp.login -->
       <form method="post" action="{{ url_for('auth_bp.login') }}">
         <div class="mb-3">
           <label class="form-label fw-semibold text-muted">Username</label>

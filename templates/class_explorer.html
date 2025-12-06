@@ -1,0 +1,352 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h2 mb-2">
+        <i class="fas fa-search me-2"></i>
+        Class Explorer
+      </h1>
+      <div class="text-muted">
+        <i class="fas fa-calendar-alt me-1"></i>
+        {% if hijri_today %}
+          Today: <strong>{{ hijri_today }}</strong>
+        {% endif %}
+        | <strong>{{ total_classes }}</strong> classes available
+      </div>
+    </div>
+    
+    <div class="d-flex gap-2">
+      <div class="input-group input-group-sm" style="width: 300px;">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input type="text" id="classSearch" class="form-control" placeholder="Search classes...">
+      </div>
+      <a href="{{ url_for('dashboard_bp.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+      </a>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Total Classes</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold">{{ total_classes }}</h2>
+            </div>
+            <i class="fas fa-graduation-cap fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Boys Classes</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold" id="boysCount">0</h2>
+            </div>
+            <i class="fas fa-male fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 bg-pink text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Girls Classes</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold" id="girlsCount">0</h2>
+            </div>
+            <i class="fas fa-female fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 bg-info text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Mixed Classes</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold" id="mixedCount">0</h2>
+            </div>
+            <i class="fas fa-users fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Class Grid by Class Number -->
+  {% for class_number in sorted_years %}
+  <div class="card shadow-sm border-0 mb-4 class-year-section" data-year="{{ class_number }}">
+    <div class="card-header bg-white border-0">
+      <h5 class="card-title mb-0">
+        <i class="fas fa-layer-group me-2"></i>
+        Class {{ class_number }}
+        <span class="badge bg-secondary ms-2">{{ classes_by_year[class_number]|length }} classes</span>
+      </h5>
+    </div>
+    
+    <div class="card-body">
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-3">
+        {% for class_info in classes_by_year[class_number] %}
+        {% set class_name = class_info.class_name %}
+        {% set is_arabic = 'عربي' in (class_name or '') %}
+        
+        <div class="col class-card" 
+             data-class="{{ class_name }}"
+             data-gender="{{ class_info.gender }}"
+             data-section="{{ class_info.section }}"
+             data-class-number="{{ class_info.class_number }}">
+          <div class="card h-100 shadow-sm border hover-lift">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                  <h6 class="card-subtitle mb-1 text-muted">
+                    <i class="fas fa-{{ class_info.icon }} me-1"></i>
+                    {{ class_info.gender }}
+                    {% if class_info.section %}
+                      <span class="badge bg-light text-dark ms-1">Section {{ class_info.section }}</span>
+                    {% endif %}
+                  </h6>
+                  <h5 class="card-title mb-0 {% if is_arabic %}arabic-text{% endif %}">
+                    {{ class_name }}
+                    {% if class_info.gender and class_info.gender != "Mixed" %}
+                      <small class="text-muted d-block">{{ class_info.gender }} Section</small>
+                    {% endif %}
+                  </h5>
+                </div>
+                <span class="badge bg-primary">
+                  <i class="fas fa-users me-1"></i>
+                  {{ class_info.active_students }}
+                </span>
+              </div>
+              
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="small text-muted">Total Students</div>
+                  <div class="fw-bold">{{ class_info.total_students }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-muted">AY Issues</div>
+                  <div class="fw-bold text-success">{{ class_info.ay_issues }}</div>
+                </div>
+              </div>
+              
+              <div class="d-grid gap-2">
+                <a href="{{ url_for('teacher_dashboard_bp.dashboard', class_name=class_name) }}"
+                   class="btn btn-primary btn-sm">
+                  <i class="fas fa-chart-bar me-1"></i>
+                  View Dashboard
+                </a>
+                <button class="btn btn-outline-secondary btn-sm" 
+                        onclick="showClassDetails('{{ class_name }}')">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Quick Info
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- No Results Message (hidden by default) -->
+  <div id="noResults" class="text-center py-5" style="display: none;">
+    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+    <h4 class="text-muted">No classes found</h4>
+    <p class="text-muted">Try a different search term</p>
+  </div>
+</div>
+
+<!-- Class Details Modal -->
+<div class="modal fade" id="classDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalClassName"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Students</h6>
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-users fa-2x text-primary me-3"></i>
+                  <div>
+                    <div class="fs-4 fw-bold" id="modalActiveStudents">0</div>
+                    <div class="small text-muted">active / <span id="modalTotalStudents">0</span> total</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Academic Year Activity</h6>
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-book fa-2x text-success me-3"></i>
+                  <div>
+                    <div class="fs-4 fw-bold" id="modalAyIssues">0</div>
+                    <div class="small text-muted">books issued</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="text-center">
+          <a href="#" id="modalDashboardLink" class="btn btn-primary me-2">
+            <i class="fas fa-chart-bar me-1"></i>
+            Open Full Dashboard
+          </a>
+          <a href="#" id="modalStudentListLink" class="btn btn-outline-secondary">
+            <i class="fas fa-list me-1"></i>
+            View Student List
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .class-card .card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+  }
+  
+  .class-card .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    border-color: #4dabf7;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    transition: transform 0.2s ease;
+  }
+  
+  .class-year-section {
+    transition: all 0.3s ease;
+  }
+  
+  .bg-pink {
+    background: linear-gradient(135deg, #ec4899 0%, #db2777 100%) !important;
+  }
+  
+  .arabic-text {
+    font-family: 'Traditional Arabic', 'Arial', sans-serif;
+    font-size: 1.2rem;
+    direction: rtl;
+  }
+  
+  .badge {
+    font-weight: 500;
+  }
+  
+  .class-card .card-title small {
+    font-size: 0.8rem;
+    display: block;
+    margin-top: 2px;
+  }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Initialize gender counts
+  function updateGenderCounts() {
+    const boys = document.querySelectorAll('.class-card[data-gender="Boys"]').length;
+    const girls = document.querySelectorAll('.class-card[data-gender="Girls"]').length;
+    const mixed = document.querySelectorAll('.class-card[data-gender="Mixed"]').length;
+    
+    document.getElementById('boysCount').textContent = boys;
+    document.getElementById('girlsCount').textContent = girls;
+    document.getElementById('mixedCount').textContent = mixed;
+  }
+  
+  // Class search functionality
+  document.getElementById('classSearch').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    let visibleCount = 0;
+    
+    document.querySelectorAll('.class-card').forEach(card => {
+      const className = card.getAttribute('data-class').toLowerCase();
+      const gender = card.getAttribute('data-gender').toLowerCase();
+      const section = card.getAttribute('data-section').toLowerCase();
+      const classNumber = card.getAttribute('data-class-number').toLowerCase();
+      
+      const matches = className.includes(searchTerm) || 
+                     gender.includes(searchTerm) || 
+                     section.includes(searchTerm) ||
+                     classNumber.includes(searchTerm) ||
+                     searchTerm === '';
+      
+      card.style.display = matches ? 'block' : 'none';
+      if (matches) visibleCount++;
+    });
+    
+    // Show/hide class number sections based on visible cards
+    document.querySelectorAll('.class-year-section').forEach(section => {
+      const classNum = section.getAttribute('data-year');
+      const visibleInSection = section.querySelectorAll('.class-card[style*="block"]').length;
+      section.style.display = visibleInSection > 0 ? 'block' : 'none';
+    });
+    
+    // Show no results message if needed
+    document.getElementById('noResults').style.display = visibleCount === 0 ? 'block' : 'none';
+    
+    updateGenderCounts();
+  });
+  
+  // Show class details modal
+  function showClassDetails(className) {
+    // For now, just open the dashboard
+    window.location.href = `{{ url_for('teacher_dashboard_bp.dashboard') }}?class_name=${encodeURIComponent(className)}`;
+    
+    // In a real implementation, you could fetch more details via AJAX
+    // and populate the modal before showing it
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    updateGenderCounts();
+    
+    // Add click handler for class cards
+    document.querySelectorAll('.class-card .card').forEach(card => {
+      card.addEventListener('click', function(e) {
+        // Don't trigger if clicking on buttons or links
+        if (!e.target.closest('a') && !e.target.closest('button')) {
+          const className = this.closest('.class-card').getAttribute('data-class');
+          window.location.href = `{{ url_for('teacher_dashboard_bp.dashboard') }}?class_name=${encodeURIComponent(className)}`;
+        }
+      });
+    });
+    
+    // Update search placeholder to include examples
+    document.getElementById('classSearch').placeholder = "Search classes (e.g., 5, B, M, Boys...)";
+  });
+</script>
+{% endblock %}

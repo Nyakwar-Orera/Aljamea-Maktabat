@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+  body {
+    background-color: #f9f9f9;
+  }
+  
+  .hero-section {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 1rem;
+    padding: 3rem 2rem;
+    color: white;
+    text-align: center;
+    margin-bottom: 3rem;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  }
+  
+  .hero-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+  }
+  
+  .hero-subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    max-width: 600px;
+    margin: 0 auto 2rem;
+  }
+  
+  .department-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .department-card {
+    background: white;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    border: 1px solid #e5e7eb;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+  
+  .department-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+    border-color: #3b82f6;
+  }
+  
+  .dept-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+  
+  .dept-name {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.5rem;
+  }
+  
+  .dept-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+  }
+  
+  .stat-item {
+    text-align: center;
+  }
+  
+  .stat-value {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #3b82f6;
+  }
+  
+  .stat-label {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-top: 0.25rem;
+  }
+  
+  .type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+  
+  .type-academic {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+  }
+  
+  .type-staff {
+    background-color: #f0f9ff;
+    color: #0c4a6e;
+  }
+  
+  .explorer-btn {
+    background: rgba(255,255,255,0.2);
+    border: 1px solid rgba(255,255,255,0.3);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 0.75rem;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s ease;
+  }
+  
+  .explorer-btn:hover {
+    background: rgba(255,255,255,0.3);
+    color: white;
+    transform: translateY(-2px);
+  }
+</style>
+
+<div class="container mt-4">
+  
+  <!-- Hero Section -->
+  <div class="hero-section">
+    <div class="hero-title">👑 Admin Dashboard</div>
+    <div class="hero-subtitle">
+      Welcome back, <strong>{{ username }}</strong>. Select a department to view its dashboard,
+      or explore all departments in detail.
+    </div>
+    <a href="{{ url_for('hod_dashboard_bp.department_explorer') }}" class="explorer-btn">
+      📊 Open Department Explorer
+    </a>
+  </div>
+  
+  <!-- Department Selection -->
+  <div class="mb-4">
+    <h3 class="mb-3">🏛️ Select a Department</h3>
+    <p class="text-muted mb-4">Choose a department to view its dashboard and statistics.</p>
+    
+    {% if all_departments %}
+    <div class="department-grid">
+      {% for dept in all_departments %}
+      <a href="{{ url_for('hod_dashboard_bp.dashboard', dept=dept.code) }}" class="department-card">
+        <div class="dept-icon">
+          {% if dept.type == 'Academic' %}
+            🎓
+          {% else %}
+            👨‍💼
+          {% endif %}
+        </div>
+        
+        <span class="type-badge type-{{ dept.type|lower }}">
+          {{ dept.type }}
+        </span>
+        
+        <div class="dept-name">{{ dept.name }}</div>
+        <p class="text-muted small mb-3">
+          {% if dept.enrolment_period %}
+            Enrolment: {{ dept.enrolment_period }} days
+          {% endif %}
+          {% if dept.fines_cap %}
+            • Fines cap: {{ "%.2f"|format(dept.fines_cap) }}
+          {% endif %}
+        </p>
+        
+        <div class="dept-stats">
+          <div class="stat-item">
+            <div class="stat-value">{{ dept.total_members }}</div>
+            <div class="stat-label">Members</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value">{{ dept.code }}</div>
+            <div class="stat-label">Code</div>
+          </div>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      No departments found in the system.
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- Quick Stats -->
+  <div class="row mt-5">
+    <div class="col-md-4">
+      <div class="card text-center p-4">
+        <div class="display-6 text-primary mb-2">{{ all_departments|length }}</div>
+        <div class="text-muted">Total Departments</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center p-4">
+        <div class="display-6 text-success mb-2">
+          {{ all_departments|selectattr('type', 'equalto', 'Academic')|list|length }}
+        </div>
+        <div class="text-muted">Academic Departments</div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card text-center p-4">
+        <div class="display-6 text-info mb-2">
+          {% set total_members = all_departments|sum(attribute='total_members') %}
+          {{ total_members }}
+        </div>
+        <div class="text-muted">Total Members</div>
+      </div>
+    </div>
+  </div>
+  
+</div>
+
+{% endblock %}

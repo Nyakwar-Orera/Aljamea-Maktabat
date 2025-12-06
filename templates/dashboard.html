@@ -1,187 +1,891 @@
 {% extends "base.html" %}
+
 {% block content %}
-<h2 class="mb-4">📊 Dashboard</h2>
-
-<!-- KPI Grid -->
-<div class="kpi-grid mb-3">
-  <div class="kpi-card bg-primary text-white">
-    <div class="kpi-label">Users</div>
-    <div class="kpi-value">{{ total_patrons }}</div>
+<div class="container-fluid py-4">
+  <!-- Header Section -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h2 mb-2">📊 Library Analytics Dashboard</h1>
+      <div class="text-muted">
+        <i class="fas fa-calendar-alt me-1"></i>
+        Academic Year: <strong>{{ ay_period }}</strong>
+        {% if hijri_today %}
+          | Today: <strong>{{ hijri_today }}</strong>
+        {% endif %}
+      </div>
+    </div>
+    
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-primary btn-sm" onclick="refreshData()">
+        <i class="fas fa-sync-alt me-1"></i> Refresh
+      </button>
+      <a href="{{ url_for('dashboard_bp.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-home me-1"></i> Reset View
+      </a>
+    </div>
   </div>
 
-  <div class="kpi-card bg-success text-white">
-    <div class="kpi-label">Total Issues</div>
-    <div class="kpi-value">{{ total_issues }}</div>
+  <!-- KPI Grid -->
+  <div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-3 mb-4">
+    {% for card in kpi_cards %}
+    <div class="col">
+      <div class="card shadow-sm border-0 h-100 kpi-card kpi-card-{{ card.color }}">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start mb-3">
+            <div>
+              <h6 class="card-subtitle mb-1 text-light opacity-90">{{ card.label }}</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold">{{ card.value }}</h2>
+            </div>
+            <span class="badge bg-light text-dark p-2 rounded-circle">
+              <i class="fas {{ card.icon }} fa-lg"></i>
+            </span>
+          </div>
+          {% if card.subtext %}
+          <p class="card-text small mb-0 text-light opacity-75">{{ card.subtext }}</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
   </div>
 
-  <div class="kpi-card bg-warning text-dark">
-    <div class="kpi-label">Total Fines Paid</div>
-    <div class="kpi-value">{{ "%.2f"|format(total_fines) }}</div>
-  </div>
+  <!-- Charts Row -->
+  <div class="row g-3 mb-4">
+    <!-- Borrowing Trends -->
+    <div class="col-xl-8">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white border-0 pb-0">
+          <h5 class="card-title mb-2">
+            <i class="fas fa-chart-line text-primary me-2"></i>
+            Borrowing Trends (Academic Year)
+          </h5>
+        </div>
+        <div class="card-body pt-0">
+          <div style="height: 280px;">
+            <canvas id="trendChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  <div class="kpi-card bg-dark text-white">
-    <div class="kpi-label">Checkouts Today</div>
-    <div class="kpi-value">{{ today_checkouts }}</div>
-  </div>
-
-  <div class="kpi-card bg-secondary text-white">
-    <div class="kpi-label">Checkins Today</div>
-    <div class="kpi-value">{{ today_checkins }}</div>
-  </div>
-</div>
-
-<!-- Charts Section -->
-<div class="row mt-3 g-3">
-  <div class="col-lg-6">
-    <div class="card h-100">
-      <div class="card-header">📈 Academic Borrowing Trends</div>
-      <div class="card-body">
-        <canvas id="trendChart"></canvas>
+    <!-- Marhala Distribution -->
+    <div class="col-xl-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white border-0 pb-0">
+          <h5 class="card-title mb-2">
+            <i class="fas fa-mosque text-success me-2"></i>
+            Marhala Distribution
+          </h5>
+        </div>
+        <div class="card-body pt-0">
+          <div style="height: 280px;">
+            <canvas id="marhalaChart"></canvas>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-  <div class="col-lg-6">
-    <div class="card h-100">
-      <div class="card-header">📊 Issues by Class</div>
-      <div class="card-body">
-        <canvas id="classChart"></canvas>
-      </div>
-    </div>
-  </div>
-</div>
 
-<div class="row mt-4 g-3">
-  <div class="col-lg-6">
-    <div class="card h-100">
-      <div class="card-header">Department Distribution</div>
-      <div class="card-body">
-        <canvas id="deptChart"></canvas>
+  <!-- Gender Distribution + Insights -->
+  <div class="row g-3 mb-4">
+    <!-- Gender Distribution -->
+    <div class="col-lg-8">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white border-0 pb-0">
+          <h5 class="card-title mb-2">
+            <i class="fas fa-venus-mars text-info me-2"></i>
+            Gender Distribution by Darajah
+          </h5>
+        </div>
+        <div class="card-body pt-0">
+          <div style="height: 300px;">
+            <canvas id="genderChart"></canvas>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="card h-100">
-      <div class="card-header">🏆 Top 25 Borrowed Titles (All)</div>
-      <div class="card-body" style="max-height:300px; overflow:auto;">
-        <table class="table table-sm table-striped mb-0">
-          <thead>
-            <tr><th>Count</th><th>Title</th><th>Last Issued</th></tr>
-          </thead>
-          <tbody>
-            {% for title, val, date in zip(top_all_labels, top_all_values, top_all_dates) %}
-            <tr>
-              <td>{{ val }}</td>
-              <td>{{ title }}</td>
-              <td>{{ date }}</td>
-            </tr>
+
+    <!-- Insights -->
+    <div class="col-lg-4">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white border-0">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-lightbulb text-warning me-2"></i>
+            Key Insights
+          </h5>
+        </div>
+        <div class="card-body">
+          {% if insights %}
+          <div class="list-group list-group-flush">
+            {% for insight in insights %}
+            <div class="list-group-item border-0 px-0 py-2">
+              <div class="d-flex">
+                <i class="fas fa-circle text-primary fa-xs mt-1 me-2"></i>
+                <div class="small">{{ insight }}</div>
+              </div>
+            </div>
             {% endfor %}
-          </tbody>
-        </table>
+          </div>
+          {% else %}
+          <div class="text-center py-4">
+            <i class="fas fa-chart-bar fa-2x text-muted mb-3"></i>
+            <p class="text-muted small mb-0">Insights will appear as data becomes available</p>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Titles Row -->
+  <div class="row g-3 mb-4">
+    <!-- Arabic Titles -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-book-quran text-danger me-2"></i>
+            Top Arabic Titles
+          </h5>
+          <span class="badge bg-danger">{{ arabic_top_records|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive" style="max-height: 350px;">
+            <table class="table table-hover table-sm mb-0">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th class="text-center" style="width: 60%;">Title</th>
+                  <th class="text-center" style="width: 20%;">Issues</th>
+                  <th class="text-center" style="width: 20%;">Collections</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in arabic_top_records %}
+                <tr>
+                  <td class="text-center arabic-text">
+                    <a href="https://library-opac.ajsn.co.ke/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}"
+                       target="_blank"
+                       class="text-decoration-none text-dark">
+                      {{ row.Title }}
+                    </a>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-success rounded-pill px-3">{{ row.Times_Issued }}</span>
+                  </td>
+                  <td class="text-center small text-muted">
+                    {{ row.Collections|default('—', true)|truncate(15) }}
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="3" class="text-center py-4 text-muted">
+                    <i class="fas fa-book fa-2x mb-2"></i><br>
+                    No Arabic titles data available
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- English Titles -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-book-open text-primary me-2"></i>
+            Top English Titles
+          </h5>
+          <span class="badge bg-primary">{{ english_top_records|length }}</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive" style="max-height: 350px;">
+            <table class="table table-hover table-sm mb-0">
+              <thead class="table-light sticky-top">
+                <tr>
+                  <th class="text-center" style="width: 60%;">Title</th>
+                  <th class="text-center" style="width: 20%;">Issues</th>
+                  <th class="text-center" style="width: 20%;">Collections</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in english_top_records %}
+                <tr>
+                  <td class="text-center">
+                    <a href="https://library-opac.ajsn.co.ke/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}"
+                       target="_blank"
+                       class="text-decoration-none">
+                      {{ row.Title|truncate(40) }}
+                    </a>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-success rounded-pill px-3">{{ row.Times_Issued }}</span>
+                  </td>
+                  <td class="text-center small text-muted">
+                    {{ row.Collections|default('—', true)|truncate(15) }}
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="3" class="text-center py-4 text-muted">
+                    <i class="fas fa-book fa-2x mb-2"></i><br>
+                    No English titles data available
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Detailed Tables Row -->
+  <div class="row g-3 mb-4">
+    <!-- Top Darajah -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white border-0">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-graduation-cap text-success me-2"></i>
+            Top Darajah Performance
+          </h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Darajah</th>
+                  <th class="text-center">Books Issued</th>
+                  <th class="text-center">Active Students</th>
+                  <th class="text-center">Avg. per Student</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in top_darajah_rows %}
+                <tr>
+                  <td>
+                    <span class="badge bg-secondary me-2">{{ loop.index }}</span>
+                    <span class="{% if 'عربي' in (row.Darajah or '') %}arabic-text{% endif %}">
+                      {{ row.Darajah or 'Unknown' }}
+                    </span>
+                  </td>
+                  <td class="text-center fw-bold">{{ row.BooksIssued|default(0)|int }}</td>
+                  <td class="text-center">{{ row.ActiveStudents|default(0)|int }}</td>
+                  <td class="text-center">
+                    {% set avg = (row.BooksIssued|default(0)|int) / (row.ActiveStudents|default(1)|int) %}
+                    <span class="badge bg-info">{{ "%.1f"|format(avg) }}</span>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="4" class="text-center py-4 text-muted">
+                    <i class="fas fa-chart-bar fa-2x mb-2"></i><br>
+                    No Darajah data available
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Department Summary -->
+    <div class="col-lg-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-white border-0">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-building text-purple me-2"></i>
+            Department Performance
+          </h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Department</th>
+                  <th class="text-center">Books Issued</th>
+                  <th class="text-center">Active Patrons</th>
+                  <th class="text-center">Efficiency</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in department_summary_rows %}
+                <tr>
+                  <td>
+                    <span class="badge bg-secondary me-2">{{ loop.index }}</span>
+                    {{ row.Department or 'Unknown' }}
+                  </td>
+                  <td class="text-center fw-bold">{{ row.BooksIssued|default(0)|int }}</td>
+                  <td class="text-center">{{ row.ActivePatrons|default(0)|int }}</td>
+                  <td class="text-center">
+                    <span class="badge {% if row.IssuesPerPatron|default(0) > 5 %}bg-success{% elif row.IssuesPerPatron|default(0) > 2 %}bg-warning{% else %}bg-danger{% endif %}">
+                      {{ "%.2f"|format(row.IssuesPerPatron|default(0)) }}
+                    </span>
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="4" class="text-center py-4 text-muted">
+                    <i class="fas fa-chart-bar fa-2x mb-2"></i><br>
+                    No department data available
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Full Class Breakdown -->
+  <div class="row g-3">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center">
+          <h5 class="card-title mb-0">
+            <i class="fas fa-list-ol text-indigo me-2"></i>
+            Complete Darajah Breakdown
+          </h5>
+          <span class="badge bg-indigo">{{ class_summary_rows|length }} Darajah</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Darajah</th>
+                  <th class="text-center">Books Issued</th>
+                  <th class="text-center">Active Patrons</th>
+                  <th class="text-center">Issues per Patron</th>
+                  <th class="text-center">Collections Used</th>
+                  <th class="text-center">Performance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in class_summary_rows %}
+                <tr>
+                  <td>
+                    <div class="d-flex align-items-center">
+                      <div class="me-3 fw-bold text-muted">#{{ loop.index }}</div>
+                      <div class="{% if 'عربي' in (row.ClassName or '') %}arabic-text{% endif %}">
+                        {{ row.ClassName or 'Unknown' }}
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-center">
+                    <span class="badge bg-primary rounded-pill px-3">{{ row.BooksIssued|default(0)|int }}</span>
+                  </td>
+                  <td class="text-center">{{ row.ActivePatrons|default(0)|int }}</td>
+                  <td class="text-center">
+                    <span class="fw-bold {{ 'text-success' if row.IssuesPerPatron|default(0) > 3 else 'text-warning' }}">
+                      {{ "%.2f"|format(row.IssuesPerPatron|default(0)) }}
+                    </span>
+                  </td>
+                  <td class="text-center small text-muted">
+                    {{ row.Collections|default('—', true)|truncate(20) }}
+                  </td>
+                  <td class="text-center">
+                    {% set efficiency = row.IssuesPerPatron|default(0) %}
+                    {% if efficiency > 5 %}
+                    <span class="badge bg-success">Excellent</span>
+                    {% elif efficiency > 3 %}
+                    <span class="badge bg-primary">Good</span>
+                    {% elif efficiency > 1 %}
+                    <span class="badge bg-warning">Average</span>
+                    {% else %}
+                    <span class="badge bg-danger">Low</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% else %}
+                <tr>
+                  <td colspan="6" class="text-center py-5 text-muted">
+                    <i class="fas fa-chart-bar fa-3x mb-3"></i><br>
+                    <h5 class="text-muted">No Darajah data available</h5>
+                    <p class="small">Academic year data will appear when available</p>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </div>
+{% endblock %}
 
-<div class="row mt-4 g-3">
-  <div class="col-lg-6">
-    <div class="card h-100">
-      <div class="card-header">🏆 Top 25 Arabic Titles</div>
-      <div class="card-body" style="max-height:300px; overflow:auto;">
-        <table class="table table-sm table-striped mb-0">
-          <thead>
-            <tr><th>Count</th><th>Title</th><th>Last Issued</th></tr>
-          </thead>
-          <tbody>
-            {% for title, val, date in zip(top_ar_labels, top_ar_values, top_ar_dates) %}
-            <tr>
-              <td>{{ val }}</td>
-              <td>{{ title }}</td>
-              <td>{{ date }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div class="col-lg-6">
-    <div class="card h-100">
-      <div class="card-header">🏆 Top 25 English Titles</div>
-      <div class="card-body" style="max-height:300px; overflow:auto;">
-        <table class="table table-sm table-striped mb-0">
-          <thead>
-            <tr><th>Count</th><th>Title</th><th>Last Issued</th></tr>
-          </thead>
-          <tbody>
-            {% for title, val, date in zip(top_non_ar_labels, top_non_ar_values, top_non_ar_dates) %}
-            <tr>
-              <td>{{ val }}</td>
-              <td>{{ title }}</td>
-              <td>{{ date }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-</div>
+{% block extra_css %}
+<style>
+  :root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --warning-gradient: linear-gradient(135deg, #f7971e 0%, #ffd200 100%);
+    --info-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    --danger-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    --indigo-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --purple-gradient: linear-gradient(135deg, #9d50bb 0%, #6e48aa 100%);
+  }
 
+  /* KPI Cards */
+  .kpi-card {
+    border: none;
+    border-radius: 16px;
+    color: white;
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+  }
+
+  .kpi-card-primary {
+    background: var(--primary-gradient);
+  }
+
+  .kpi-card-success {
+    background: var(--success-gradient);
+  }
+
+  .kpi-card-warning {
+    background: var(--warning-gradient);
+    color: #212529 !important;
+  }
+
+  .kpi-card-info {
+    background: var(--info-gradient);
+  }
+
+  .kpi-card .card-subtitle {
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+  }
+
+  .kpi-card .card-title {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  /* Cards */
+  .card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+  }
+
+  .card:hover {
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  }
+
+  .card-header {
+    background: white;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 1.25rem 1.5rem;
+  }
+
+  .card-header .card-title {
+    font-weight: 600;
+    color: #2d3748;
+  }
+
+  /* Tables */
+  .table {
+    margin-bottom: 0;
+  }
+
+  .table thead th {
+    border-bottom: 2px solid #e2e8f0;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    color: #718096;
+    padding: 1rem 1.25rem;
+  }
+
+  .table tbody td {
+    padding: 1rem 1.25rem;
+    vertical-align: middle;
+    border-bottom: 1px solid #f7fafc;
+  }
+
+  .table tbody tr:hover {
+    background-color: #f8fafc;
+  }
+
+  .table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+  }
+
+  /* Badges */
+  .badge {
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  .badge.rounded-pill {
+    padding-left: 1em;
+    padding-right: 1em;
+  }
+
+  /* Arabic Text */
+  .arabic-text {
+    font-family: 'Traditional Arabic', 'Arial', sans-serif;
+    font-size: 1.1rem;
+    line-height: 1.8;
+    direction: rtl;
+    text-align: right;
+  }
+
+  /* Scrollbar Styling */
+  .table-responsive::-webkit-scrollbar {
+    height: 6px;
+    width: 6px;
+  }
+
+  .table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+  }
+
+  .table-responsive::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+  }
+
+  .table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+  }
+
+  /* Responsive Adjustments */
+  @media (max-width: 768px) {
+    .card-header {
+      padding: 1rem;
+    }
+    
+    .table thead th,
+    .table tbody td {
+      padding: 0.75rem;
+    }
+    
+    .arabic-text {
+      font-size: 1rem;
+    }
+  }
+
+  /* Chart Containers */
+  canvas {
+    max-width: 100%;
+  }
+
+  /* Performance Indicators */
+  .text-success { color: #10b981 !important; }
+  .text-warning { color: #f59e0b !important; }
+  .text-danger { color: #ef4444 !important; }
+
+  /* Custom Colors */
+  .bg-indigo { background-color: #6366f1 !important; }
+  .bg-purple { background-color: #8b5cf6 !important; }
+</style>
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-  // Borrowing trends line chart
-  const trendLabels = {{ trend_labels | tojson | safe }};
-  const trendValues = {{ trend_values | tojson | safe }};
-  new Chart(document.getElementById('trendChart'), {
-    type: 'line',
-    data: { labels: trendLabels, datasets: [{ label: 'Issues', data: trendValues, borderColor: 'rgba(75,192,192,1)', tension: 0.3 }] },
-    options: { responsive: true, scales: { y: { beginAtZero: true } } }
-  });
+  // Refresh function
+  function refreshData() {
+    const btn = event?.target || document.querySelector('[onclick="refreshData()"]');
+    const originalHTML = btn.innerHTML;
+    
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Refreshing...';
+    btn.disabled = true;
+    
+    setTimeout(() => {
+      location.reload();
+    }, 500);
+  }
 
-  // Class chart (Male vs Female, stacked, sorted by class number from backend)
-  const classLabels = {{ class_labels | tojson }};
-  const classMale = {{ class_male_values | tojson }};
-  const classFemale = {{ class_female_values | tojson }};
+  // ---------- Borrowing Trends Chart ----------
+  const trendLabels = {{ trend_labels | tojson }};
+  const trendValues = {{ trend_values | tojson }};
 
-  new Chart(document.getElementById('classChart'), {
-    type: 'bar',
-    data: {
-      labels: classLabels,
-      datasets: [
-        { label: 'Boys (M)',   data: classMale,   backgroundColor: 'rgba(54,162,235,0.7)' },
-        { label: 'Girls (F)',  data: classFemale, backgroundColor: 'rgba(255,99,132,0.7)' }
-      ]
-    },
-    options: {
-      responsive: true,
-      scales: { 
-        x: { stacked: true },
-        y: { beginAtZero: true, stacked: true }
+  if (trendLabels.length && trendValues.length) {
+    const maxValue = Math.max(...trendValues);
+    const minValue = Math.min(...trendValues);
+    const avgValue = trendValues.reduce((a, b) => a + b, 0) / trendValues.length;
+    
+    const pointColors = trendValues.map(v => {
+      if (v === maxValue) return '#ef4444'; // Red for peak
+      if (v === minValue) return '#6b7280'; // Gray for lowest
+      if (v > avgValue) return '#10b981';   // Green for above average
+      return '#f59e0b';                     // Yellow for below average
+    });
+
+    new Chart(document.getElementById('trendChart'), {
+      type: 'line',
+      data: {
+        labels: trendLabels,
+        datasets: [{
+          label: 'Books Issued',
+          data: trendValues,
+          borderColor: '#6366f1',
+          backgroundColor: 'rgba(99, 102, 241, 0.1)',
+          borderWidth: 2,
+          tension: 0.3,
+          fill: true,
+          pointRadius: 5,
+          pointHoverRadius: 8,
+          pointBackgroundColor: pointColors,
+          pointBorderColor: '#ffffff',
+          pointBorderWidth: 2,
+        }]
       },
-      plugins: {
-        tooltip: {
-          callbacks: {
-            footer: (items) => {
-              // show total for that class in tooltip footer
-              const sum = items.reduce((a,i)=>a + i.parsed.y, 0);
-              return 'Total: ' + sum;
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: true,
+            position: 'top',
+            labels: {
+              padding: 20,
+              usePointStyle: true,
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            titleColor: '#ffffff',
+            bodyColor: '#ffffff',
+            padding: 12,
+            callbacks: {
+              label: function (context) {
+                return ` ${context.parsed.y} books`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            },
+            ticks: {
+              precision: 0,
+              font: {
+                size: 11
+              }
+            },
+            title: {
+              display: true,
+              text: 'Number of Books',
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          },
+          x: {
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            },
+            ticks: {
+              font: {
+                size: 10
+              },
+              maxRotation: 45,
+              minRotation: 45
             }
           }
         }
       }
-    }
-  });
+    });
+  }
 
-  // Department pie chart
-  const deptLabels = {{ dept_labels | tojson }};
-  const deptValues = {{ dept_values | tojson }};
-  const totalDept = deptValues.reduce((a, b) => a + b, 0);
-  new Chart(document.getElementById('deptChart'), {
-    type: 'pie',
-    data: { labels: deptLabels, datasets: [{ data: deptValues, backgroundColor: deptLabels.map(() => `hsl(${Math.random()*360},70%,60%)`) }] },
-    options: { responsive: true, plugins: { tooltip: { callbacks: { label: ctx => `${ctx.label}: ${((ctx.raw/totalDept)*100).toFixed(1)}% (${ctx.raw})` } } } }
+  // ---------- Marhala Distribution Chart ----------
+  const marhalaLabels = {{ marhala_labels | tojson }};
+  const marhalaValues = {{ marhala_values | tojson }};
+
+  if (marhalaLabels.length && marhalaValues.length) {
+    const marhalaTotal = marhalaValues.reduce((a, b) => a + b, 0);
+    const colors = [
+      '#6366f1', '#10b981', '#f59e0b', '#ef4444', 
+      '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'
+    ];
+
+    new Chart(document.getElementById('marhalaChart'), {
+      type: 'doughnut',
+      data: {
+        labels: marhalaLabels,
+        datasets: [{
+          data: marhalaValues,
+          backgroundColor: colors,
+          borderColor: '#ffffff',
+          borderWidth: 2,
+          hoverOffset: 15
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              padding: 20,
+              font: {
+                size: 11
+              },
+              usePointStyle: true,
+              pointStyle: 'circle'
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const value = context.raw || 0;
+                const percentage = marhalaTotal ? ((value / marhalaTotal) * 100).toFixed(1) : 0;
+                return `${context.label}: ${value} issues (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // ---------- Gender Distribution Chart ----------
+  const classLabels = {{ class_labels | tojson }};
+  const classMale = {{ class_male_values | tojson }};
+  const classFemale = {{ class_female_values | tojson }};
+
+  if (classLabels.length && classMale.length && classFemale.length) {
+    new Chart(document.getElementById('genderChart'), {
+      type: 'bar',
+      data: {
+        labels: classLabels,
+        datasets: [
+          {
+            label: 'Boys (M)',
+            data: classMale,
+            backgroundColor: 'rgba(54, 162, 235, 0.8)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Girls (F)',
+            data: classFemale,
+            backgroundColor: 'rgba(255, 99, 132, 0.8)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            stacked: true,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            },
+            ticks: {
+              font: {
+                size: 10
+              },
+              maxRotation: 45,
+              minRotation: 45
+            }
+          },
+          y: {
+            beginAtZero: true,
+            stacked: true,
+            grid: {
+              color: 'rgba(0, 0, 0, 0.05)'
+            },
+            ticks: {
+              precision: 0,
+              font: {
+                size: 11
+              }
+            },
+            title: {
+              display: true,
+              text: 'Number of Issues',
+              font: {
+                size: 12,
+                weight: 'bold'
+              }
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              padding: 20,
+              font: {
+                size: 11
+              }
+            }
+          },
+          tooltip: {
+            mode: 'index',
+            intersect: false,
+            callbacks: {
+              footer: (items) => {
+                const sum = items.reduce((a, i) => a + i.parsed.y, 0);
+                return `Total: ${sum} issues`;
+              }
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Auto-detect and style Arabic text
+  function styleArabicText() {
+    const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+    
+    document.querySelectorAll('td, th').forEach(el => {
+      if (arabicPattern.test(el.textContent || el.innerText)) {
+        el.classList.add('arabic-text');
+      }
+    });
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    styleArabicText();
+    
+    // Add loading animation to refresh button
+    const refreshBtn = document.querySelector('[onclick="refreshData()"]');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', function(e) {
+        if (this.disabled) e.preventDefault();
+      });
+    }
   });
 </script>
 {% endblock %}

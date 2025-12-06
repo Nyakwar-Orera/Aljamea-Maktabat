@@ -323,10 +323,46 @@ document.addEventListener("DOMContentLoaded", function(){
 
   document.getElementById("userForm").addEventListener("submit", function(e){
     e.preventDefault();
-    fetch("/api/add_user", { method:"POST", body:new FormData(this) })
-      .then(r=>r.json()).then(j=>{
-        showToast(j.success ? "✅ User added" : (j.error || "❌ Failed to add user"), j.success?"success":"danger");
-        if(j.success){ this.reset(); deptField.classList.add("d-none"); classField.classList.add("d-none"); loadUsers(); }
+
+    const form = this;
+    const fd = new FormData(form);
+
+    fetch("/api/add_user", { method: "POST", body: fd })
+      .then(r => r.json())
+      .then(j => {
+        const username = document.getElementById("username").value || "user";
+
+        let msg;
+        let type;
+
+        if (j.success) {
+          msg = j.message || `✅ User '${username}' has been registered successfully.`;
+          type = "success";
+        } else {
+          msg = j.error || "❌ We could not complete this registration. Please try again.";
+          type = "danger";
+        }
+
+        if (window.showToast) {
+          showToast(msg, type);
+        } else {
+          alert(msg);
+        }
+
+        if (j.success) {
+          form.reset();
+          deptField.classList.add("d-none");
+          classField.classList.add("d-none");
+          loadUsers();
+        }
+      })
+      .catch(err => {
+        console.error("Add user error:", err);
+        if (window.showToast) {
+          showToast("❌ A network error occurred. Please check your connection and try again.", "danger");
+        } else {
+          alert("A network error occurred.");
+        }
       });
   });
 

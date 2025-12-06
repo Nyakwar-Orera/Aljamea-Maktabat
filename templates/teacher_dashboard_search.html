@@ -37,12 +37,19 @@
           {% for s in results %}
           <tr>
             <td>{{ s.TRNumber }}</td>
-            <td>{{ s.FullName }}</td>
+            <td>
+              <a href="{{ url_for('students_bp.student', identifier=s.TRNumber) }}"
+                 class="link-primary text-decoration-none">
+                {{ s.FullName }}
+              </a>
+            </td>
             <td>{{ s.EduEmail }}</td>
             <td class="text-center">{{ s.Issues_AY or 0 }}</td>
             <td class="text-center">{{ "%.2f"|format(s.FinesPaid_AY or 0) }}</td>
             <td class="text-center">
-              <a href="{{ url_for('teacher_dashboard_bp.download_report', scope='student:' ~ s.TRNumber, fmt='pdf') }}"
+              <a href="{{ url_for('teacher_dashboard_bp.download_report',
+                                   scope='student:' ~ s.TRNumber,
+                                   fmt='pdf') }}"
                  class="btn btn-sm btn-outline-primary shadow-sm">
                  ⬇️ PDF
               </a>

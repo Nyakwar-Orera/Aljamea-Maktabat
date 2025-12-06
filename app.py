@@ -67,14 +67,26 @@ def create_app():
         sorted=sorted,
     )
 
+    # -------------------------
     # Register blueprints
+    # -------------------------
+
+    # 🔐 Auth / login at root "/"
+    app.register_blueprint(auth_bp)  # <-- no url_prefix here
+
+    # ⚙️ Admin settings
     app.register_blueprint(admin_bp)
-    app.register_blueprint(auth_bp, url_prefix="/")
+
+    # 📊 Dashboards
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
     app.register_blueprint(hod_dashboard_bp, url_prefix="/hod")
     app.register_blueprint(teacher_dashboard_bp, url_prefix="/teacher")
+
+    # 📈 Reports & students
     app.register_blueprint(reports_bp, url_prefix="/reports")
     app.register_blueprint(student_bp, url_prefix="/students")
+
+    # 🔑 Password reset + profile
     app.register_blueprint(password_reset_bp)
     app.register_blueprint(profile_bp, url_prefix="/profile")
 
