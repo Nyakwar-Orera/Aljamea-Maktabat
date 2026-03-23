@@ -2,243 +2,1158 @@
 
 {% block content %}
 {% if not found %}
-  <div class="alert alert-warning">{{ message }}</div>
+<div class="alert alert-warning">{{ message }}</div>
 {% else %}
 
-  <style>
-    /* Bigger, more readable metric badges */
-    .badge-metric {
-      font-size: 0.95rem;
-      padding: 0.45rem 0.75rem;
-      font-weight: 500;
+<!-- Define metrics variable at the top -->
+{% set m = info.get("Metrics", {}) %}
+{% set taqeem = info.get("Taqeem", {}) %}
+
+<style>
+  :root {
+    /* Premium Color Palette (HSL) */
+    --primary-h: 210;
+    --primary-s: 50%;
+    --primary-l: 25%;
+    --primary: hsl(var(--primary-h), var(--primary-s), var(--primary-l));
+    --primary-light: hsl(var(--primary-h), var(--primary-s), 45%);
+    --primary-dark: hsl(var(--primary-h), var(--primary-s), 15%);
+
+    --secondary-h: 200;
+    --secondary: hsl(var(--secondary-h), 70%, 50%);
+
+    --accent-h: 280;
+    --accent: hsl(var(--accent-h), 60%, 50%);
+
+    --success-h: 150;
+    --success: hsl(var(--success-h), 65%, 40%);
+
+    --warning-h: 35;
+    --warning: hsl(var(--warning-h), 90%, 50%);
+
+    --danger-h: 0;
+    --danger: hsl(var(--danger-h), 80%, 50%);
+
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-border: rgba(255, 255, 255, 0.3);
+    --card-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  }
+
+  /* Animations */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
     }
 
-    /* Purple badge for Mustawā al-Maṭlūb */
-    .badge-mustawa {
-      background-color: #6f42c1;
-      color: #fff;
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .fade-in-up {
+    animation: fadeInUp 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+  }
+
+  /* Profile Header Glassmorphism */
+  .profile-header-modern {
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+    color: white;
+    border-radius: 20px;
+    padding: 2.5rem;
+    margin-bottom: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .profile-header-modern::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 70% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .student-avatar {
+    width: 170px;
+    height: 170px;
+    border: 4px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    border-radius: 50%;
+    object-fit: cover;
+    transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+
+  .student-avatar:hover {
+    transform: scale(1.05) rotate(2deg);
+  }
+
+  .student-name-display {
+    font-size: 2.8rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Modern Card System */
+  .modern-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    transition: all 0.3s ease;
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+
+  .modern-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+  }
+
+  .modern-card-header {
+    background: linear-gradient(90deg, var(--primary) 0%, var(--primary-light) 100%);
+    color: white;
+    padding: 1.25rem 1.75rem;
+    font-weight: 700;
+    border-bottom: none;
+    letter-spacing: 0.5px;
+  }
+
+  /* Engagement & Stats */
+  .stat-item {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    padding: 1.25rem;
+    transition: all 0.2s;
+  }
+
+  .stat-item:hover {
+    background: white;
+    border-color: var(--secondary);
+    box-shadow: 0 4px 12px rgba(0, 161, 255, 0.1);
+  }
+
+  .stat-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary-dark));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* Export Action Buttons */
+  .btn-export {
+    border-radius: 8px;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .btn-export:active {
+    transform: scale(0.95);
+  }
+
+  .btn-export-pdf {
+    background: #e74c3c;
+    color: white;
+  }
+
+  .btn-export-excel {
+    background: #27ae60;
+    color: white;
+  }
+
+  .btn-export-csv {
+    background: #34495e;
+    color: white;
+  }
+
+  /* Info Badges */
+  .info-badge {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    padding: 0.6rem 1.2rem;
+    border-radius: 30px;
+    font-weight: 500;
+    backdrop-filter: blur(5px);
+  }
+
+  .info-grid-modern {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.5rem;
+    margin-top: 2rem;
+    padding: 2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .info-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    font-weight: 700;
+    opacity: 0.7;
+    color: #e0e0e0;
+  }
+
+  .info-value {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: white;
+  }
+
+  /* Table Customization */
+  .table {
+    --bs-table-bg: transparent;
+    --bs-table-hover-bg: rgba(var(--primary-h), 50%, 98%, 0.5);
+    margin-bottom: 0;
+  }
+
+  .table thead th {
+    background: rgba(var(--primary-h), 30%, 95%);
+    color: var(--primary-dark);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    border: none;
+    padding: 1rem;
+  }
+
+  .table tbody td {
+    padding: 1rem;
+    vertical-align: middle;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+    font-size: 0.95rem;
+  }
+
+  /* Status Badges */
+  .status-badge {
+    padding: 0.4rem 1rem;
+    border-radius: 30px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .status-active {
+    background: #e3f2fd;
+    color: #1976d2;
+  }
+
+  .status-returned {
+    background: #e8f5e9;
+    color: #2e7d32;
+  }
+
+  .status-overdue {
+    background: #ffebee;
+    color: #c62828;
+  }
+
+  /* Accordion Customization */
+  .accordion-item {
+    border: none !important;
+    background: transparent !important;
+    margin-bottom: 1rem;
+  }
+
+  .accordion-button {
+    border-radius: 12px !important;
+    background: white !important;
+    color: var(--primary-dark) !important;
+    font-weight: 600;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    padding: 1.25rem;
+  }
+
+  .accordion-button:not(.collapsed) {
+    background: var(--primary-light) !important;
+    color: white !important;
+    box-shadow: 0 4px 15px rgba(var(--primary-h), 50%, 50%, 0.2);
+  }
+
+  .accordion-button::after {
+    filter: grayscale(1) invert(1);
+  }
+
+  .accordion-body {
+    background: rgba(255, 255, 255, 0.4);
+    border-radius: 0 0 12px 12px;
+    margin-top: 2px;
+  }
+
+  /* Progress Bars */
+  .progress {
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    overflow: hidden;
+    height: 10px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .progress-bar {
+    transition: width 1s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  /* Book Links */
+  .book-link {
+    color: var(--primary-light);
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .book-link:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  .arabic-title {
+    font-family: "Amiri", serif;
+    font-size: 1.1rem;
+    direction: rtl;
+  }
+
+  /* KPI Specifics */
+  .taqeem-section {
+    position: relative;
+    padding-left: 1rem;
+  }
+
+  .section-title {
+    color: var(--primary);
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .issue-type-card {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
+    padding: 1.5rem;
+    transition: transform 0.2s;
+  }
+
+  .issue-type-card:hover {
+    transform: scale(1.02);
+    border-color: var(--primary-light);
+  }
+
+  .review-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+  }
+
+  .review-item {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .review-marks {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #198754;
+  }
+
+  .review-source {
+    font-size: 0.85rem;
+    color: #6c757d;
+  }
+
+  /* Export Buttons */
+  .export-buttons {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  .export-btn {
+    flex: 1;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .profile-header-modern {
+      padding: 1.5rem;
     }
 
-    /* Alkanz font for Arabic titles */
-    .arabic-text {
-      font-family: 'Alkanz', sans-serif;
-      text-align: center;
+    .student-name-display {
+      font-size: 2rem;
     }
-  </style>
 
-  <!-- Main Heading -->
-  <div class="mb-4">
-    <h3 class="text-primary">📚 Library Report</h3>
-    <h5 class="text-secondary">
-      {{ info.FullName or info.cardnumber or "Unnamed Student" }}
-    </h5>
-    {% set m = info["Metrics"] %}
-    <p class="text-muted small mb-0">
-      Academic Year: <strong>{{ m["AYPeriodLabel"] }}</strong>
-    </p>
-  </div>
+    .student-avatar {
+      width: 120px;
+      height: 120px;
+    }
 
-  <div class="row mb-4">
+    .info-grid-modern {
+      grid-template-columns: 1fr;
+      padding: 1rem;
+    }
+
+    .engagement-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .book-issue-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .export-buttons {
+      flex-direction: column;
+    }
+
+    .issue-type-card {
+      margin-bottom: 1rem;
+    }
+
+    .marks-value {
+      font-size: 1.1rem;
+    }
+
+    .overall-value {
+      font-size: 2.5rem;
+    }
+  }
+
+  /* Teacher Cards */
+  .teacher-card {
+    background: rgba(var(--primary-h), 10%, 98%);
+    border-left: 5px solid var(--primary-light);
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+  }
+
+  .teacher-card:hover {
+    transform: translateX(5px);
+    background: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Status and Grades */
+  .grade-value {
+    font-weight: 800;
+    font-size: 1.2rem;
+  }
+
+  .grade-excellent {
+    color: var(--success);
+  }
+
+  .grade-good {
+    color: var(--secondary);
+  }
+
+  .grade-average {
+    color: var(--warning);
+  }
+
+  .grade-poor {
+    color: var(--danger);
+  }
+
+  /* Toolbars and Buttons */
+  .btn-lab-time {
+    background: linear-gradient(135deg, #1abc9c 0%, #16a085 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 15px rgba(26, 188, 156, 0.2);
+  }
+
+  .btn-lab-time:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    color: white;
+  }
+
+  .ls-1 {
+    letter-spacing: 1px;
+  }
+
+  /* Author List */
+  .author-item {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: background-color 0.2s;
+  }
+
+  .author-item:hover {
+    background-color: rgba(var(--primary-h), 50%, 98%, 0.8);
+  }
+
+  .author-name {
+    margin-bottom: 0.5rem;
+    font-weight: 700;
+  }
+
+  .author-link {
+    color: var(--primary-light);
+    text-decoration: none;
+    transition: color 0.1s;
+  }
+
+  .author-link:hover {
+    color: var(--primary);
+  }
+
+  .author-count {
+    font-size: 0.85rem;
+    color: var(--primary-dark);
+    background: rgba(var(--primary-h), 50%, 90%);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* Arabic Typography */
+  .arabic-text {
+    font-family: 'Traditional Arabic', serif;
+    direction: rtl;
+    line-height: 1.6;
+  }
+</style>
+
+<!-- PROFILE HEADER - Combined Information -->
+<div class="profile-header-modern fade-in-up">
+  <div class="row align-items-center">
     <!-- Student Photo -->
-    <div class="col-md-3 text-center">
-      <img src="{{ url_for('static', filename=info.Photo) }}"
-           class="img-fluid rounded-circle border shadow-sm"
-           alt="{{ info.FullName or 'Student Photo' }}"
-           style="max-height:180px;">
+    <div class="col-lg-3 text-center mb-4 mb-lg-0">
+      <img src="{{ url_for('static', filename=info.Photo) }}" class="student-avatar rounded-circle"
+        alt="{{ info.FullName or 'Student Photo' }}">
     </div>
 
-    <!-- Student Details -->
-    <div class="col-md-9">
-      <div class="card">
-        <div class="card-header bg-primary text-white">Student Details</div>
-        <div class="card-body p-2">
-          <table class="table table-bordered table-sm mb-0">
-            <!-- Borrower Number / Card Number removed as requested -->
-            <tr><th>Full Name</th><td>{{ info.FullName or "N/A" }}</td></tr>
-            <tr><th>Edu Email</th><td>{{ info.EduEmail or "N/A" }}</td></tr>
-            <tr><th>ITS ID</th><td>{{ info["ITS ID"] or "N/A" }}</td></tr>
-            <tr><th>Class</th><td>{{ info["Class"] or "N/A" }}</td></tr>
-            <tr><th>TR Number</th><td>{{ info["TRNumber"] or "N/A" }}</td></tr>
-            <tr><th>Department</th><td>{{ info["Department"] or "N/A" }}</td></tr>
-            <tr><th>Class Teacher</th><td>{{ info["ClassTeacher"] or "N/A" }}</td></tr>
-          </table>
-        </div>
+    <!-- Student Information -->
+    <div class="col-lg-9">
+      <!-- Name and ID -->
+      <h1 class="student-name-display">
+        {{ info.FullName or "Unnamed Student" }}
+      </h1>
+
+      <div class="student-id-display">
+        <span class="info-badge">
+          <i class="bi bi-person-badge"></i>ITS ID: {{ info["ITS ID"] or "N/A" }}
+        </span>
+        <span class="info-badge">
+          <i class="bi bi-credit-card"></i>TR Number: {{ info.TRNumber or "N/A" }}
+        </span>
+        <span class="info-badge">
+          <i class="bi bi-building"></i>Darajah: {{ info.Darajah or "N/A" }}
+        </span>
+        {% if info.campus_branch %}
+        <span class="info-badge bg-info text-dark">
+          <i class="bi bi-geo-alt-fill me-1"></i>{{ info.campus_branch }}
+        </span>
+        {% endif %}
+        {% if taqeem and taqeem.total is defined and taqeem.total > 0 %}
+        <span class="info-badge bg-success text-white border-0 shadow-sm">
+          <i class="bi bi-star-fill me-1"></i>Taqeem: {{ taqeem.total }}/100
+        </span>
+        {% set t = taqeem.total|float %}
+        {% if t >= 90 %}
+        <span class="info-badge" style="background: linear-gradient(45deg, #ffd700, #f39c12); color: #fff; border: none; box-shadow: 0 4px 15px rgba(243, 156, 18, 0.4);">
+          <i class="bi bi-award-fill me-1"></i> Elite Scholar
+        </span>
+        {% elif t >= 75 %}
+        <span class="info-badge" style="background: linear-gradient(45deg, #bdc3c7, #95a5a6); color: #fff; border: none; box-shadow: 0 4px 15px rgba(149, 165, 166, 0.4);">
+          <i class="bi bi-shield-fill-check me-1"></i> Advanced Reader
+        </span>
+        {% else %}
+        <span class="info-badge" style="background: linear-gradient(45deg, #cd7f32, #d35400); color: #fff; border: none; box-shadow: 0 4px 15px rgba(211, 84, 0, 0.4);">
+          <i class="bi bi-book-half me-1"></i> Active Learner
+        </span>
+        {% endif %}
+        {% endif %}
       </div>
 
-      <!-- Engagement Metrics -->
-      <div class="card mt-3">
-        <div class="card-header bg-light">📈 Engagement Metrics</div>
-        <div class="card-body p-2">
-          {% set m = info["Metrics"] %}
-          <div class="row g-2">
-            <div class="col-6 col-lg-4">
-              <span class="badge bg-secondary w-100 badge-metric">
-                Lifetime Issues: {{ m["LifetimeIssues"] }}
-              </span>
-            </div>
-            <div class="col-6 col-lg-4">
-              <span class="badge bg-secondary w-100 badge-metric">
-                AY Issues: {{ m["AYIssues"] }}
-              </span>
-            </div>
-            <div class="col-6 col-lg-4">
-              <span class="badge bg-secondary w-100 badge-metric">
-                Active Loans: {{ m["ActiveLoans"] }}
-              </span>
-            </div>
-            <div class="col-6 col-lg-4">
-              <span class="badge bg-danger w-100 badge-metric">
-                Overdue Now: {{ m["OverdueNow"] }}
-              </span>
-            </div>
-            <div class="col-6 col-lg-4">
-              <span class="badge bg-info text-dark w-100 badge-metric">
-                Reservations: {{ m["Reservations"] }}
-              </span>
-            </div>
-            <div class="col-6 col-lg-4">
-              <span class="badge bg-warning text-dark w-100 badge-metric">
-                Outstanding: {{ m["OutstandingBalance"] | float }}
-              </span>
-            </div>
-            <div class="col-6 col-lg-4">
-              <span class="badge bg-success w-100 badge-metric">
-                Fines Paid (Total): {{ m["TotalFinesPaid"] | float }}
-              </span>
-            </div>
-            <div class="col-6 col-lg-4">
-              <span class="badge bg-success w-100 badge-metric">
-                Fines Paid (AY): {{ m["FinesPaidAY"] | float }}
-              </span>
-            </div>
-            <!-- Favourite Authors dropdown -->
-            <div class="col-12 mt-2">
-              {% if m["FavoriteAuthors"] %}
-                <div class="dropdown">
-                  <button class="btn btn-sm btn-outline-secondary dropdown-toggle"
-                          type="button"
-                          id="favAuthorsDropdown"
-                          data-bs-toggle="dropdown"
-                          aria-expanded="false">
-                    Favorite Authors (last 12 months)
-                  </button>
-                  <ul class="dropdown-menu" aria-labelledby="favAuthorsDropdown">
-                    {% for a in m["FavoriteAuthors"] %}
-                      <li><a class="dropdown-item small" href="{{ OPAC_BASE }}/author/{{ a|urlencode }}" target="_blank">{{ a }}</a></li>
-                    {% endfor %}
-                  </ul>
-                </div>
-              {% else %}
-                <small class="text-muted">
-                  Favorite Authors (last 12 months): -
-                </small>
-              {% endif %}
-            </div>
+      <!-- Academic Year -->
+      <div class="mt-3">
+        <span class="academic-year-badge-modern">
+          <i class="bi bi-calendar-week me-2"></i>{{ m.get("AYPeriodLabel", "Academic Year Not Available") }}
+        </span>
+      </div>
+    </div>
+  </div>
 
+  <!-- Detailed Information Grid -->
+  <div class="info-grid-modern mt-4">
+    <div class="info-item">
+      <div class="info-icon">
+        <i class="bi bi-mortarboard"></i>
+      </div>
+      <div class="info-content">
+        <div class="info-label">Darajah</div>
+        <div class="info-value">{{ info.Darajah or "N/A" }}</div>
+      </div>
+    </div>
+
+    <div class="info-item">
+      <div class="info-icon">
+        <i class="bi bi-building"></i>
+      </div>
+      <div class="info-content">
+        <div class="info-label">Marhala</div>
+        <div class="info-value">{{ info.Marhala or "N/A" }}</div>
+      </div>
+    </div>
+
+    <div class="info-item">
+      <div class="info-icon">
+        <i class="bi bi-geo-alt"></i>
+      </div>
+      <div class="info-content">
+        <div class="info-label">Campus Branch</div>
+        <div class="info-value">{{ info.campus_branch or "Global" }}</div>
+      </div>
+    </div>
+
+    <div class="info-item">
+      <div class="info-icon">
+        <i class="bi bi-envelope"></i>
+      </div>
+      <div class="info-content">
+        <div class="info-label">Email</div>
+        <div class="info-value">
+          {% if info.EduEmail %}
+          <a href="mailto:{{ info.EduEmail }}" class="text-white text-decoration-none">
+            {{ info.EduEmail }}
+          </a>
+          {% else %}
+          N/A
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- REMOVED: Card Number Section -->
+  </div>
+</div>
+
+<!-- QUICK ACTIONS TOOLBAR -->
+<div class="row mb-4 fade-in-up" style="animation-delay: 0.1s;">
+  <div class="col-12">
+    <div class="modern-card p-3">
+      <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-lg-between align-items-center">
+        <div class="fw-bold text-muted text-uppercase small ls-1">Quick Actions:</div>
+        <div class="d-flex flex-wrap gap-2">
+          <a id="downloadPdfBtnTop" class="btn btn-primary"
+            href="{{ url_for('students.export_student_pdf', identifier=info.get('TRNumber') or info.get('cardnumber') or info.get('ITS ID') or info.get('borrowernumber')) }}">
+            <i class="bi bi-file-pdf me-2"></i>Download PDF
+          </a>
+          <a href="{{ url_for('students.export_student_excel', identifier=info.get('TRNumber') or info.get('cardnumber') or info.get('ITS ID') or info.get('borrowernumber')) }}"
+            class="btn btn-success">
+            <i class="bi bi-file-earmark-excel me-2"></i>Export Excel
+          </a>
+          <!-- Link to Lab Usage Dashboard (External) -->
+          <a href="https://students-report-analyzer-3.onrender.com/" target="_blank" class="btn btn-lab-time">
+            <i class="bi bi-clock-history me-2"></i>Lab Time Management
+          </a>
+          {% if opac_base_url %}
+          <a href="{{ opac_base_url }}/cgi-bin/koha/opac-user.pl" class="btn btn-outline-primary" target="_blank">
+            <i class="bi bi-box-arrow-up-right me-2"></i>OPAC
+          </a>
+          {% endif %}
+          <button class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#contactModal">
+            <i class="bi bi-chat-dots me-2"></i>Contact
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LIBRARY TAQEEM DASHBOARD - Elite Professional Design -->
+<style>
+  /* Conic Gradient Radial Chart */
+  .taqeem-radial-chart {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: conic-gradient(
+      var(--primary) calc(var(--books-pct) * 1%), 
+      var(--success) 0 calc((var(--books-pct) + var(--reviews-pct)) * 1%), 
+      var(--warning) 0 calc((var(--books-pct) + var(--reviews-pct) + var(--progs-pct)) * 1%), 
+      #e9ecef 0
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  }
+  .taqeem-radial-inner {
+    width: 150px;
+    height: 150px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 5px 15px rgba(0,0,0,0.05);
+  }
+  .taqeem-radial-inner h2 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin: 0;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--primary-dark), var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .taqeem-breakdown-card {
+    background: white;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.05);
+    height: 100%;
+    transition: transform 0.2s;
+  }
+  .taqeem-breakdown-card:hover { transform: translateY(-3px); }
+  .t-bar-bg { background-color: rgba(0,0,0,0.05); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 8px;}
+  .t-bar-fill { height: 100%; border-radius: 4px; }
+  
+  /* Print Reporting Mode */
+  @media print {
+    body { background: white !important; }
+    .navbar, .btn, .fade-in-up { animation: none !important; opacity: 1 !important; }
+    .profile-header-modern { background: white !important; color: black !important; border: 1px solid #ccc; box-shadow: none !important; padding: 1rem !important; }
+    .sidebar, .export-buttons, .quick-actions-toolbar { display: none !important; }
+    .student-name-display, .info-value, h2 { background: none !important; -webkit-text-fill-color: black !important; color: black !important; }
+    .modern-card, .taqeem-breakdown-card { border: 1px solid #ccc !important; box-shadow: none !important; background: white !important; }
+    .bg-success, .bg-primary, .bg-warning { background-color: #eee !important; color: black !important; border: 1px solid #aaa !important; }
+  }
+</style>
+
+<div class="row mb-5 fade-in-up" style="animation-delay: 0.2s;">
+  <div class="col-12">
+    <div class="modern-card p-4">
+      <h4 class="fw-bold mb-4 text-dark"><i class="bi bi-pie-chart-fill me-2 text-primary"></i>Taqeem Academic Breakdown</h4>
+      
+      {% set t_total = taqeem.total if taqeem and taqeem.total is defined else 0 %}
+      {% set book_marks = taqeem.book_issue.total if taqeem and taqeem.book_issue and taqeem.book_issue.total is defined else 0 %}
+      {% set review_marks = taqeem.book_review.marks if taqeem and taqeem.book_review and taqeem.book_review.marks is defined else 0 %}
+      {% set prog_marks = taqeem.program_attendance if taqeem and taqeem.program_attendance is defined else 0 %}
+      
+      <div class="row align-items-center">
+        <!-- Radial Chart Column -->
+        <div class="col-lg-4 d-flex flex-column align-items-center justify-content-center mb-4 mb-lg-0 border-end border-light">
+          <div class="taqeem-radial-chart" style="--books-pct: {{ book_marks }}; --reviews-pct: {{ review_marks }}; --progs-pct: {{ prog_marks }};">
+            <div class="taqeem-radial-inner">
+              <h2>{{ t_total }}<span style="font-size: 1.2rem; filter: opacity(0.5); -webkit-text-fill-color: initial; color: #555;">%</span></h2>
+              <small class="text-muted fw-bold text-uppercase mt-1" style="letter-spacing: 1px;">Overall Standing</small>
+            </div>
+          </div>
+          {% if taqeem and taqeem.last_updated %}
+            <small class="text-muted mt-4"><i class="bi bi-clock-history me-1"></i>Last recalculation: {{ taqeem.last_updated }}</small>
+          {% endif %}
+        </div>
+
+        <!-- Breakdown Grid Column -->
+        <div class="col-lg-8">
+          <div class="row g-3">
+              <div class="col-md-6">
+                {% set max_book_marks = taqeem.book_issue.max_marks if taqeem and taqeem.book_issue and taqeem.book_issue.max_marks else 40 %}
+                <div class="taqeem-breakdown-card border-top border-4 border-primary">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                     <span class="fw-bold text-primary"><i class="bi bi-book-half me-2"></i>Books Issued</span>
+                     <span class="fs-5 fw-bold">{{ book_marks }}/{{ max_book_marks }}</span>
+                  </div>
+                 <div class="d-flex justify-content-between text-muted small">
+                   <span>Digital: {{ taqeem.book_issue.digital.marks if taqeem and taqeem.book_issue and taqeem.book_issue.digital else 0 }} marks</span>
+                   <span>Physical: {{ taqeem.book_issue.physical.marks if taqeem and taqeem.book_issue and taqeem.book_issue.physical else 0 }} marks</span>
+                 </div>
+                  <div class="t-bar-bg"><div class="t-bar-fill bg-primary" style="width: {{ (book_marks/max_book_marks) * 100 if max_book_marks > 0 else 0 }}%"></div></div>
+               </div>
+             </div>
+
+              <div class="col-md-6">
+                {% set max_review_marks = taqeem.book_review.max_marks if taqeem and taqeem.book_review and taqeem.book_review.max_marks else 30 %}
+                <div class="taqeem-breakdown-card border-top border-4 border-success">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                     <span class="fw-bold text-success"><i class="bi bi-pencil-square me-2"></i>Book Reviews</span>
+                     <span class="fs-5 fw-bold">{{ review_marks }}/{{ max_review_marks }}</span>
+                  </div>
+                 <div class="text-muted small">Quality based submissions & appraisals</div>
+                 <div class="t-bar-bg mt-4"><div class="t-bar-fill bg-success" style="width: {{ (review_marks/max_review_marks) * 100 if max_review_marks > 0 else 0 }}%"></div></div>
+               </div>
+             </div>
+
+              <div class="col-md-12">
+                {% set max_prog_marks = (100 - max_book_marks - max_review_marks) if (max_book_marks is defined and max_review_marks is defined) else 30 %}
+                <div class="taqeem-breakdown-card border-top border-4 border-warning">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                     <span class="fw-bold text-warning text-dark"><i class="bi bi-calendar-star me-2"></i>Custom Library Programs</span>
+                     <span class="fs-5 fw-bold">{{ prog_marks }}/{{ max_prog_marks }}</span>
+                  </div>
+                 <div class="text-muted small">Library event attendance and active participation</div>
+                 <div class="t-bar-bg mt-4"><div class="t-bar-fill bg-warning" style="width: {{ (prog_marks/max_prog_marks) * 100 if max_prog_marks > 0 else 0 }}%"></div></div>
+               </div>
+             </div>
           </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Borrowed Books Accordion -->
-  <div class="card mb-3">
-    <div class="card-header bg-primary text-white">📚 Borrowed Books (Academic Year)</div>
-    <div class="card-body p-2">
-      {% if info["BorrowedBooksGrouped"] %}
+<!-- ENGAGEMENT METRICS SECTION - Cards Side by Side -->
+<div class="row mb-4 fade-in-up" style="animation-delay: 300ms;">
+  <div class="col-12">
+    <div class="modern-card">
+      <div class="modern-card-header">
+        <i class="bi bi-graph-up"></i>Engagement Metrics
+      </div>
+      <div class="card-body">
+        <div class="engagement-grid">
+          <!-- Library Usage Card -->
+          <div class="modern-card engagement-card">
+            <div class="modern-card-header bg-primary">
+              <i class="bi bi-book"></i>Library Usage
+            </div>
+            <div class="card-body">
+              <p class="card-text mb-3">Track your library engagement and reading progress throughout the academic year.
+              </p>
+
+              <div class="engagement-stats">
+                <div class="stat-item">
+                  <span class="stat-value text-primary">{{ m.get("AYIssues", 0) }}</span>
+                  <span class="stat-label">AY Issues</span>
+                </div>
+              </div>
+
+              <!-- Additional Metrics -->
+              <div class="mt-3">
+                <div class="row">
+                  <div class="col-12">
+                    <small class="text-muted">Teacher Count</small>
+                    <div class="fw-bold">{{ m.get("TeacherCount", 0) }} Assigned</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <div class="d-flex justify-content-between mb-1">
+                  <small>Reading Progress</small>
+                  <small>
+                    {% if info["BorrowedBooksGrouped"] and info["BorrowedBooksGrouped"]|length > 0 %}
+                    {{ info["BorrowedBooksGrouped"]|length }} active months
+                    {% else %}
+                    0 active months
+                    {% endif %}
+                  </small>
+                </div>
+                <div class="reading-progress bg-light">
+                  <div class="reading-progress-bar bg-primary" {% if info["BorrowedBooksGrouped"] and
+                    info["BorrowedBooksGrouped"]|length> 0 %}
+                    style="width: {{ ((info['BorrowedBooksGrouped']|length / 9) * 100)|round|int }}%"
+                    {% else %}
+                    style="width: 0%"
+                    {% endif %}>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Financial Metrics Card -->
+          <div class="modern-card engagement-card">
+            <div class="modern-card-header bg-warning text-dark">
+              <i class="bi bi-cash-coin"></i>Financial Overview
+            </div>
+            <div class="card-body">
+              <p class="card-text mb-3">View your financial status including fees, payments, and outstanding balances.
+              </p>
+
+              <div class="engagement-stats">
+                <div class="stat-item">
+                  <span class="stat-value text-warning">{{ "%.2f"|format(m.get("OutstandingBalance", 0)) }}</span>
+                  <span class="stat-label">Outstanding</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value text-success">{{ "%.2f"|format(m.get("TotalFeesPaid", 0)) }}</span>
+                  <span class="stat-label">Total Paid</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value text-success">{{ "%.2f"|format(m.get("FeesPaidAY", 0)) }}</span>
+                  <span class="stat-label">AY Paid</span>
+                </div>
+                <div class="stat-item">
+                  <span class="stat-value text-info">{{ info.get("FeesList", [])|length }}</span>
+                  <span class="stat-label">Transactions</span>
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <small>Payment Status</small>
+                  <span class="badge {{ 'bg-danger' if m.get('OutstandingBalance', 0) > 0 else 'bg-success' }}">
+                    {{ 'Outstanding' if m.get('OutstandingBalance', 0) > 0 else 'Clear' }}
+                  </span>
+                </div>
+                {% if m.get('LastPaymentDate') and m.get('LastPaymentDate') != '-' %}
+                <div class="mt-2">
+                  <small class="text-muted">
+                    <i class="bi bi-calendar-check me-1"></i>
+                    Last Payment: {{ m.get("LastPaymentDate") }}
+                  </small>
+                </div>
+                {% endif %}
+                {% if m.get('LastIssueDate') and m.get('LastIssueDate') != '-' %}
+                <div class="mt-1">
+                  <small class="text-muted">
+                    <i class="bi bi-book me-1"></i>
+                    Last Issue: {{ m.get("LastIssueDate") }}
+                  </small>
+                </div>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- Reading Goals Card -->
+          <div class="modern-card engagement-card">
+            <div class="modern-card-header bg-purple text-white"
+              style="background: linear-gradient(135deg, #6f42c1 0%, #59359e 100%);">
+              <i class="bi bi-bookmark-star"></i>Reading Goals
+            </div>
+            <div class="card-body">
+              <p class="card-text mb-3">Track your reading goals and Mustawā al-Maṭlūb (recommended reading level).</p>
+
+              <div class="text-center mb-3">
+                <div class="display-4 fw-bold text-purple">{{ m.get("MaxBooksAllowed", "N/A") }}</div>
+                <div class="small text-muted">Monthly Recommended Books</div>
+                <div class="small text-muted mt-1">for Darajah {{ info.Darajah or "N/A" }}</div>
+              </div>
+
+              {% if info["BorrowedBooksGrouped"] and info["BorrowedBooksGrouped"]|length > 0 %}
+              <div class="mt-3">
+                <h6 class="mb-2">Recent Performance</h6>
+                {% for month, books in info["BorrowedBooksGrouped"][:3] %}
+                {% set ms = info["MonthStats"].get(month) if info["MonthStats"] else None %}
+                {% if ms %}
+                <div class="mb-2">
+                  <div class="d-flex justify-content-between mb-1">
+                    <small>{{ month[:15] }}...</small>
+                    <small class="{{ 'text-success' if ms.count >= (ms.target or 0) else 'text-warning' }}">
+                      {{ ms.count }} / {{ ms.target or 0 }}
+                    </small>
+                  </div>
+                  <div class="progress" style="height: 6px;">
+                    {% if ms.target and ms.target > 0 %}
+                    {% set percentage = (ms.count / ms.target * 100)|round|int %}
+                    <div class="progress-bar {{ 'bg-success' if percentage >= 100 else 'bg-warning' }} dynamic-width"
+                      data-width="{{ width_pct }}%">
+                    </div>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+              </div>
+              {% endif %}
+
+              <!-- Favorite Authors Preview -->
+              {% if m.get("FavoriteAuthors") and m.get("FavoriteAuthors")|length > 0 %}
+              <div class="mt-3">
+                <h6 class="mb-2">Top Favorite Authors</h6>
+                <div class="small text-muted">
+                  {% for author in m.get("FavoriteAuthors")[:3] %}
+                  <span class="badge bg-light text-dark me-1 mb-1">{{ author }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Teachers Information Moved to Bottom -->
+
+<!-- BORROWED BOOKS SECTION - SECOND POSITION -->
+<div class="row mb-4 fade-in-up" style="animation-delay: 0.5s;">
+  <div class="col-12">
+    <div class="modern-card">
+      <div class="modern-card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-book"></i>Borrowed Books (Academic Year)</span>
+        <div class="export-buttons">
+          <a href="{{ url_for('students.export_student_csv', identifier=(info['TRNumber'] or info.cardnumber or info['ITS ID'] or info.borrowernumber)) }}"
+            class="btn btn-sm btn-export export-btn">
+            <i class="bi bi-file-earmark-excel me-1"></i>Export All CSV
+          </a>
+          <a id="downloadPdfBtn" class="btn btn-sm btn-danger export-btn"
+            href="{{ url_for('students.export_student_pdf', identifier=(info['TRNumber'] or info.cardnumber or info['ITS ID'] or info.borrowernumber)) }}">
+            <i class="bi bi-file-pdf me-1"></i>Export PDF
+          </a>
+          <a href="{{ url_for('students.export_student_excel', identifier=(info['TRNumber'] or info.cardnumber or info['ITS ID'] or info.borrowernumber)) }}"
+            class="btn btn-sm btn-success export-btn">
+            <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+          </a>
+        </div>
+      </div>
+      <div class="card-body p-0">
+        {% if info["BorrowedBooksGrouped"] %}
         <div class="accordion" id="borrowedBooksAccordion">
           {% for month, books in info["BorrowedBooksGrouped"] %}
           {% set ms = info["MonthStats"].get(month) if info["MonthStats"] else None %}
-          <div class="accordion-item">
+          <div class="accordion-item border-0">
             <h2 class="accordion-header" id="heading{{ loop.index }}">
-              <button class="accordion-button {{ 'collapsed' if not loop.first }}"
-                      type="button"
-                      data-bs-toggle="collapse"
-                      data-bs-target="#collapse{{ loop.index }}"
-                      aria-expanded="{{ 'true' if loop.first else 'false' }}"
-                      aria-controls="collapse{{ loop.index }}">
-                📅 {{ month }} ({{ books|length }} books)
+              <button class="accordion-button {{ 'collapsed' if not loop.first }} bg-light" type="button"
+                data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}"
+                aria-expanded="{{ 'true' if loop.first else 'false' }}" aria-controls="collapse{{ loop.index }}">
+                <div class="d-flex justify-content-between align-items-center w-100">
+                  <div>
+                    <i class="bi bi-calendar-month me-2"></i>
+                    <strong>{{ month }}</strong>
+                    <span class="badge bg-secondary ms-2">{{ books|length }} books</span>
+                  </div>
 
-                {% if ms and ms.target %}
-                  <!-- Status vs Mustawā al-Maṭlūb -->
-                  <span class="ms-2 badge badge-metric
-                              {% if ms.reco_status == 'meets' %}bg-success
-                              {% elif ms.reco_status == 'below' %}bg-danger
-                              {% else %}bg-secondary{% endif %}">
-                    {{ ms.count }} / {{ ms.target }} books this month
-                  </span>
+                  <div class="d-flex align-items-center">
+                    {% if ms and ms.target %}
+                    <!-- Status vs Mustawā al-Maṭlūb -->
+                    <span
+                      class="badge {{ 'bg-success' if ms.reco_status == 'meets' else 'bg-danger' if ms.reco_status == 'below' else 'bg-secondary' }} me-2">
+                      {{ ms.count }} / {{ ms.target }}
+                    </span>
 
-                  <!-- Mustawa badge -->
-                  <span class="ms-2 badge badge-metric badge-mustawa">
-                    Mustawā al-Maṭlūb: {{ ms.target }} books Monthly
-                  </span>
-                {% elif ms %}
-                  <!-- Fallback if no target configured -->
-                  <span class="ms-2 badge badge-metric bg-secondary">
-                    {{ ms.count }} books this month
-                  </span>
-                {% endif %}
+                    <!-- Mustawa badge -->
+                    <span class="badge badge-mustawa me-2">
+                      <i class="bi bi-bookmark-star me-1"></i>Mustawā: {{ ms.target }}
+                    </span>
+                    {% elif ms %}
+                    <span class="badge bg-secondary me-2">
+                      {{ ms.count }} books
+                    </span>
+                    {% endif %}
+
+                    <!-- Export Button for this month -->
+                    <div class="d-flex gap-2">
+                      <a href="{{ url_for('students.export_monthly_csv', identifier=info.get('TRNumber') or info.get('cardnumber') or info.get('ITS ID') or info.get('borrowernumber'), month_label=month) }}"
+                        class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-file-earmark-text me-1"></i>CSV
+                      </a>
+
+                      <a href="{{ url_for('students.export_monthly_landscape_report', identifier=info.get('TRNumber') or info.get('cardnumber') or info.get('ITS ID') or info.get('borrowernumber'), month_label=month) }}"
+                        class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-file-pdf me-1"></i>PDF
+                      </a>
+
+                      <a href="{{ url_for('students.export_month_excel', identifier=info.get('TRNumber') or info.get('cardnumber') or info.get('ITS ID') or info.get('borrowernumber'), month_label=month) }}"
+                        class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-file-earmark-excel me-1"></i>Excel
+                      </a>
+                    </div>
+                  </div>
+                </div>
               </button>
             </h2>
-            <div id="collapse{{ loop.index }}"
-                 class="accordion-collapse collapse {{ 'show' if loop.first else '' }}"
-                 aria-labelledby="heading{{ loop.index }}"
-                 data-bs-parent="#borrowedBooksAccordion">
-              <div class="accordion-body">
-
+            <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {{ 'show' if loop.first else '' }}"
+              aria-labelledby="heading{{ loop.index }}" data-bs-parent="#borrowedBooksAccordion">
+              <div class="accordion-body p-3">
                 {% if ms %}
-                  <div class="alert alert-
-                       {% if ms.reco_status == 'meets' %}success
-                       {% elif ms.reco_status == 'below' %}warning
-                       {% else %}secondary{% endif %}
-                       mb-2 py-2 small">
-                    {{ ms.reco_text }}
-                  </div>
+                <div
+                  class="alert alert-{{ 'success' if ms.reco_status == 'meets' else 'warning' if ms.reco_status == 'below' else 'secondary' }} mb-3">
+                  <i class="bi bi-info-circle me-2"></i>
+                  {{ ms.reco_text }}
+                </div>
                 {% endif %}
 
                 <div class="table-responsive">
-                  <table class="table table-striped table-sm mb-0">
-                    <thead>
+                  <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
                       <tr>
-                        <th>Title </th>
+                        <th>Title</th>
                         <th>Collection</th>
                         <th>Language</th>
-                        <th>Date Issued (Hijri)</th>
-                        <th>Due Date (Hijri)</th>
-                        <th>Returned?</th>
-                        <th>Overdue?</th>
+                        <th>Date Issued</th>
+                        <th>Due Date</th>
+                        <th>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {% for b in books %}
                       <tr>
                         <td>
-                          {% if opac_base_url and b.biblionumber %}
-                            <a href="{{ opac_base_url }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ b.biblionumber }}"
-                               target="_blank"
-                               class="link-primary text-decoration-none">
-                              {{ b.title or "N/A" }}
-                            </a>
+                          {% set book_title = b.title or "N/A" %}
+                          {% if b.opac_url %}
+                          <a href="{{ b.opac_url }}" target="_blank"
+                            class="book-link {{ 'arabic-title' if b.language and 'ar' in (b.language or '')|lower else 'english-title' }}">
+                            {{ book_title }}
+                          </a>
                           {% else %}
-                            {{ b.title or "N/A" }}
+                          <span
+                            class="{{ 'arabic-title' if b.language and 'ar' in (b.language or '')|lower else 'english-title' }}">
+                            {{ book_title }}
+                          </span>
                           {% endif %}
                         </td>
                         <td>{{ b.collection or "-" }}</td>
-                        <td>{{ b.language or "-" }}</td>
-                        <td>{{ b._issued_hijri or "N/A" }}</td>
-                        <td>{{ b._due_hijri or "N/A" }}</td>
                         <td>
-                          {% if b.returned %}
-                            <span class="text-success">✅ Yes</span>
+                          {% if b.language and 'ar' in b.language|lower %}
+                          <span class="badge bg-info text-dark">Arabic</span>
+                          {% elif b.language and 'eng' in b.language|lower %}
+                          <span class="badge bg-light text-dark border">English</span>
                           {% else %}
-                            <span class="text-danger">❌ No</span>
+                          {{ b.language or "-" }}
+                          {% endif %}
+                        </td>
+                        <td>{{ b._issued_hijri or "N/A" }}</td>
+                        <td>
+                          {{ b._due_hijri or "N/A" }}
+                          {% if b.overdue %}
+                          <br><small class="text-danger">(Overdue)</small>
                           {% endif %}
                         </td>
                         <td>
-                          {% if b.overdue %}
-                            <span class="badge bg-danger">Overdue</span>
+                          {% if b.returned %}
+                          <span class="status-badge status-active">Returned</span>
+                          {% elif b.overdue %}
+                          <span class="status-badge status-overdue">Overdue</span>
                           {% else %}
-                            <span class="badge bg-success">On Time</span>
+                          <span class="status-badge status-pending">Active</span>
                           {% endif %}
                         </td>
                       </tr>
@@ -247,69 +1162,436 @@
                   </table>
                 </div>
 
+                <!-- Book Reviews for this Month -->
+                {% set month_reviews = info.get("BookReviewsByMonth", {}).get(month, []) %}
+                {% if month_reviews %}
+                <div class="book-reviews-section mt-4">
+                  <h6 class="mb-3">
+                    <i class="bi bi-pencil-square me-2"></i>Book Reviews for {{ month }}
+                    <span class="badge bg-success ms-2">{{ month_reviews|length }} reviews</span>
+                  </h6>
+
+                  <div class="row">
+                    {% for review in month_reviews %}
+                    <div class="col-md-6 mb-3">
+                      <div class="review-item">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                          <div class="review-marks">
+                            <i class="bi bi-star-fill me-1"></i>{{ review.marks }} marks
+                          </div>
+                          <div class="review-source">
+                            <small>Source: {{ review.source or 'Unknown' }}</small>
+                          </div>
+                        </div>
+                        {% if review.remarks %}
+                        <p class="mb-1"><strong>Remarks:</strong> {{ review.remarks }}</p>
+                        {% endif %}
+                        <div class="small text-muted">
+                          <i class="bi bi-calendar me-1"></i>Updated: {{ review.uploaded_at if review.uploaded_at else
+                          review.updated_at }}
+                        </div>
+                      </div>
+                    </div>
+                    {% endfor %}
+                  </div>
+                </div>
+                {% endif %}
               </div>
             </div>
           </div>
           {% endfor %}
         </div>
-      {% else %}
-        <p class="text-muted mb-0">No borrowed books found in this Academic Year.</p>
-      {% endif %}
+        {% else %}
+        <div class="p-4 text-center">
+          <i class="bi bi-book display-4 text-muted mb-3"></i>
+          <p class="text-muted">No borrowed books found in this Academic Year.</p>
+          <a href="{{ opac_base_url }}/cgi-bin/koha/opac-search.pl" class="btn btn-primary mt-2" target="_blank">
+            <i class="bi bi-search me-2"></i>Browse Library Catalog
+          </a>
+        </div>
+        {% endif %}
+      </div>
     </div>
   </div>
+</div>
 
-  <!-- Fines & Payments (AY) -->
-  <div class="card mb-3">
-    <div class="card-header bg-warning text-dark">💰 Fines & Payments (Academic Year)</div>
-    <div class="card-body p-2">
-      {% if info.get("FinesList") %}
+<!-- FEES & PAYMENTS SECTION - FINAL POSITION -->
+<div class="row mb-4 fade-in-up" style="animation-delay: 0.6s;">
+  <div class="col-12">
+    <div class="modern-card">
+      <div class="modern-card-header bg-warning text-dark">
+        <i class="bi bi-cash-coin me-2"></i>Fees & Payments (Academic Year)
+      </div>
+      <div class="card-body p-0">
+        {% if info.get("FeesList") %}
         <div class="table-responsive">
-          <table class="table table-striped table-sm mb-0">
-            <thead>
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
               <tr>
                 <th>Date (Hijri)</th>
                 <th>Amount</th>
                 <th>Description</th>
                 <th>Note</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {% for f in info["FinesList"] %}
+              {% for f in info["FeesList"] %}
               <tr>
                 <td>{{ f.date or "N/A" }}</td>
-                <td>{{ f.amount | float }}</td>
+                <td>
+                  <span class="fw-bold {{ 'text-success' if f.amount < 0 else 'text-danger' }}">
+                    {{ "%.2f"|format(f.amount) }}
+                  </span>
+                </td>
                 <td>{{ f.description or "-" }}</td>
                 <td>{{ f.note or "-" }}</td>
+                <td>
+                  {% if f.amount < 0 %} <span class="badge bg-success">Payment</span>
+                    {% else %}
+                    <span class="badge bg-danger">Charge</span>
+                    {% endif %}
+                </td>
               </tr>
               {% endfor %}
             </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <th colspan="4" class="text-end">Total Outstanding:</th>
+                <th class="text-danger">{{ "%.2f"|format(m.get("OutstandingBalance", 0)) }}</th>
+              </tr>
+              <tr>
+                <th colspan="4" class="text-end">Total Paid (AY):</th>
+                <th class="text-success">{{ "%.2f"|format(m.get("FeesPaidAY", 0)) }}</th>
+              </tr>
+            </tfoot>
           </table>
         </div>
-      {% else %}
-        <p class="text-muted mb-0">No fines or payments found for this Academic Year.</p>
-      {% endif %}
+        {% else %}
+        <div class="p-4 text-center">
+          <i class="bi bi-check-circle display-4 text-success mb-3"></i>
+          <p class="text-muted">No fees or payments found for this Academic Year.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRAM ATTENDANCE HISTORY -->
+<div class="row mb-4 fade-in-up" style="animation-delay: 0.65s;">
+  <div class="col-12">
+    <div class="modern-card">
+      <div class="modern-card-header bg-info text-white">
+        <i class="bi bi-calendar-check me-2"></i>Library Program Attendance (History)
+      </div>
+      <div class="card-body p-0">
+        {% if info.get("ProgramParticipation") %}
+        <div class="table-responsive">
+          <table class="table table-hover table-sm mb-0">
+            <thead class="table-secondary">
+              <tr>
+                <th>Date</th>
+                <th>Program Name</th>
+                <th>Category</th>
+                <th>Venue</th>
+                <th class="text-center">Marks Earned</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in info["ProgramParticipation"] %}
+              <tr>
+                <td>{{ p.date }}</td>
+                <td class="fw-bold">{{ p.title }}</td>
+                <td><span class="badge bg-light text-dark border">{{ p.category or 'General' }}</span></td>
+                <td>{{ p.venue or '-' }}</td>
+                <td class="text-center">
+                  <span class="badge bg-success">{{ "+%.2f"|format(p.marks) if p.marks > 0 else "0.00" }}</span>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot class="table-light">
+              <tr>
+                <th colspan="4" class="text-end text-muted small">Total Attendance Marks:</th>
+                <th class="text-center text-primary fw-bold">
+                  {{ "%.2f"|format(info.get("Taqeem", {}).get("program_attendance", 0)) }}
+                </th>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        {% else %}
+        <div class="p-4 text-center">
+          <i class="bi bi-calendar-x display-4 text-muted mb-3"></i>
+          <p class="text-muted">No program attendance records found for this student.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QUICK ACTIONS & FAVORITE AUTHORS SECTION - AFTER MAIN SECTIONS -->
+<div class="row fade-in-up" style="animation-delay: 0.7s;">
+  <div class="col-lg-6">
+    <!-- Assigned Teachers Card (Moved from top) -->
+    <div class="modern-card mb-4 h-100">
+      <div class="modern-card-header bg-primary text-white">
+        <i class="bi bi-person-badge"></i>Assigned Teachers
+      </div>
+      <div class="card-body">
+        {% if info.Teachers %}
+        <div class="row g-3">
+          {% for teacher in info.Teachers %}
+          <div class="col-12">
+            <div class="teacher-item p-3 border rounded">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <div class="teacher-name text-primary fw-bold">{{ teacher.name }}</div>
+                <span class="badge bg-light text-dark border">{{ teacher.role }}</span>
+              </div>
+              {% if teacher.email %}
+              <div class="teacher-email small">
+                <i class="bi bi-envelope me-2"></i>
+                <a href="mailto:{{ teacher.email }}" class="text-secondary text-decoration-none">{{ teacher.email }}</a>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-person-x display-6 mb-2"></i>
+          <p>No teachers assigned.</p>
+        </div>
+        {% endif %}
+      </div>
     </div>
   </div>
 
-  <!-- PDF Download -->
-  <div class="mt-3">
-    <a id="downloadBtn" class="btn btn-outline-primary"
-       href="{{ url_for('students_bp.export_student_pdf', identifier=(info['TRNumber'] or info.cardnumber or info['ITS ID'] or info.borrowernumber)) }}">
-       ⬇️ Download PDF
-    </a>
-  </div>
-{% endif %}
-{% endblock %}
+  <div class="col-lg-6">
+    <!-- Favorite Authors Card -->
+    {% if info.FavoriteAuthors %}
+    <div class="modern-card mb-4">
+      <div class="modern-card-header bg-success text-white">
+        <i class="bi bi-star-fill"></i>Favorite Authors
+        <span class="badge bg-light text-dark ms-2">{{ info.FavoriteAuthors|length }}</span>
+      </div>
+      <div class="card-body">
+        <div class="dropdown">
+          <button class="btn btn-outline-success w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown"
+            aria-expanded="false">
+            <i class="bi bi-people me-2"></i>View All Favorite Authors ({{ info.FavoriteAuthors|length }})
+          </button>
+          <div class="dropdown-menu w-100 favorite-authors-dropdown" style="max-height: 300px; overflow-y: auto;">
+            {% for author in info.FavoriteAuthors %}
+            <div class="author-item">
+              <div class="author-name">
+                <a href="{{ author.opac_url }}" target="_blank" class="author-link">
+                  <i class="bi bi-person-circle me-2"></i>{{ author.name }}
+                </a>
+              </div>
+              <div class="d-flex justify-content-between align-items-center">
+                <span class="author-count">{{ author.count }} books</span>
+                <small class="text-muted">{{ (author.count / m.get("AYIssues", 1) * 100)|round(1) }}% of
+                  reads</small>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
 
-{% block scripts %}
+        <!-- Author Insights -->
+        <div class="mt-3">
+          <h6 class="mb-2">Reading Insights</h6>
+          <div class="small text-muted">
+            {% set top_author = info.FavoriteAuthors[0] if info.FavoriteAuthors else None %}
+            {% if top_author %}
+            <p class="mb-1">
+              <strong>Top Author:</strong> {{ top_author.name }} ({{ top_author.count }} books)
+            </p>
+            {% endif %}
+            {% if info.FavoriteAuthors|length > 3 %}
+            <p class="mb-1">
+              <strong>Variety:</strong> Reads from {{ info.FavoriteAuthors|length }} different authors
+            </p>
+            {% endif %}
+            <p class="mb-0">
+              <strong>Academic Year:</strong> Currently in {{ m.get("AYPeriodLabel", "Current Year") }}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- JavaScript for Interactive Features -->
 <script>
-document.addEventListener("DOMContentLoaded", function(){
-  const dl = document.getElementById("downloadBtn");
-  if (dl && window.showToast) {
-    dl.addEventListener("click", function(){
-      showToast("Preparing PDF for download...", "info");
-    });
+  // Function to refresh Taqeem data
+  function refreshTaqeem() {
+    const studentUsername = "{{ info['ITS ID'] or info.cardnumber or info.TRNumber }}";
+    if (!studentUsername) {
+      alert('Student username not found');
+      return;
+    }
+
+    // Show loading state
+    const btn = event.target.closest('button') || event.target;
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise spin me-2"></i>Refreshing...';
+    btn.disabled = true;
+
+    // Call the API to refresh Taqeem data
+    window.csrfFetch(`/students/api/marks/update/${studentUsername}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ year: '{{ current_academic_year.replace("H", "") }}' })
+    })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          // Show success message
+          showToast('Taqeem data refreshed successfully!', 'success');
+          // Reload the page after a short delay
+          setTimeout(() => {
+            location.reload();
+          }, 1500);
+        } else {
+          showToast('Error refreshing data: ' + data.message, 'danger');
+        }
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        showToast('Network error occurred', 'danger');
+      })
+      .finally(() => {
+        // Restore button state
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+      });
   }
-});
+
+  // Function to show toast messages
+  function showToast(message, type = 'info') {
+    const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) {
+      createToastContainer();
+    }
+
+    const toastId = 'toast-' + Date.now();
+    const toastHtml = `
+      <div id="${toastId}" class="toast align-items-center text-bg-${type} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+          <div class="toast-body">
+            ${message}
+          </div>
+          <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('toastContainer').innerHTML += toastHtml;
+    const toastElement = document.getElementById(toastId);
+    const toast = new bootstrap.Toast(toastElement, {
+      autohide: true,
+      delay: 3000
+    });
+    toast.show();
+  }
+
+  // Function to create toast container if it doesn't exist
+  function createToastContainer() {
+    const container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container position-fixed top-0 end-0 p-3';
+    document.body.appendChild(container);
+  }
+
+  // Add spinner animation for refresh button
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+  `;
+  document.head.appendChild(style);
+
+  // PDF download progress indicator
+  document.getElementById('downloadPdfBtn')?.addEventListener('click', function (e) {
+    const originalText = this.innerHTML;
+    this.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Generating PDF...';
+    this.disabled = true;
+
+    // Restore button after 5 seconds (in case of error)
+    setTimeout(() => {
+      this.innerHTML = originalText;
+      this.disabled = false;
+    }, 5000);
+  });
+
+  // Auto-expand first accordion item if only one month
+  window.addEventListener('load', function () {
+    const accordionItems = document.querySelectorAll('.accordion-item');
+    if (accordionItems.length === 1) {
+      const firstButton = document.querySelector('.accordion-button');
+      if (firstButton && firstButton.classList.contains('collapsed')) {
+        firstButton.click();
+      }
+    }
+  });
+  // Apply dynamic widths to progress bars (workaround for CSS linter)
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.dynamic-width').forEach(el => {
+      if (el.dataset.width) {
+        el.style.width = el.dataset.width;
+      }
+    });
+  });
 </script>
+
+<!-- Contact Modal -->
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="contactModalLabel">
+          <i class="bi bi-chat-dots me-2"></i>Contact Library Staff
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>For assistance with:</p>
+        <ul>
+          <li>Book issues and returns</li>
+          <li>Taqeem and marks inquiries</li>
+          <li>Fees and payments</li>
+          <li>Library program information</li>
+        </ul>
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          Please contact the Library Administration or your assigned Darajah Teacher.
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        {% if info.PrimaryTeacher and info.PrimaryTeacher.email %}
+        <a href="mailto:{{ info.PrimaryTeacher.email }}" class="btn btn-primary">
+          <i class="bi bi-envelope me-2"></i>Email Teacher
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endif %}
 {% endblock %}

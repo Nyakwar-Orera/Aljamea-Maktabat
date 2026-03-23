@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>We've Missed You at Aljamea-tus-Saifiyah Library!</title>
+    <style>
+        body { font-family: 'Inter', sans-serif; color: #334155; line-height: 1.6; background-color: #f8fafc; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
+        .header { background: linear-gradient(135deg, #8b4513, #a45a26); padding: 40px 20px; text-align: center; color: #ffffff; }
+        .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
+        .content { padding: 40px; }
+        .greeting { font-size: 18px; font-weight: 600; color: #1e293b; margin-bottom: 12px; }
+        .message { margin-bottom: 24px; font-size: 16px; color: #475569; }
+        .book-list { list-style: none; padding: 0; margin: 0; }
+        .book-card { background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 16px; display: flex; align-items: center; transition: all 0.2s ease; }
+        .book-icon { font-size: 24px; margin-right: 16px; background-color: #ffffff; padding: 10px; border-radius: 50%; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .book-info { flex-grow: 1; }
+        .book-title { font-weight: 600; color: #1e293b; display: block; margin-bottom: 2px; }
+        .book-author { font-size: 14px; color: #64748b; }
+        .cta-container { text-align: center; margin-top: 32px; }
+        .btn { display: inline-block; padding: 14px 28px; background-color: #8b4513; color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(139, 69, 19, 0.2); }
+        .footer { padding: 24px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #f1f5f9; background-color: #fafbfc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📚 Maktabat al-Jamea</h1>
+        </div>
+        <div class="content">
+            <p class="greeting">Assalam-o-Alaikum, {{ first_name }}!</p>
+            <p class="message">We've noticed it's been a while since your last visit to the Aljamea-tus-Saifiyah Library. We've missed seeing you explore our shelves!</p>
+            <p class="message">A lot of new and interesting books have been trending in your category recently. Here are a few curated recommendations based on popular choices in your Marhala:</p>
+            
+            <div class="book-list">
+                {% for book in books %}
+                <div class="book-card">
+                    <div class="book-icon">📖</div>
+                    <div class="book-info">
+                        <span class="book-title">{{ book.title }}</span>
+                        <span class="book-author">by {{ book.author or 'Unknown Author' }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="cta-container">
+                <a href="{{ url_for('dashboard_bp.dashboard', _external=True) }}" class="btn">Explore the Library Dashboard</a>
+            </div>
+            <p class="message" style="margin-top: 32px; text-align: center; font-style: italic;">We look forward to welcoming you back to the world of knowledge.</p>
+        </div>
+        <div class="footer">
+            &copy; 2026 Aljamea-tus-Saifiyah - Maktabat al-Jamea<br>
+            Professional institutional library management.
+        </div>
+    </div>
+</body>
+</html>

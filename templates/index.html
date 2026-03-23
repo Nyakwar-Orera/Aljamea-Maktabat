@@ -47,6 +47,7 @@
       <!-- Login Form -->
       <!-- 🔁 CHANGED: post to auth_bp.login -->
       <form method="post" action="{{ url_for('auth_bp.login') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
         <div class="mb-3">
           <label class="form-label fw-semibold text-muted">Username</label>
           <input name="username"

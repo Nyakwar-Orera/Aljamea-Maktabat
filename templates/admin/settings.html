@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% block title %}⚙️ Admin Dashboard - Maktabat al-Jamea{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+  <!-- Header -->
+  <div class="admin-header">
+    <div class="container">
+      <h1>⚙️ Admin Dashboard</h1>
+      <p class="admin-subtitle lead">Professional user management, taqeem calculation, email automation & system configuration</p>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <ul class="nav nav-tabs" id="adminTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button">
+        <i class="bi bi-people-fill me-2"></i>Users & Teachers
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="email-tab" data-bs-toggle="tab" data-bs-target="#email" type="button">
+        <i class="bi bi-envelope-paper-fill me-2"></i>Email Automation
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="branding-tab" data-bs-toggle="tab" data-bs-target="#branding" type="button">
+        <i class="bi bi-palette-fill me-2"></i>Branding
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit" type="button">
+        <i class="bi bi-journal-text me-2"></i>Activity Log
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab Content -->
+  <div class="tab-content" id="adminTabContent">
+    
+    <!-- Tab 1: Users & Teachers -->
+    <div class="tab-pane fade show active" id="users" role="tabpanel">
+      <!-- ... (Content remains mostly the same, but I'll update it later or keep it as is if it fits the new style) ... -->
+      <!-- Forms Side by Side -->
+      <div class="row g-4 mb-4">
+        <!-- User Management -->
+        <div class="col-md-6">
+          <div class="card h-100 shadow-sm border-0" style="border-radius: 12px;">
+            <div class="card-header bg-white py-3 fw-bold border-bottom-0"><i class="bi bi-person-plus me-2 text-primary"></i>User Management</div>
+            <div class="card-body">
+              <form id="userForm">
+                <div class="mb-3">
+                  <input type="text" id="username" name="username" class="form-control bg-light" placeholder="ITSID (Username) *" required>
+                </div>
+                <div class="mb-3">
+                  <input type="email" id="email" name="email" class="form-control bg-light" placeholder="Email Address *" required>
+                </div>
+                <div class="mb-3">
+                  <div class="input-group">
+                    <input type="password" id="password" name="password" class="form-control bg-light" placeholder="Password (Optional token sync)">
+                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('password')">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                  <small class="text-muted d-block mt-1"><i class="bi bi-shield-lock me-1"></i>Teachers/HODs can use token-based login if password is blank.</small>
+                </div>
+                <div class="mb-3">
+                  <select id="role" name="role" class="form-select bg-light" required>
+                    <option value="">-- Select Role --</option>
+                    <option value="admin">Administrator</option>
+                    <option value="hod">Head of Marhala (HOD)</option>
+                    <option value="teacher">Darajah Teacher</option>
+                    <option value="student">Student</option>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <select id="campus_branch" name="campus_branch" class="form-select bg-light" required>
+                    {% for branch in campus_branches %}
+                    <option value="{{ branch }}">{{ branch }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div id="roleFields">
+                  <input type="text" id="marhalaField" name="department_name" class="form-control mb-2 d-none bg-light" placeholder="Marhala Name">
+                  <input type="text" id="darajahField" name="class_name" class="form-control mb-2 d-none bg-light" placeholder="Darajah Name">
+                  <input type="text" id="teacherName" name="teacher_name" class="form-control mb-2 d-none bg-light" placeholder="Teacher Full Name">
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2 mt-2 fw-semibold shadow-sm"><i class="bi bi-save me-2"></i>Save User Profile</button>
+              </form>
+            </div>
+          </div>
+        </div>
+          
+        <!-- Bulk Upload Users & Mappings -->
+        <div class="col-md-6">
+          <div class="card h-100 shadow-sm border-0" style="border-radius: 12px;">
+            <div class="card-header bg-white py-3 fw-bold border-bottom-0"><i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Bulk Upload Mappings</div>
+            <div class="card-body d-flex flex-column justify-content-center">
+              <div class="alert alert-secondary border-0 mb-4">
+                <i class="bi bi-info-circle me-2"></i>Upload a CSV file to mass-create users and teacher mappings.
+                <br><br><strong>Required columns:</strong>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                   <span class="badge bg-white text-dark border">ITS</span>
+                   <span class="badge bg-white text-dark border">Name</span>
+                   <span class="badge bg-white text-dark border">email</span>
+                   <span class="badge bg-white text-dark border">darajah</span>
+                   <span class="badge bg-white text-dark border">role</span>
+                   <span class="badge bg-white text-dark border">class teacher</span>
+                </div>
+              </div>
+              <form id="bulkUploadForm">
+                <input type="file" name="file" class="form-control form-control-lg mb-3 bg-light" accept=".csv" required>
+                <button type="submit" class="btn btn-success w-100 py-2 fw-semibold shadow-sm" id="bulkUploadBtn"><i class="bi bi-cloud-upload me-2"></i>Upload Mappings CSV</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Active Users List -->
+      <div class="row">
+        <div class="col-12 mb-4">
+          <div class="card h-100 shadow-sm border-0" style="border-radius: 12px; overflow: hidden;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span><i class="bi bi-people me-2 text-primary"></i>Active User Accounts</span>
+              <span class="badge bg-primary rounded-pill" id="userCountBadge">0</span>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-hover" id="usersTable">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th class="text-end">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Email -->
+    <div class="tab-pane fade" id="email" role="tabpanel">
+      <!-- Info Alert from README -->
+      <div class="alert alert-primary mb-4 border-0 shadow-sm d-flex align-items-start">
+        <i class="bi bi-info-circle-fill fs-4 me-3 text-primary mt-1"></i>
+        <div>
+          <h5 class="fw-bold mb-1">Flask-APScheduler Email Automation</h5>
+          <p class="mb-2">This system uses background task automation to execute <code>send_all_reports()</code> from <code>tasks/monthly_reports.py</code>. 
+             Supports Daily, Weekly, or Monthly intervals with customizable execution times.</p>
+          <ul class="mb-0 small text-dark">
+            <li><strong>class_report_email.html</strong>: Sent to Teachers with monthly darajah performance reports.</li>
+            <li><strong>department_report_email.html</strong>: Sent to HODs with marhala-level summaries.</li>
+            <li><strong>password_reset_email.html</strong>: Responsive secure links for all users.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-lg-6 mb-4">
+          <div class="card">
+            <div class="card-header bg-info text-white">
+              📧 Auto Email Scheduler
+            </div>
+            <div class="card-body">
+              <form id="emailForm">
+                <input type="email" name="email_sender" class="form-control mb-3" placeholder="Sender Email" required>
+                <select name="email_frequency" class="form-select mb-3" required>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly" selected>Monthly</option>
+                </select>
+                <div id="weeklyOptions" class="mb-3 d-none">
+                  <select name="day_of_week" class="form-select">
+                    <option value="mon">Monday</option>
+                    <option value="tue">Tuesday</option>
+                  </select>
+                </div>
+                <div id="monthlyOptions" class="mb-3">
+                  <input type="number" name="day_of_month" class="form-control" min="1" max="28" value="1">
+                </div>
+                <div class="row">
+                  <div class="col">
+                    <input type="number" name="send_hour" class="form-control" min="0" max="23" value="8">
+                  </div>
+                  <div class="col">
+                    <input type="number" name="send_minute" class="form-control" min="0" max="59" value="0">
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-info w-100 mt-3">💾 Save Schedule</button>
+              </form>
+              <button id="runEmailNowBtn" class="btn btn-primary w-100 mt-2">
+                🚀 Send Reports Now
+              </button>
+              <button id="runAiNudgeBtn" class="btn btn-dark w-100 mt-2">
+                🤖 Run AI Nudge
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-6 mb-4">
+          <div class="card">
+            <div class="card-header bg-secondary text-white">
+              📝 Email Templates
+            </div>
+            <div class="card-body">
+              <form id="templateForm">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-4">
+                    <select name="template_key" class="form-select" required>
+                      <option value="class_report">Darajah Report</option>
+                      <option value="marhala_report">Marhala Report</option>
+                      <option value="student_report">Student Report</option>
+                    </select>
+                  </div>
+                  <div class="col-md-8">
+                    <input type="text" name="subject" class="form-control" required placeholder="Subject">
+                  </div>
+                </div>
+                <textarea name="html" class="form-control" rows="4" required placeholder="HTML body with {{placeholders}}"></textarea>
+                <button type="submit" class="btn btn-secondary w-100 mt-3">💾 Save Template</button>
+              </form>
+              <div class="table-responsive mt-3" style="max-height: 200px;">
+                <table class="table table-sm" id="templatesTable">
+                  <thead><tr><th>Key</th><th>Subject</th><th></th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Branding -->
+    <div class="tab-pane fade" id="branding" role="tabpanel">
+      <!-- Info from README -->
+      <div class="card bg-primary text-white mb-4 border-0 shadow-sm" style="background: linear-gradient(135deg, #0f172a, #3b82f6);">
+        <div class="card-body p-4 d-flex align-items-center">
+          <i class="bi bi-book-half display-4 me-4 opacity-75"></i>
+          <div>
+            <h4 class="fw-bold mb-1">Maktabat al-Jamea Library Dashboard</h4>
+            <p class="mb-1">A professional, role-based dashboard integrated with Koha ILS. Featuring updated terminology (Marhala, Darajah).</p>
+            <p class="mb-0 small opacity-75">Author: Patrick (Nyakwar-Orera) &nbsp;|&nbsp; License: MIT</p>
+          </div>
+        </div>
+      </div>
+      <div class="row">
+        <div class="col-lg-8">
+          <div class="card">
+            <div class="card-header bg-primary text-white">
+              🎨 Site Branding
+            </div>
+            <div class="card-body">
+              <form id="brandingForm">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label>Organization Name</label>
+                    <input type="text" name="org_name" class="form-control" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label>Site Title</label>
+                    <input type="text" name="site_name" class="form-control" required>
+                  </div>
+                </div>
+                <div class="row g-3 mt-3">
+                  <div class="col-md-6">
+                    <label>Primary Color</label>
+                    <input type="color" name="theme_color" class="form-control form-control-color w-100" value="#004080">
+                  </div>
+                  <div class="col-md-6">
+                    <label>Footer Text</label>
+                    <input type="text" name="footer_text" class="form-control" placeholder="© 2025 Al-Jamea tus-Saifiyah">
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-4">💾 Save Branding</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card h-100">
+            <div class="card-header bg-success text-white">
+              🖼️ Logo Upload
+            </div>
+            <div class="card-body text-center">
+              <div class="logo-preview mb-3">
+                <img id="logoPreview" src="" alt="Current logo" class="img-fluid border rounded" style="max-height: 120px;">
+                <p class="text-muted mt-2 small">Current logo will appear here</p>
+              </div>
+              <form id="logoForm" enctype="multipart/form-data">
+                <input type="file" name="logo_file" accept="image/*" class="form-control mb-2">
+                <button type="submit" class="btn btn-success w-100">⬆️ Upload Logo</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Audit & Activity -->
+    <div class="tab-pane fade" id="audit" role="tabpanel">
+      <!-- Info from README -->
+      <div class="row g-4 mb-4">
+        <div class="col-md-4">
+          <div class="glass-card p-3 border-start border-4 border-danger h-100">
+            <h6 class="fw-bold text-danger"><i class="bi bi-shield-lock me-2"></i>Administrator</h6>
+            <p class="small text-muted mb-0">Full system control. Manages users, mappings, schedules, settings, and full system activity logs.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="glass-card p-3 border-start border-4 border-purple h-100">
+            <h6 class="fw-bold text-purple"><i class="bi bi-briefcase me-2"></i>Head of Marhala (HOD)</h6>
+            <p class="small text-muted mb-0">Marhala-level access. Analyzes data, identifies top-performing darajahs and books across their marhala.</p>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="glass-card p-3 border-start border-4 border-info h-100">
+            <h6 class="fw-bold text-info"><i class="bi bi-person-video3 me-2"></i>Darajah Teacher</h6>
+            <p class="small text-muted mb-0">Darajah-level access. Views student borrowing histories and tracks class performance metrics.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header bg-dark text-white">
+          🧾 Recent Activity Log (Last 100 Actions)
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm table-dark mb-0" id="auditTable">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>User</th>
+                  <th>Action</th>
+                  <th>Details</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+
+<div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+<script>
+document.getElementById('bulkUploadForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const btn = document.getElementById('bulkUploadBtn');
+  const fileInput = this.querySelector('input[type="file"]');
+  if (!fileInput.files[0]) return;
+  
+  const formData = new FormData();
+  formData.append('file', fileInput.files[0]);
+  
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
+  btn.disabled = true;
+  
+  fetch('/api/upload_users', {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Upload CSV';
+    btn.disabled = false;
+    if(data.success) {
+      alert('Upload successful!\n' + 
+            `Total Processed: ${data.stats.total}\n` +
+            `Success: ${data.stats.success}\n` +
+            `Errors: ${data.stats.errors}`);
+      location.reload();
+    } else {
+      alert('Upload failed: ' + data.error);
+    }
+  })
+  .catch(err => {
+    btn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Upload CSV';
+    btn.disabled = false;
+    alert('Error connecting to server.');
+  });
+});
+</script>
+{% endblock %}

@@ -1,4 +1,3 @@
-# tasks/scheduler.py
 from flask_apscheduler import APScheduler
 from flask import current_app
 from tasks.monthly_reports import send_all_reports
@@ -41,10 +40,10 @@ def _get_email_settings():
 
 
 def _run_reports_job(app, mail):
-    """Wrapper to ensure all report emails (class + HoD) run inside Flask app context."""
+    """Wrapper to ensure all report emails (darajah + marhala) run inside Flask app context."""
     with app.app_context():
         try:
-            app.logger.info("📤 Starting scheduled report job (class + department)...")
+            app.logger.info("📤 Starting scheduled report job (darajah + marhala)...")
             send_all_reports(app, mail)
             app.logger.info("✅ Scheduled report job completed successfully.")
         except Exception as e:
@@ -100,11 +99,25 @@ def _register_job(app, mail, settings: dict):
 
 def register_scheduler(app, mail):
     """Initialize and start the APScheduler with current app settings."""
-    scheduler.init_app(app)
-    settings = _get_email_settings()
-    _register_job(app, mail, settings)
-    scheduler.start()
-    app.logger.info("✅ APScheduler started successfully.")
+    if not scheduler.running:
+        scheduler.init_app(app)
+        settings = _get_email_settings()
+        _register_job(app, mail, settings)
+        # 🤖 AI Nudge Job (personalized recommendations)
+        from tasks.ai_nudge import send_ai_nudges
+        scheduler.add_job(
+            id="ai-nudge-job",
+            func=lambda: send_ai_nudges(app, mail),
+            trigger="cron",
+            day_of_week="mon",
+            hour=9,
+            minute=0,
+            replace_existing=True,
+        )
+        app.logger.info("📅 AI Nudge job registered for Mondays at 09:00 AM")
+        
+        scheduler.start()
+        app.logger.info("✅ APScheduler started successfully.")
     return scheduler
 
 
@@ -113,3 +126,21 @@ def reload_scheduler(app, mail):
     settings = _get_email_settings()
     _register_job(app, mail, settings)
     app.logger.info(f"🔄 Scheduler reloaded with settings: {settings}")
+
+
+def is_scheduler_running():
+    """Check if scheduler is currently running."""
+    return scheduler.running
+
+
+def stop_scheduler():
+    """Stop the scheduler if it's running."""
+    if scheduler.running:
+        scheduler.shutdown()
+        return True
+    return False
+
+
+def get_scheduled_jobs():
+    """Get list of scheduled jobs."""
+    return scheduler.get_jobs()

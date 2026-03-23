@@ -1,32 +1,76 @@
+# services/reporting.py - SIMPLIFIED VERSION
 from typing import Dict, Any, List, Tuple
 import pandas as pd
 from services import koha_queries as KQ
 from services.exports import dataframe_to_pdf_bytes
+from db_app import get_conn as get_app_conn  # Added for teacher mapping
 
 # -------------------------
-# Dashboard Payload
+# Teacher Mapping Helper (ADD THIS)
+# -------------------------
+def _get_teachers_for_darajah(darajah_name: str) -> list[dict]:
+    """
+    Get teachers mapped to a specific darajah from the app database.
+    Returns list of teachers with their roles.
+    """
+    try:
+        conn = get_app_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT tm.teacher_name, tm.role, u.email
+            FROM teacher_darajah_mapping tm
+            LEFT JOIN users u ON tm.teacher_username = u.username
+            WHERE tm.darajah_name = ?
+            ORDER BY 
+                CASE tm.role 
+                    WHEN 'masool' THEN 1 
+                    WHEN 'class_teacher' THEN 2 
+                    ELSE 3 
+                END,
+                tm.teacher_name
+        """, (darajah_name,))
+        
+        teachers = []
+        for row in cur.fetchall():
+            role_display = 'Masool' if row[1] == 'masool' else \
+                          'Class Teacher' if row[1] == 'class_teacher' else 'Assistant'
+            teachers.append({
+                'name': row[0],
+                'role': role_display,
+                'email': row[2]
+            })
+        
+        cur.close()
+        conn.close()
+        return teachers
+    except Exception as e:
+        import logging
+        logging.error(f"Error fetching teachers for darajah {darajah_name}: {e}")
+        return []
+
+# -------------------------
+# Dashboard Payload (UPDATED TERMINOLOGY)
 # -------------------------
 def dashboard_payload() -> Dict[str, Any]:
     """
     Build dashboard payload for legacy/other views (AY-based).
-
-    - KQ.get_summary() is AY-scoped.
-    - 'active_patrons' = DISTINCT borrowers with ≥1 issue in AY.
+    
+    Updated terminology: class → darajah, department → marhala
     """
     s = KQ.get_summary()
 
     # Prefer active_patrons if provided, fall back to total_patrons.
     active_patrons = s.get("active_patrons", s.get("total_patrons", 0))
 
-    # class chart (AY-scoped inside koha_queries)
-    class_rows = KQ.class_issues()
-    class_labels = [r[0] for r in class_rows]
-    class_values = [int(r[1]) for r in class_rows]
+    # darajah chart (AY-scoped inside koha_queries)
+    darajah_rows = KQ.class_issues()  # Function name remains, but represents Darajah
+    darajah_labels = [r[0] for r in darajah_rows]
+    darajah_values = [int(r[1]) for r in darajah_rows]
 
-    # dept chart (AY-scoped)
-    dept_rows = KQ.departments_breakdown()
-    dept_labels = [r[0] for r in dept_rows]
-    dept_values = [int(r[1]) for r in dept_rows]
+    # marhala chart (AY-scoped)
+    marhala_rows = KQ.departments_breakdown()  # Function name remains, but represents Marhala
+    marhala_labels = [r[0] for r in marhala_rows]
+    marhala_values = [int(r[1]) for r in marhala_rows]
 
     # trends (AY monthly, from koha_queries.borrowing_trend_monthly)
     trend_rows = KQ.borrowing_trend_monthly()
@@ -77,14 +121,14 @@ def dashboard_payload() -> Dict[str, Any]:
         # Semantics: this is ACTIVE patrons in AY
         total_patrons=active_patrons,
         total_issues=s.get("total_issues", 0),
-        total_fines=s.get("fines_paid", 0.0),
+        total_fees=s.get("fees_paid", 0.0),
         total_titles_issued=s.get("total_titles_issued", 0),
         today_checkouts=today_checkouts,
         today_checkins=today_checkins,
-        class_labels=class_labels,
-        class_values=class_values,
-        dept_labels=dept_labels,
-        dept_values=dept_values,
+        darajah_labels=darajah_labels,      # CHANGED: class → darajah
+        darajah_values=darajah_values,
+        marhala_labels=marhala_labels,      # CHANGED: dept → marhala
+        marhala_values=marhala_values,
         top_all_labels=top_all_labels,
         top_all_values=top_all_values,
         top_all_dates=top_all_dates,
@@ -99,7 +143,7 @@ def dashboard_payload() -> Dict[str, Any]:
     )
 
 # -------------------------
-# Individual Student Payload
+# Individual Student Payload (UPDATED TERMINOLOGY)
 # -------------------------
 def individual_payload(identifier: str) -> dict | None:
     student = KQ.find_student_by_identifier(identifier)
@@ -115,6 +159,12 @@ def individual_payload(identifier: str) -> dict | None:
             return x.lower().startswith("y")
         return bool(x)
 
+    # Get darajah information for teacher mapping
+    darajah_name = student.get("class", "")
+    teachers = []
+    if darajah_name:
+        teachers = _get_teachers_for_darajah(darajah_name)
+
     info = {
         "borrowernumber": student["borrowernumber"],
         "cardnumber": student.get("cardnumber"),
@@ -123,10 +173,11 @@ def individual_payload(identifier: str) -> dict | None:
         "ITS ID": student.get("userid"),
         "Patron Category Code": student.get("categorycode"),
         "Patron Category": student.get("category"),
-        "Class": student.get("class"),
+        "Darajah": darajah_name,  # CHANGED: Class → Darajah
+        "Marhala": student.get("category"),  # ADDED: Marhala field
         "TR Number": student.get("userid"),  # adjust if you store TRNO separately in attributes
         "Total Issues": len([b for b in borrowed if not norm_returned(b.get("returned"))]),
-        "Total Fines Paid": 0,  # optional: query accountlines if needed
+        "Total Fees Paid": 0,  # optional: query accountlines if needed
         "BorrowedBooks": [
             {
                 "title": b.get("title"),
@@ -136,24 +187,26 @@ def individual_payload(identifier: str) -> dict | None:
             }
             for b in borrowed
         ],
+        "Teachers": teachers,  # ADDED: Teacher information
+        "PrimaryTeacher": teachers[0] if teachers else None,
     }
     return info
 
 # -------------------------
-# PDF Export Helpers
+# PDF Export Helpers (UPDATED NAMES ONLY)
 # -------------------------
-def export_class_pdf(class_name: str) -> bytes | None:
-    """Generate PDF report for a specific class."""
-    rows = KQ.class_dataframe(class_name)
+def export_darajah_pdf(darajah_name: str) -> bytes | None:  # CHANGED NAME: class → darajah
+    """Generate PDF report for a specific darajah."""
+    rows = KQ.class_dataframe(darajah_name)  # Function name remains, but represents Darajah
     if not rows:
         return None
     df = pd.DataFrame(rows)
-    return dataframe_to_pdf_bytes(f"Class Report - {class_name}", df)
+    return dataframe_to_pdf_bytes(f"Darajah Report - {darajah_name}", df)
 
-def export_department_pdf(dept: str) -> bytes | None:
-    """Generate PDF report for a specific department."""
-    rows = KQ.department_dataframe(dept)
+def export_marhala_pdf(marhala: str) -> bytes | None:  # CHANGED NAME: department → marhala
+    """Generate PDF report for a specific marhala."""
+    rows = KQ.department_dataframe(marhala)  # Function name remains, but represents Marhala
     if not rows:
         return None
     df = pd.DataFrame(rows)
-    return dataframe_to_pdf_bytes(f"Department Report - {dept}", df)
+    return dataframe_to_pdf_bytes(f"Marhala Report - {marhala}", df)

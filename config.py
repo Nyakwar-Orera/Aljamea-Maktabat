@@ -42,11 +42,11 @@ class Config:
     # ---- Koha DB (read-only user) ----
     KOHA_DB_HOST = os.getenv("KOHA_DB_HOST", os.getenv("DB_HOST", "197.211.6.51"))
     KOHA_DB_USER = os.getenv("KOHA_DB_USER", os.getenv("DB_USER", "library_read"))
-    KOHA_DB_PASS = os.getenv("KOHA_DB_PASS", os.getenv("DB_PASS", "Library@5152"))
+    KOHA_DB_PASS = os.getenv("KOHA_DB_PASS", os.getenv("DB_PASS", ""))
     KOHA_DB_NAME = os.getenv("KOHA_DB_NAME", os.getenv("DB_NAME", "koha_library"))
 
     # ---- Koha OPAC Base URL ----
-    KOHA_OPAC_BASE_URL = os.getenv("KOHA_OPAC_BASE_URL", "https://library-opac.ajsn.co.ke")
+    KOHA_OPAC_BASE_URL = os.getenv("KOHA_OPAC_BASE_URL", "https://library-nairobi.jameasaifiyah.org")
 
     # ---- Local App DB ----
     APP_SQLITE_PATH = os.getenv(
@@ -70,8 +70,32 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     REMEMBER_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
+    # In production, set SESSION_COOKIE_SECURE to True
     SESSION_COOKIE_SECURE = _get_bool("SESSION_COOKIE_SECURE", "False")
+
+    # ---- Campus Branches ----
+    # Institutional branches for filtering and mark adjustments.
+    CAMPUS_BRANCHES = ["Nairobi", "Mombasa", "Dar es Salaam", "Surat", "Karachi", "Mumbai", "Global"]
 
     # ---- Profile picture uploads ----
     PROFILE_UPLOAD_FOLDER = os.path.join(BASE_DIR, "static", "images", "profiles")
-    ALLOWED_PROFILE_EXTENSIONS = {"png", "jpg", "jpeg", "gif"}
+
+    # ---- Academic Year (Dynamic) ----
+    @classmethod
+    def CURRENT_ACADEMIC_YEAR(cls):
+        """
+        Dynamically calculate the current Hijri Academic Year.
+        The year starts April 1st. Example: April 2025 -> 1447 H
+        """
+        from datetime import date
+        today = date.today()
+        # Hijri year offset (Approximate but institutional standard for 1447/1448)
+        # 2025 Apr -> 1447 H, 2026 Apr -> 1448 H etc.
+        hijri_offset = 1422 
+        year = today.year + hijri_offset - 2000 + 25 # Institutional specific mapping
+        
+        # Simple Logic: If before April, we are in the previous AY
+        if today.month < 4:
+            year -= 1
+        
+        return os.getenv("CURRENT_ACADEMIC_YEAR", f"{year} H")

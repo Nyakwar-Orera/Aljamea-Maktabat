@@ -37,30 +37,54 @@ def _send_email(mail, to_email, subject, template_name, context,
 
 # ------- Public Send Functions -------
 
+def send_darajah_report_email(mail, to_email, darajah_name,
+                              attachment_bytes, attachment_filename):
+    """
+    Send darajah report email with PDF attachment.
+    Keeps backwards compatibility with the old class naming by also supplying class_name.
+    """
+    _send_email(
+        mail,
+        to_email,
+        subject=f"📚 Monthly Library Report - Darajah {darajah_name}",
+        template_name="emails/class_report_email.html",
+        context={"darajah_name": darajah_name, "class_name": darajah_name},
+        attachment_bytes=attachment_bytes,
+        attachment_filename=attachment_filename,
+    )
+
+
+# Backwards-compatible alias (Class -> Darajah)
 def send_class_report_email(mail, to_email, class_name,
                             attachment_bytes, attachment_filename):
-    """Send class report email with PDF attachment."""
+    """Deprecated: use send_darajah_report_email."""
+    return send_darajah_report_email(mail, to_email, class_name,
+                                     attachment_bytes, attachment_filename)
+
+
+def send_marhala_report_email(mail, to_email, marhala_name,
+                              attachment_bytes, attachment_filename):
+    """
+    Send marhala (formerly department) report email with PDF attachment.
+    Supplies both marhala_name and department_name for template compatibility.
+    """
     _send_email(
-        mail, to_email,
-        subject=f"📚 Monthly Library Report - Class {class_name}",
-        template_name="emails/class_report_email.html",   # ✅ updated path
-        context={"class_name": class_name},
+        mail,
+        to_email,
+        subject=f"🏛️ Library Report - Marhala {marhala_name}",
+        template_name="emails/department_report_email.html",
+        context={"marhala_name": marhala_name, "department_name": marhala_name, "dept": marhala_name},
         attachment_bytes=attachment_bytes,
-        attachment_filename=attachment_filename
+        attachment_filename=attachment_filename,
     )
 
 
+# Backwards-compatible alias (Department -> Marhala)
 def send_department_report_email(mail, to_email, department_name,
                                  attachment_bytes, attachment_filename):
-    """Send department report email with PDF attachment."""
-    _send_email(
-        mail, to_email,
-        subject=f"🏛️ Library Report - {department_name} Department",
-        template_name="emails/department_report_email.html",  # ✅ updated path
-        context={"department_name": department_name},
-        attachment_bytes=attachment_bytes,
-        attachment_filename=attachment_filename
-    )
+    """Deprecated: use send_marhala_report_email."""
+    return send_marhala_report_email(mail, to_email, department_name,
+                                     attachment_bytes, attachment_filename)
 
 
 def send_student_report_email(mail, to_email, student_name,

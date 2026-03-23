@@ -1,285 +1,128 @@
----
-# 📚 Maktabat al-Jamea Library Dashboard
----
+# 📚 Maktabat al-Jamea: Institutional Library Intelligence Portal
 
-A professional, role-based dashboard built with Flask and seamlessly integrated with Koha ILS. It provides real-time analytics, automated scheduled reports, and secure dashboards for administrators, heads of departments (HODs), and class teachers—enabling data-driven decisions and streamlined library management.
+[![Status](https://img.shields.io/badge/Status-Production--Ready-success.svg)](#)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](#)
+[![Framework](https://img.shields.io/badge/Framework-Flask-black.svg)](#)
+[![PWA](https://img.shields.io/badge/PWA-Enabled-orange.svg)](#)
 
----
-
-## ✨ Key Features
-
-### 🔐 Role-Based Authentication
-
-* Secure login for:
-
-  * **Administrators**
-  * **Heads of Departments (HODs)**
-  * **Class Teachers**
-* Credentials configured via `.env`
-* Password reset via email verification
-
-### 📊 Interactive Dashboards
-
-#### 🧭 Admin Dashboard
-
-* Global KPIs: patrons, issues, fines, and most borrowed titles
-* Monthly/yearly borrowing trends
-* Manage users, mappings, and email schedules
-
-#### 👩‍🏫 Teacher Dashboard
-
-* Class-specific statistics
-* Student borrowing histories
-* Download class performance reports
-
-#### 🏛️ HOD Dashboard
-
-* Department-wide analytics
-* Identify top-performing classes and popular books
-* Generate department summary reports
-
-### 📑 Reports & Analytics
-
-* Class, department, and student-level reports
-* Borrower photos and detailed history
-* Export to **PDF**, **Excel**, or **ODS**
-
-### 📧 Automated Email Reports
-
-* Monthly class reports → sent to **teachers**
-* Department summaries → sent to **HODs**
-* Configurable scheduler (**daily**, **weekly**, or **monthly**)
-* Professional, responsive HTML email templates
-
-### ⚙️ Admin Controls
-
-* Manage **student–class–teacher mappings**
-* Assign and update **department heads**
-* Configure **database**, **email**, and **scheduler**
-* Monitor all **background jobs and logs**
+A state-of-the-art, role-based library ecosystem designed for **Aljamea-tus-Saifiyah**. This portal seamlessly bridges the gap between the **Koha ILS** backend and a premium, student-facing frontend, offering AI-powered insights, secure digital reading, and comprehensive academic assessment (Taqeem).
 
 ---
 
-## 🖼️ Dashboard Preview
+## 🌟 Modern Core Features
 
-| Role                        | Screenshot                                                     |
-| --------------------------- | -------------------------------------------------------------- |
-| 🧭 **Admin Dashboard**      | ![Admin Dashboard](static/screenshots/admin_dashboard.png)     |
-| 🏛️ **HOD Dashboard**       | ![HOD Dashboard](static/screenshots/hod_dashboard.png)         |
-| 👩‍🏫 **Teacher Dashboard** | ![Teacher Dashboard](static/screenshots/teacher_dashboard.png) |
-| 🧾 **Reports View**         | ![Reports View](static/screenshots/reports_view.png)           |
-| 🔐 **Login Page**           | ![Login Page](static/screenshots/login_page.png)               |
+### 🤖 Intelligence Layer (AI Recommendations)
+*   **Personalized Discoveries**: Analyzes individual borrowing patterns to suggest the next read.
+*   **Marhala Trends**: Real-time identification of popular books within specific academic levels.
+*   **Automated Nudges**: AI-driven emails to lapsed borrowers to encourage reading re-engagement.
 
+### 📱 Progressive Web App (PWA)
+*   **Mobile-First Experience**: High-performance responsive design with native-app feel.
+*   **Offline Access**: Essential features remain available via service worker caching.
+
+### 📖 Secure Digital Library
+*   **Protected Reader**: Institutional-themed PDF viewer with secure session-based serving.
+*   **HOD Management**: Web-based upload and deletion tools for digital assets.
 
 ---
 
-## 🗂️ Project Structure
+## 🛡️ Production & Security Hardening
+*   **Brute-Force Protection**: Persistent Rate Limiter blocking accounts and IPs after failed attempts.
+*   **Security Headers**: CSP, HSTS, and X-Frame-Options enabled globally via middleware.
+*   **Branded UI**: Premium confirmation modals and professional error fallback pages.
 
-```
-maktabat/
-│── app.py                     # Flask app entry point
-│── config.py                  # Environment configuration
-│── db_app.py                  # Local SQLite (users, mappings, settings)
-│── db_koha.py                 # Koha MySQL DB connection
-│── scheduler.py               # APScheduler setup
-│
-│── email_utils/               # Email sending utilities
-│── services/
-│   ├── koha_queries.py        # SQL queries for Koha
-│   ├── reporting.py           # Report generation logic
-│   └── exports.py             # PDF, Excel, ODS export helpers
-│
-│── tasks/
-│   ├── scheduler.py           # Background job control
-│   └── monthly_reports.py     # Automated email reports
-│
-│── routes/
-│   ├── admin.py               # Admin routes
-│   ├── dashboard.py           # Admin dashboard routes
-│   ├── hod_dashboard.py       # HOD dashboard routes
-│   ├── teacher_dashboard.py   # Teacher dashboard routes
-│   ├── reports.py             # Report APIs
-│   ├── student.py             # Student views
-│   ├── auth.py                # Authentication logic
-│   └── password_reset.py      # Password reset flow
-│
-│── templates/
-│   ├── base.html
-│   ├── dashboard.html
-│   ├── hod_dashboard.html
-│   ├── teacher_dashboard.html
-│   ├── reports.html
-│   ├── student.html
-│   ├── settings.html
-│   ├── forgot.html
-│   ├── reset.html
-│   └── emails/
-│       ├── class_report_email.html
-│       ├── department_report_email.html
-│       └── password_reset_email.html
-│
-│── static/
-│   ├── css/style.css
-│   ├── js/script.js
-│   └── screenshots/            # Add dashboard preview images here
-│
-│── appdata.db                 # Local SQLite (auto-created)
-│── appdata_init.py            # Initialize local DB
-│── requirements.txt
-│── .env
-│── README.md
+---
+
+## 🗂️ Project Structure: Full Repository Map
+
+```text
+Aljamea-Maktabat/
+├── app.py                  # Entry Point & Global Middleware
+├── appdata_init.py         # Metadata DB (SQLite) Initialization
+├── config.py               # Environment & App Configuration
+├── db_app.py               # Local SQLite Connection Interface
+├── db_koha.py              # Koha ILS (MySQL) Connection Interface
+├── email_utils.py          # Unified Email Sending Logic
+├── requirements.txt        # Production Dependencies
+├── run_laptop.sh           # Unix/Linux Entry Point Script
+├── run_windows.bat         # Windows Deployment Script (w/ Venv Management)
+├── services/               # Core Business Logic Layer
+│   ├── recommendation_service.py   # AI Intelligence Engine
+│   ├── marks_service.py            # Taqeem Calculation Logic
+│   ├── security_service.py         # Rate Limiting & Audit Protection
+│   ├── koha_queries.py             # Optimized SQL for Koha Database
+│   ├── exports.py                  # PDF/Excel Generation Logic
+│   └── reporting.py                # Student Performance Aggregators
+├── routes/                 # Blueprint Definitions
+│   ├── admin.py                    # Admin Control & Settings
+│   ├── library.py                  # Digital Library Services
+│   ├── students.py                 # Student Profiles & Taqeem Views
+│   ├── auth.py                     # Secure Authentication Logic
+│   ├── profile.py                  # User Profile Management
+│   ├── dashboard.py                # Main Analytics Dashboards
+│   ├── hod_dashboard.py            # Marhala-level Analytics
+│   ├── teacher_dashboard.py        # Darajah-level Tools
+│   ├── reports.py                  # On-demand Reporting
+│   └── password_reset.py           # Secure Recovery Workflow
+├── templates/              # Jinja2 Layouts
+│   ├── base.html                   # Global Master Layout
+│   ├── student.html                # Premium Student Dashboard
+│   ├── library/                    # Digital Portal Templates
+│   ├── admin/                      # Admin System Templates
+│   ├── emails/                     # Professional HTML Email Templates
+│   └── errors/                     # Custom 404/500 Pages
+├── static/                 # Production Assets
+│   ├── js/sw.js                    # PWA Service Worker Logic
+│   ├── js/admin.js                 # Admin UI Interactivity
+│   ├── css/style.css               # Main Premium Layout Styles
+│   ├── manifest.json               # PWA Identification
+│   ├── uploads/digital_books/      # Secure Repository (Protected PDFs)
+│   └── offline.html                # PWA Offline Landing Page
+├── tasks/                  # Background Automation
+│   ├── scheduler.py                # APScheduler Orchestration
+│   ├── ai_nudge.py                 # Re-engagement Automations
+│   └── monthly_reports.py          # Scheduled Monthly Performance Reports
+└── sql/                    # Historical Reference & Schema
+    └── koha.sql                    # Baseline Koha Schema Samples
 ```
 
 ---
 
-## ⚙️ Installation
+## 🏗️ Configuration: Required Environment Variables
 
-### 1️⃣ Clone the Repository
+To run the portal successfully, create a `.env` file in the root directory:
 
-```bash
-git clone https://github.com/Nyakwar-Orera/Aljamea-Maktabat.git
-cd Aljamea-Maktabat
-```
-
-### 2️⃣ Create a Virtual Environment
-
-```bash
-python -m venv venv
-source venv/bin/activate   # Linux/Mac
-venv\Scripts\activate      # Windows
-```
-
-### 3️⃣ Install Dependencies
-
-```bash
-pip install --upgrade pip setuptools wheel
-pip install -r requirements.txt
-```
-
-### 4️⃣ Configure Environment Variables
-
-Create a `.env` file in the project root:
-
-```bash
-# Flask
-SECRET_KEY=super_secret_key_here
-
-# Admin login
-ADMIN_USER=admin
-ADMIN_PASS=adminpass
-
-# Email
-MAIL_SERVER=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USE_TLS=True
-MAIL_USERNAME=your_email@gmail.com
-MAIL_PASSWORD=your_app_password
-ADMIN_EMAIL=your_email@gmail.com
-
-# Koha DB
-DB_HOST=197.211.6.51
-DB_USER=library_read
-DB_PASS=Library@5152
-DB_NAME=koha_library
-
-# Local DB
-APP_SQLITE_PATH=./appdata.db
-
-# Scheduler defaults
-REPORT_SEND_DAY=1
-REPORT_SEND_HOUR=8
-REPORT_SEND_MINUTE=0
-
-# UI
-PAGE_SIZE=25
-```
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `SECRET_KEY` | Flask Session Security | *any-long-random-string* |
+| `KOHA_DB_HOST` | Database host of your Koha Server | `192.168.1.100` |
+| `KOHA_DB_USER` | Koha Database Username | `koha_user` |
+| `KOHA_DB_PASS` | Koha Database Password | `securePassword` |
+| `MAIL_SERVER` | SMTP Server for Reports/Nudges | `smtp.office365.com` |
+| `MAIL_USERNAME` | Automated Notification Email | `library@aljamea.edu` |
+| `KOHA_OFFLINE` | Use mock data if Koha is unreachable | `false` |
+| `APP_SQLITE_PATH` | Path to the metadata database | `appdata.db` |
 
 ---
 
-## ▶️ Running the Application
+## 🖥️ Institutional Windows Server Deployment
 
-**Initialize the local database**
-
-```bash
-python appdata_init.py
-```
-
-**Start the Flask server**
-
-```bash
-flask run --host=0.0.0.0 --port=5000
-```
-
-Access the app → [http://localhost:5000](http://localhost:5000)
+1.  **Python Environment**: Install Python 3.10+ and add it to the System PATH.
+2.  **Service Persistence**: Use **NSSM** (Non-Sucking Service Manager) to install `run_windows.bat` as a service.
+    ```powershell
+    nssm install AljameaLibrary "C:\Path\To\Aljamea-Maktabat\run_windows.bat"
+    nssm start AljameaLibrary
+    ```
+3.  **IIS (Optional)**: Set up IIS with the **URL Rewrite** module to act as a reverse proxy for Port 5000.
 
 ---
 
-## ⏰ Scheduler & Automation
+## 🚀 Deployment & Installation
 
-This system uses **Flask-APScheduler** for background task automation.
-
-* Executes `send_all_reports(app)` from `tasks/monthly_reports.py`
-* Fully configurable under **Admin → Settings → Email Settings**
-
-**Supports:**
-
-* Daily / Weekly / Monthly intervals
-* Customizable execution time
+- **Environment Setup**: `cp .env.example .env`
+- **Installation**: `pip install -r requirements.txt` and `python appdata_init.py`
+- **Rapid Run**: Double-click `run_windows.bat` (Windows) or `./run_laptop.sh` (Linux).
 
 ---
 
-## 📬 Email Templates
-
-| Template                       | Recipient | Description                       |
-| ------------------------------ | --------- | --------------------------------- |
-| `class_report_email.html`      | Teachers  | Monthly class performance reports |
-| `department_report_email.html` | HODs      | Department-level summaries        |
-| `password_reset_email.html`    | All users | Password reset with secure link   |
-
-All templates use **responsive, branded HTML layouts** compatible with Gmail and Outlook.
-
----
-
-## 🔐 Roles & Permissions
-
-| Role        | Access Scope            | Description                           |
-| ----------- | ----------------------- | ------------------------------------- |
-| **Admin**   | Full system control     | Manage users, schedules, and settings |
-| **Teacher** | Class-level access      | View student and class reports        |
-| **HOD**     | Department-level access | Analyze department data and trends    |
-
----
-
-## 📌 Notes
-
-* Store student photos in `static/photos/` using **cardnumber** or **mapped ID** filenames.
-* Koha DB credentials should be **read-only** for security.
-* Gmail SMTP with 2FA requires an **App Password**.
-
----
-
-## 🚀 Roadmap
-
-* ✅ REST API for third-party integration
-* 📈 Enhanced visual analytics and dashboards
-* ⚡ Optimized reporting for large datasets
-* 🧠 Activity logs and system monitoring
-
----
-
-## 🧑‍💻 Author
-
-**Patrick (Nyakwar-Orera)**
-📧 [GitHub Profile →](https://github.com/Nyakwar-Orera)
-
-For issues or contributions:
-👉 [https://github.com/Nyakwar-Orera/Aljamea-Maktabat/issues](https://github.com/Nyakwar-Orera/Aljamea-Maktabat/issues)
-
----
-
-## 🏛️ License
-
-This project is licensed under the **MIT License**.
-
----
-
+*© 2026 Maktabat al-Jamea Library Portal. Built for Aljamea-tus-Saifiyah.*

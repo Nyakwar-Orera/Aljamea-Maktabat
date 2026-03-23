@@ -1,32 +1,335 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <style>
-      body { font-family: "Segoe UI", Tahoma, sans-serif; background:#f8f9fa; padding:20px; }
-      .card { background:#fff; border:1px solid #ddd; border-radius:8px; padding:20px; max-width:600px; margin:auto; }
-      h2 { color:#0d6efd; }
-      p { line-height:1.5; }
-      .footer { margin-top:20px; font-size:0.9em; color:#666; border-top:1px solid #eee; padding-top:10px; }
-    </style>
-  </head>
-  <body>
-    <div class="card">
-      <h2>👩‍🎓 Student Library Report</h2>
-      <p>Dear {{ student_name }},</p>
 
-      <p>
-        Please find attached your personal library activity report. It includes details about books borrowed, due dates, and any fines paid.
-      </p>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Library Report - {{ student_name }}</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
 
-      <p>Regards,<br><strong>Maktabat al-Jamea Library Team</strong></p>
+    .email-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .email-card {
+      background: #ffffff;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+      border: 1px solid #e9ecef;
+    }
+
+    .header {
+      background: linear-gradient(135deg, #27ae60 0%, #219653 100%);
+      color: white;
+      padding: 25px;
+      border-radius: 8px 8px 0 0;
+      margin: -30px -30px 25px -30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .header p {
+      margin: 5px 0 0 0;
+      opacity: 0.9;
+      font-size: 0.95rem;
+    }
+
+    h2 {
+      color: #2c3e50;
+      margin: 25px 0 15px 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    h3 {
+      color: #27ae60;
+      margin: 20px 0 10px 0;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    p {
+      margin-bottom: 15px;
+    }
+
+    .highlight-box {
+      background: #e8f5e9;
+      border-left: 4px solid #27ae60;
+      padding: 18px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+
+    .feature-list {
+      padding-left: 20px;
+      margin: 15px 0;
+    }
+
+    .feature-list li {
+      margin-bottom: 10px;
+      position: relative;
+      padding-left: 5px;
+    }
+
+    .feature-list li:before {
+      content: "✓";
+      color: #27ae60;
+      font-weight: bold;
+      position: absolute;
+      left: -20px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .stat-item {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid #e9ecef;
+      transition: transform 0.2s ease;
+    }
+
+    .stat-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #27ae60;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+
+    .taqeem-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: 600;
+      margin: 5px;
+      font-size: 0.9rem;
+      box-shadow: 0 2px 8px rgba(52, 152, 219, 0.2);
+    }
+
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, #27ae60 0%, #219653 100%);
+      color: white;
+      padding: 14px 28px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 20px 0;
+      border: none;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #219653 0%, #1e8449 100%);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+    }
+
+    .footer {
+      margin-top: 30px;
+      font-size: 0.85em;
+      color: #666;
+      border-top: 1px solid #eee;
+      padding-top: 20px;
+      text-align: center;
+    }
+
+    .section-break {
+      border: none;
+      height: 1px;
+      background: linear-gradient(to right, transparent, #27ae60, transparent);
+      margin: 25px 0;
+    }
+
+    .quote-box {
+      background: #f8f9fa;
+      border-left: 4px solid #3498db;
+      padding: 15px 20px;
+      margin: 20px 0;
+      font-style: italic;
+      border-radius: 0 6px 6px 0;
+    }
+
+    .achievement-badge {
+      display: inline-flex;
+      align-items: center;
+      background: #fff3cd;
+      color: #856404;
+      padding: 8px 12px;
+      border-radius: 20px;
+      margin: 5px;
+      font-size: 0.85rem;
+      border: 1px solid #ffeaa7;
+    }
+
+    .achievement-badge i {
+      margin-right: 5px;
+    }
+
+    @media (max-width: 480px) {
+      .email-card {
+        padding: 20px;
+      }
+
+      .header {
+        padding: 20px;
+        margin: -20px -20px 20px -20px;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="email-container">
+    <div class="email-card">
+      <div class="header">
+        <h1>👩‍🎓 Student Library Report</h1>
+        <p>Academic Year 1447 H | Personal Performance Analysis</p>
+      </div>
+
+      <p>Dear <strong>{{ student_name }}</strong>,</p>
+
+      <div class="highlight-box">
+        <h3 style="margin-top: 0; color: #2c3e50;">📊 Your Performance Overview</h3>
+        <p>Attached is your comprehensive library report for <strong>Darajah {{ darajah_name }}</strong>. This
+          personalized report includes detailed insights into your reading habits, academic progress, and library
+          engagement.</p>
+      </div>
+
+      <h3>📚 What's Included in Your Report:</h3>
+      <ul class="feature-list">
+        <li><strong>Personalized Taqeem Analysis</strong> – Your complete marks breakdown and scoring</li>
+        <li><strong>Reading History</strong> – All books borrowed, issued dates, and due dates</li>
+        <li><strong>Academic Progress</strong> – Monthly performance trends and improvements</li>
+        <li><strong>Favorite Authors & Genres</strong> – Your reading preferences and patterns</li>
+        <li><strong>Achievement Recognition</strong> – Milestones and accomplishments</li>
+        <li><strong>Personalized Recommendations</strong> – Books and resources tailored for you</li>
+      </ul>
+
+      <div style="text-align: center; margin: 25px 0;">
+        <span class="taqeem-badge">📚 Book Issues: {{ taqeem.book_issue.total if taqeem and taqeem.book_issue else 0
+          }}/60</span>
+        <span class="taqeem-badge">✏️ Book Reviews: {{ taqeem.book_review.marks if taqeem and taqeem.book_review else 0
+          }}/30</span>
+        <span class="taqeem-badge">👥 Program Attendance: {{ taqeem.program_attendance if taqeem else 0 }}/10</span>
+        <span class="taqeem-badge">🎯 Total Taqeem: {{ taqeem.total if taqeem else 0 }}/100</span>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-item">
+          <span class="stat-value">{{ metrics.AYIssues if metrics else 0 }}</span>
+          <span class="stat-label">AY Books Issued</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">{{ metrics.CurrentlyIssued if metrics else 0 }}</span>
+          <span class="stat-label">Currently Reading</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">{{ metrics.FavoriteAuthors|length if metrics and metrics.FavoriteAuthors else 0
+            }}</span>
+          <span class="stat-label">Favorite Authors</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value">{{ metrics.MaxBooksAllowed if metrics else 'N/A' }}</span>
+          <span class="stat-label">Monthly Target</span>
+        </div>
+      </div>
+
+      <div class="quote-box">
+        "The more that you read, the more things you will know. The more that you learn, the more places you'll go." –
+        Dr. Seuss
+      </div>
+
+      <h3>🏆 Your Achievements:</h3>
+      <div style="margin: 15px 0;">
+        {% if metrics and metrics.AYIssues and metrics.AYIssues >= metrics.MaxBooksAllowed|default(4, true) %}
+        <span class="achievement-badge"><i>🏅</i> Reading Target Achieved</span>
+        {% endif %}
+        {% if taqeem and taqeem.total >= 80 %}
+        <span class="achievement-badge"><i>⭐</i> Excellent Taqeem Score</span>
+        {% elif taqeem and taqeem.total >= 70 %}
+        <span class="achievement-badge"><i>🌟</i> Very Good Performance</span>
+        {% endif %}
+        {% if metrics and metrics.OverdueNow == 0 %}
+        <span class="achievement-badge"><i>📖</i> No Overdue Books</span>
+        {% endif %}
+        {% if not (metrics and metrics.AYIssues and metrics.AYIssues >= metrics.MaxBooksAllowed|default(4, true)) and
+        not (taqeem and taqeem.total >= 70) and not (metrics and metrics.OverdueNow == 0) %}
+        <span class="achievement-badge"><i>🌱</i> Great Start - Keep Going!</span>
+        {% endif %}
+      </div>
+
+      <h3>📈 How to Improve Your Reading:</h3>
+      <ol style="line-height: 1.6; padding-left: 20px;">
+        <li><strong>Visit the library regularly</strong> – Aim for at least once a week</li>
+        <li><strong>Diversify your reading</strong> – Try different genres and authors</li>
+        <li><strong>Submit book reviews</strong> – Share your thoughts to earn Taqeem marks</li>
+        <li><strong>Attend library programs</strong> – Participate in reading sessions and events</li>
+        <li><strong>Set reading goals</strong> – Challenge yourself to read more each month</li>
+        <li><strong>Return books on time</strong> – Avoid overdue fees and help others</li>
+      </ol>
+
+      <div style="text-align: center; margin: 25px 0;">
+        <a href="{{ opac_base_url }}/cgi-bin/koha/opac-search.pl" class="btn-primary" target="_blank">
+          🔍 Browse New Books
+        </a>
+      </div>
+
+      <hr class="section-break">
 
       <div class="footer">
-        <p>
-          This is an automated message. Do not reply directly.<br>
-          For assistance, contact <a href="mailto:{{ current_app.config['ADMIN_EMAIL'] }}">{{ current_app.config['ADMIN_EMAIL'] }}</a>.
+        <p><strong>Maktabat al-Jamea Library</strong></p>
+        <p>Al-Jamea tus-Saifiyah • Darajah {{ darajah_name }}</p>
+        <p>Your Class Teacher: <strong>{{ teacher_name }}</strong></p>
+        <p>📧 <a href="mailto:library@jameasaifiyah.org"
+            style="color: #27ae60; text-decoration: none;">library@jameasaifiyah.org</a> • 📞 +254 20 123 4567</p>
+        <p style="font-size: 0.8em; color: #999; margin-top: 10px;">
+          This personalized report was generated on {{ now().strftime('%d %B %Y') }}.<br>
+          Keep reading and learning – every book opens a new world! 📚
         </p>
       </div>
     </div>
-  </body>
+  </div>
+</body>
+
 </html>

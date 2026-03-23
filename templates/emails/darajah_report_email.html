@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .email-card {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 600px;
+      margin: auto;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .header {
+      background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px 8px 0 0;
+      margin: -30px -30px 20px -30px;
+      text-align: center;
+    }
+
+    h2 {
+      color: #2c3e50;
+      margin-bottom: 10px;
+      font-size: 1.8rem;
+    }
+
+    h3 {
+      color: #3498db;
+      margin: 20px 0 10px 0;
+      font-size: 1.3rem;
+    }
+
+    p {
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    .highlight-box {
+      background: #e3f2fd;
+      border-left: 4px solid #3498db;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+
+    .feature-list {
+      padding-left: 20px;
+      margin: 15px 0;
+    }
+
+    .feature-list li {
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .feature-list li:before {
+      content: "✓";
+      color: #27ae60;
+      font-weight: bold;
+      position: absolute;
+      left: -20px;
+    }
+
+    .taqeem-badge {
+      display: inline-block;
+      background: linear-gradient(135deg, #27ae60 0%, #219653 100%);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      margin: 5px 0;
+      font-size: 0.9rem;
+    }
+
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 15px 0;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #2980b9 0%, #1c5d8a 100%);
+    }
+
+    .footer {
+      margin-top: 30px;
+      font-size: 0.85em;
+      color: #666;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+      text-align: center;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .stat-item {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 6px;
+      text-align: center;
+      border: 1px solid #e9ecef;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #2c3e50;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="email-card">
+    <div class="header">
+      <h1 style="color: white; margin: 0;">📘 Darajah Library Report</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Darajah {{ darajah_name }}</p>
+      <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0 0; font-size: 0.9rem;">Academic Year 1447 H</p>
+    </div>
+
+    <p>Dear Teacher{% if teacher_names %} ({% for name in teacher_names %}{{ name }}{% if not loop.last %}, {% endif
+      %}{% endfor %}){% endif %},</p>
+
+    <div class="highlight-box">
+      <h3 style="margin-top: 0; color: #2c3e50;">📊 Report Overview</h3>
+      <p>Attached is the comprehensive library report for <strong>Darajah {{ darajah_name }}</strong>. This month's
+        report includes detailed Taqeem scoring alongside traditional library metrics.</p>
+    </div>
+
+    <h3>📈 Key Features in this Report:</h3>
+    <ul class="feature-list">
+      <li><strong>Taqeem Analysis</strong> – Complete marks breakdown for each student</li>
+      <li><strong>Detailed Student Profiles</strong> – Photos, metrics, and academic data</li>
+      <li><strong>Borrowing History</strong> – Monthly book issuance and return patterns</li>
+      <li><strong>Financial Overview</strong> – Fees, payments, and outstanding balances</li>
+      <li><strong>Performance Trends</strong> – Monthly progress and reading habits</li>
+      <li><strong>Overdue Management</strong> – Tracking and recommendations</li>
+    </ul>
+
+    <div style="text-align: center; margin: 25px 0;">
+      <span class="taqeem-badge">📚 Book Issues: 60 marks</span>
+      <span class="taqeem-badge">✏️ Book Reviews: 30 marks</span>
+      <span class="taqeem-badge">👥 Program Attendance: 10 marks</span>
+      <span class="taqeem-badge">🎯 Total Taqeem: 100 marks</span>
+    </div>
+
+    <div style="text-align: center;">
+      <a href="{{ url_for('reports_bp.reports_page', _external=True) }}" class="btn-primary">
+        📈 Access Full Analytics Dashboard
+      </a>
+    </div>
+
+    <h3>📋 How to Use This Report:</h3>
+    <ol style="line-height: 1.6; padding-left: 20px;">
+      <li>Review individual student sections for detailed performance</li>
+      <li>Check Taqeem scores to identify areas needing improvement</li>
+      <li>Monitor borrowing patterns to encourage regular reading</li>
+      <li>Use financial data for parent communication</li>
+      <li>Share insights with students to motivate progress</li>
+    </ol>
+
+    <div class="footer">
+      <p><strong>Maktabat al-Jamea Library System</strong></p>
+      <p>Al-Jamea tus-Saifiyah • Academic Year 1447 H</p>
+      <p>📧 <a href="mailto:library@jameasaifiyah.org" style="color: #3498db;">library@jameasaifiyah.org</a> • 📞 +254
+        20 123 4567</p>
+      <p style="font-size: 0.8em; color: #999; margin-top: 10px;">
+        This is an automated report generated on {{ now().strftime('%d %B %Y') }}.<br>
+        For assistance or additional analysis, please contact the Library Administration.
+      </p>
+    </div>
+  </div>
+</body>
+
+</html>

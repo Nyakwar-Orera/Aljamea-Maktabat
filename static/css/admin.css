@@ -1,0 +1,59 @@
+/* Premium Admin Dashboard Styles */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --primary-gradient: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+  --secondary-gradient: linear-gradient(135deg, #34d399 0%, #059669 100%);
+  --accent-gradient: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  --danger-gradient: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.3);
+.btn-primary { background: var(--primary-gradient); border: none; }
+.btn-success { background: var(--secondary-gradient); border: none; }
+.btn-danger { background: var(--danger-gradient); border: none; }
+
+.btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.1);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Toasts */
+.toast-container {
+  padding: 1.5rem;
+}
+
+.alert {
+  border-radius: 0.75rem;
+  border: none;
+  box-shadow: var(--card-shadow);
+  padding: 1.25rem;
+}
+
+/* Badges */
+.badge {
+  padding: 0.5em 0.8em;
+  border-radius: 2rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@media (max-width: 1024px) {
+  .admin-header h1 { font-size: 2.25rem; }
+  .stats-grid { grid-template-columns: 1fr; }
+}

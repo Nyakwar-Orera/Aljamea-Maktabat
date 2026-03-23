@@ -1,40 +1,66 @@
 // script.js
 console.log("📚 Maktabat al-Jamea client loaded");
 
-document.addEventListener("DOMContentLoaded", function () {
-  // =======================
-  // Toast Notification Helper
-  // =======================
-  window.showToast = function (message, type = "info") {
-    const container = document.getElementById("toastContainer");
-    if (!container) return;
+// Global CSRF Protection Setup
+const getCsrfToken = () => document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 
-    const colorMap = {
-      success: "bg-success text-white",
-      danger: "bg-danger text-white",
-      warning: "bg-warning text-dark",
-      info: "bg-info text-dark"
-    };
+// For jQuery (DataTables etc)
+if (window.jQuery) {
+  jQuery.ajaxSetup({
+    beforeSend: function (xhr, settings) {
+      const token = getCsrfToken();
+      if (token && !/^(GET|HEAD|OPTIONS|TRACE)$/i.test(settings.type) && !this.crossDomain) {
+        xhr.setRequestHeader("X-CSRFToken", token);
+      }
+    }
+  });
+}
 
-    const toast = document.createElement("div");
-    toast.className =
-      "toast align-items-center " +
-      (colorMap[type] || "bg-info text-dark") +
-      " border-0";
-    toast.role = "alert";
-    toast.innerHTML = `
-      <div class="d-flex">
-        <div class="toast-body">${message}</div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto"
-                data-bs-dismiss="toast"></button>
-      </div>`;
+// Helper for fetch with CSRF
+window.csrfFetch = async function (url, options = {}) {
+  const token = getCsrfToken();
+  if (!options.headers) options.headers = {};
+  if (token && !["GET", "HEAD"].includes(options.method?.toUpperCase())) {
+    options.headers["X-CSRFToken"] = token;
+  }
+  return fetch(url, options);
+};
 
-    container.appendChild(toast);
+// =======================
+// Toast Notification Helper
+// =======================
+window.showToast = function (message, type = "info") {
+  const container = document.getElementById("toastContainer") || document.querySelector('.toast-container');
+  if (!container) return;
 
-    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
-    bsToast.show();
-    toast.addEventListener("hidden.bs.toast", () => toast.remove());
+  const colorMap = {
+    success: "bg-success text-white",
+    danger: "bg-danger text-white",
+    warning: "bg-warning text-dark",
+    info: "bg-info text-dark"
   };
+
+  const toast = document.createElement("div");
+  toast.className =
+    "toast align-items-center " +
+    (colorMap[type] || "bg-info text-dark") +
+    " border-0";
+  toast.role = "alert";
+  toast.innerHTML = `
+    <div class="d-flex">
+      <div class="toast-body">${message}</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto"
+              data-bs-dismiss="toast"></button>
+    </div>`;
+
+  container.appendChild(toast);
+
+  const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+  bsToast.show();
+  toast.addEventListener("hidden.bs.toast", () => toast.remove());
+};
+
+document.addEventListener("DOMContentLoaded", function () {
 
   // =======================
   // Page Elements & Flags
@@ -94,7 +120,7 @@ document.addEventListener("DOMContentLoaded", function () {
       (async () => {
         for (const url of endpoints) {
           try {
-            const r = await fetch(url, { method: "POST", body: data });
+            const r = await window.csrfFetch(url, { method: "POST", body: data });
             if (!r.ok) continue;
             const j = await r.json();
             if (j.success && j.html) {

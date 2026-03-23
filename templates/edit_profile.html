@@ -1,53 +1,146 @@
-<!-- templates/edit_profile.html -->
 {% extends "base.html" %}
 
 {% block title %}Edit Profile - Maktabat al-Jamea{% endblock %}
 
+{% block extra_css %}
+<style>
+    .edit-profile-card {
+        background: var(--bg-glass);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--border-soft);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+        margin-top: 2rem;
+        max-width: 800px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+
+    .form-section-title {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-accent);
+        margin-bottom: 1.5rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid rgba(164, 90, 38, 0.1);
+    }
+
+    .form-label {
+        font-weight: 600;
+        color: #555;
+        font-size: 0.9rem;
+    }
+
+    .form-control {
+        border-radius: 10px;
+        border: 1px solid var(--border-soft);
+        padding: 0.75rem 1rem;
+        transition: all 0.3s ease;
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-accent);
+        box-shadow: 0 0 0 0.25rem rgba(164, 90, 38, 0.1);
+    }
+
+    .current-avatar-preview {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid #fff;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    .btn-save {
+        background: var(--primary-accent);
+        color: #fff;
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 700;
+        border: none;
+        transition: all 0.3s ease;
+    }
+
+    .btn-save:hover {
+        background: var(--primary-hover);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(164, 90, 38, 0.2);
+    }
+
+    .btn-cancel {
+        padding: 0.75rem 2rem;
+        border-radius: 10px;
+        font-weight: 600;
+        color: #777;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h2>🖊️ Edit Profile</h2>
-<div class="card">
-  <div class="card-body">
-    <form method="POST" enctype="multipart/form-data">
-      <div class="mb-3">
-        <label for="username" class="form-label">Username</label>
-        <input type="text" id="username" name="username" class="form-control"
-               value="{{ user[0] }}" required>
-      </div>
+<div class="container py-4">
+    <div class="edit-profile-card fade-in-up">
+        <div class="card-body p-4 p-md-5">
+            <h2 class="mb-4 fw-bold"><i class="bi bi-pencil-square me-2"></i>Edit Profile</h2>
+            
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                
+                <div class="form-section-title">Personal Information</div>
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        <label for="username" class="form-label">Username (ITSID)</label>
+                        <input type="text" id="username" name="username" class="form-control"
+                               value="{{ user[0] }}" required readonly style="background-color: #f8f9fa;">
+                        <small class="text-muted">Username cannot be changed.</small>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="email" class="form-label">Email Address</label>
+                        <input type="email" id="email" name="email" class="form-control"
+                               value="{{ user[1] }}" required>
+                    </div>
+                </div>
 
-      <div class="mb-3">
-        <label for="email" class="form-label">Email</label>
-        <input type="email" id="email" name="email" class="form-control"
-               value="{{ user[1] }}" required>
-      </div>
+                <div class="form-section-title mt-4">Academic Details</div>
+                <div class="row g-3">
+                    <div class="col-md-6 mb-3">
+                        <label for="department_name" class="form-label">Marhala / Department</label>
+                        <input type="text" id="department_name" name="department_name" class="form-control"
+                               value="{{ user[3] or '' }}" readonly style="background-color: #f8f9fa;">
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="class_name" class="form-label">Darajah / Class</label>
+                        <input type="text" id="class_name" name="class_name" class="form-control"
+                               value="{{ user[4] or '' }}" readonly style="background-color: #f8f9fa;">
+                    </div>
+                </div>
 
-      <div class="mb-3">
-        <label for="department_name" class="form-label">Department</label>
-        <input type="text" id="department_name" name="department_name" class="form-control"
-               value="{{ user[3] or '' }}">
-      </div>
+                <div class="form-section-title mt-4">Profile Branding</div>
+                <div class="mb-4">
+                    <label class="form-label d-block mb-3">Profile Picture</label>
+                    <div class="d-flex align-items-center gap-4 flex-wrap">
+                        {% set picture = user[5] or 'images/avatar.png' %}
+                        <img src="{{ url_for('static', filename=picture) }}"
+                             alt="Current profile picture"
+                             class="current-avatar-preview">
+                        
+                        <div class="flex-grow-1">
+                            <input type="file" name="profile_picture" accept="image/*" class="form-control">
+                            <small class="form-text text-muted mt-2 d-block">
+                                <i class="bi bi-info-circle me-1"></i> Recommended: Square image, max 2MB.
+                            </small>
+                        </div>
+                    </div>
+                </div>
 
-      <div class="mb-3">
-        <label for="class_name" class="form-label">Class</label>
-        <input type="text" id="class_name" name="class_name" class="form-control"
-               value="{{ user[4] or '' }}">
-      </div>
-
-      <div class="mb-3">
-        <label class="form-label">Profile picture</label>
-        <div class="mb-2">
-          {% set picture = user[5] or 'images/default-avatar.png' %}
-          <img src="{{ url_for('static', filename=picture) }}"
-               alt="Current profile picture"
-               style="width:80px; height:80px; border-radius:50%; object-fit:cover;">
+                <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
+                    <a href="{{ url_for('profile_bp.view_profile') }}" class="btn btn-cancel">Cancel</a>
+                    <button type="submit" class="btn btn-save">Save Profile Changes</button>
+                </div>
+            </form>
         </div>
-        <input type="file" name="profile_picture" accept="image/*" class="form-control">
-        <small class="form-text text-muted">
-          Leave empty to keep your current picture.
-        </small>
-      </div>
-
-      <button type="submit" class="btn btn-primary">Save Changes</button>
-    </form>
-  </div>
+    </div>
 </div>
 {% endblock %}
+

@@ -1,179 +1,309 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
   <title>{% block title %}Aljamea-tus-Saifiyah – Library Dashboard{% endblock %}</title>
 
-  <meta name="description" content="Aljamea-tus-Saifiyah – Library (Maktabat al-Jamea) dashboard, reports, and analytics.">
+  <meta name="description"
+    content="Aljamea-tus-Saifiyah – Library (Maktabat al-Jamea) dashboard, reports, and analytics.">
   <meta name="theme-color" content="#a45a26">
   <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}">
-  <link rel="manifest" href="{{ url_for('static', filename='site.webmanifest') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register("{{ url_for('static', filename='js/sw.js') }}")
+          .then(reg => console.log('Service Worker registered', reg))
+          .catch(err => console.log('Service Worker registration failed', err));
+      });
+    }
+  </script>
 
   <!-- Bootstrap & Datatables -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+    crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.1/css/buttons.dataTables.min.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-  
-  <!-- Add Alkanz Font for Arabic text -->
-  <link href="https://fonts.googleapis.com/css2?family=Alkanz&display=swap" rel="stylesheet">
+
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Al+Kanz&display=swap"
+    rel="stylesheet">
 
   {% block extra_css %}{% endblock %}
 
   <style>
-    /* ===== Custom Theme ===== */
+    :root {
+      --primary-accent: #a45a26;
+      --primary-hover: #8c4519;
+      --bg-cream: #fff8ef;
+      --bg-glass: rgba(255, 255, 255, 0.85);
+      --border-soft: rgba(164, 90, 38, 0.15);
+      --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+      --card-radius: 12px;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #fcf9f5;
+      color: #333;
+    }
+
+    /* ===== Professional Navbar ===== */
     .navbar-custom {
-      background-color: #fff8ef;
-      color: #a45a26;
-      border-bottom: 1px solid #e6d8c3;
+      background-color: var(--bg-glass);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-soft);
+      padding: 0.75rem 1rem;
     }
+
     .navbar-custom .navbar-brand span {
-      color: #a45a26;
-      font-weight: 600;
-      font-size: 1.1rem;
+      color: var(--primary-accent);
+      font-weight: 700;
+      font-size: 1.25rem;
+      letter-spacing: -0.02em;
     }
+
     .navbar-custom .nav-link {
-      color: #a45a26 !important;
+      color: #555 !important;
       font-weight: 500;
-      transition: all 0.2s ease;
+      font-size: 0.95rem;
+      padding: 0.5rem 1rem !important;
+      border-radius: 8px;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .navbar-custom .nav-link:hover,
+
+    .navbar-custom .nav-link:hover {
+      background-color: rgba(164, 90, 38, 0.08);
+      color: var(--primary-accent) !important;
+    }
+
     .navbar-custom .nav-link.active {
-      color: #8c4519 !important;
-      border-bottom: 2px solid #a45a26;
-    }
-    .navbar-custom .dropdown-menu {
-      border: none;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .navbar-custom .dropdown-item {
-      color: #6b3b16;
-    }
-    .navbar-custom .dropdown-item:hover {
-      background-color: #f5e9db;
-    }
-    .navbar-nav .nav-item {
-      margin-right: 0.6rem;
+      background-color: var(--primary-accent);
+      color: #fff !important;
+      box-shadow: 0 4px 10px rgba(164, 90, 38, 0.2);
     }
 
-    .btn-outline-light {
-      color: #a45a26;
-      border-color: #a45a26;
-    }
-    .btn-outline-light:hover {
-      background-color: #a45a26;
-      color: #fff;
+    /* ===== Professional Cards ===== */
+    .card {
+      border: 1px solid var(--border-soft);
+      border-radius: var(--card-radius);
+      box-shadow: var(--shadow-sm);
+      transition: all 0.3s ease;
+      background: #fff;
+      overflow: hidden;
     }
 
-    /* Footer */
-    footer {
-      background-color: #fff8ef;
-      color: #6b3b16;
-      border-top: 1px solid #e6d8c3;
+    .card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-2px);
+    }
+
+    .card-header {
+      background-color: #fff;
+      border-bottom: 1px solid var(--border-soft);
+      padding: 1.25rem;
+      font-weight: 600;
+    }
+
+    .card-body {
+      padding: 1.25rem;
+    }
+
+    /* ===== KPI Cards (Unified Design System) ===== */
+    .kpi-card {
+      border: none !important;
+      border-radius: var(--card-radius) !important;
+      color: #ffffff !important;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    .kpi-card:hover {
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    .kpi-card .card-body {
+      position: relative;
+      z-index: 2;
+      padding: 1.5rem !important;
+    }
+
+    /* Icon transparency and positioning */
+    .kpi-card i.floating-icon {
+      position: absolute;
+      right: -10px;
+      bottom: -10px;
+      font-size: 5rem;
+      opacity: 0.15;
+      transform: rotate(-15deg);
+      z-index: 1;
+      transition: all 0.5s ease;
+    }
+
+    .kpi-card:hover i.floating-icon {
+      transform: scale(1.2) rotate(0deg);
+      opacity: 0.25;
+    }
+
+    /* Vibrant Color Palette */
+    .kpi-vibrant-blue {
+      background: linear-gradient(135deg, #339af0 0%, #1c7ed6 100%) !important;
+    }
+
+    .kpi-vibrant-green {
+      background: linear-gradient(135deg, #51cf66 0%, #2b8a3e 100%) !important;
+    }
+
+    .kpi-vibrant-gold {
+      background: linear-gradient(135deg, #fcc419 0%, #f59e0b 100%) !important;
+    }
+
+    .kpi-vibrant-teal {
+      background: linear-gradient(135deg, #20c997 0%, #087f5b 100%) !important;
+    }
+
+    .kpi-vibrant-purple {
+      background: linear-gradient(135deg, #b197fc 0%, #8b5cf6 100%) !important;
+    }
+
+    .kpi-vibrant-indigo {
+      background: linear-gradient(135deg, #748ffc 0%, #4c6ef5 100%) !important;
+    }
+
+    .kpi-vibrant-red {
+      background: linear-gradient(135deg, #ff8787 0%, #e03131 100%) !important;
+    }
+
+    .kpi-vibrant-orange {
+      background: linear-gradient(135deg, #ffa94d 0%, #e8590c 100%) !important;
+    }
+
+    .kpi-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+      opacity: 0.9;
+    }
+
+    .kpi-value {
+      font-size: 2.25rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 0.5rem;
+    }
+
+    .kpi-subtext {
+      font-size: 0.8rem;
+      font-weight: 500;
+      opacity: 0.8;
+      margin-bottom: 0;
+    }
+
+    /* ===== Table Enhancements ===== */
+    .table-responsive {
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-soft) transparent;
+    }
+
+    /* Remove scollbars from cards as requested */
+    .no-internal-scroll {
+      max-height: none !important;
+      overflow-y: visible !important;
+    }
+
+    .table th {
+      background-color: #f9fafb;
+      font-weight: 600;
+      text-transform: uppercase;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+      padding: 1rem 0.75rem;
+      border-bottom: 1px solid var(--border-soft);
+    }
+
+    .table td {
+      padding: 1rem 0.75rem;
+      vertical-align: middle;
       font-size: 0.9rem;
     }
-    footer a {
-      color: #a45a26;
-      text-decoration: none;
-    }
-    footer a:hover {
-      text-decoration: underline;
-    }
 
-    /* Custom style for Arabic text */
+    /* ===== Arabic Text ===== */
     .arabic-text {
-      font-family: 'Alkanz', sans-serif;
-      text-align: center;
+      font-family: 'Al Kanz', 'Inter', sans-serif;
+      direction: rtl;
     }
 
-    /* Make the navbar items more evenly spaced */
-    .navbar-nav .nav-item {
-      margin-right: 1rem;
+    /* ===== Footer & Utilities ===== */
+    footer {
+      background-color: #fff;
+      border-top: 1px solid var(--border-soft);
+      padding: 1.5rem 0;
     }
 
-    /* Class Explorer specific styles */
-    .class-explorer-link {
-      background: linear-gradient(135deg, #f5e9db 0%, #e6d8c3 100%);
-      border-left: 4px solid #a45a26;
-    }
-    .class-explorer-link:hover {
-      background: linear-gradient(135deg, #e6d8c3 0%, #d4c3a8 100%);
+    .btn {
+      border-radius: 8px;
+      font-weight: 500;
+      padding: 0.5rem 1.25rem;
+      transition: all 0.2s;
     }
 
-    /* Department Explorer specific styles */
-    .department-explorer-link {
-      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-      border-left: 4px solid #1976d2;
-    }
-    .department-explorer-link:hover {
-      background: linear-gradient(135deg, #bbdefb 0%, #90caf9 100%);
-    }
-
-    /* Profile avatar */
-    .nav-profile-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 2px solid #e6d8c3;
-    }
-
-    /* Notification badge */
-    #notification-badge {
-      font-size: 0.6rem;
-      padding: 0.2rem 0.4rem;
-    }
-
-    /* Dropdown menu adjustments */
-    .dropdown-header {
+    .badge {
       font-weight: 600;
-      color: #6b3b16;
-      font-size: 0.85rem;
-      padding: 0.5rem 1rem;
+      padding: 0.35em 0.65em;
+      border-radius: 6px;
     }
 
-    /* Quick form styles */
-    .quick-class-form .input-group,
-    .quick-dept-form .input-group {
-      width: 180px;
+    /* Responsive Grid Tweak */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
     }
 
-    /* Department item styling */
-    .department-item {
-      border-left: 3px solid #1976d2;
-      background-color: rgba(25, 118, 210, 0.05);
-      margin: 0.25rem 0;
-    }
-    
-    .department-item:hover {
-      background-color: rgba(25, 118, 210, 0.1);
-    }
-    
-    .department-code {
-      font-weight: 600;
-      font-size: 0.85rem;
-      color: #1976d2;
-    }
-    
-    .department-name {
-      font-size: 0.8rem;
-      color: #6c757d;
+
+    /* Toast notification styling */
+    .toast-container {
+      z-index: 1100;
     }
 
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-      .navbar-nav .nav-item {
-        margin-right: 0.5rem;
-      }
-      
-      .navbar-nav.ms-5 {
-        margin-left: 1rem !important;
-      }
+    .toast {
+      background-color: white;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
     }
 
+    .toast-success {
+      border-left: 4px solid #28a745;
+    }
+
+    .toast-warning {
+      border-left: 4px solid #ffc107;
+    }
+
+    .toast-danger {
+      border-left: 4px solid #dc3545;
+    }
+
+    .toast-info {
+      border-left: 4px solid #17a2b8;
+    }
   </style>
 </head>
 
@@ -182,7 +312,8 @@
   {% if not hide_nav %}
   <nav class="navbar navbar-expand-lg navbar-custom shadow-sm sticky-top">
     <div class="container-fluid px-4">
-      <a class="navbar-brand d-flex align-items-center" href="{{ url_for('dashboard_bp.dashboard') if session.get('logged_in') else '#' }}">
+      <a class="navbar-brand d-flex align-items-center"
+        href="{{ url_for('dashboard_bp.dashboard') if session.get('logged_in') else '#' }}">
         <i class="bi bi-book-half fs-4 me-2"></i>
         <span>Aljamea-tus-Saifiyah – Library</span>
       </a>
@@ -193,227 +324,177 @@
 
       {% set raw_role = session.get('role') %}
       {% if raw_role is string %}
-        {% set user_role = raw_role|lower %}
+      {% set user_role = raw_role|lower %}
       {% else %}
-        {% set user_role = (raw_role|string)|lower %}
+      {% set user_role = (raw_role|string)|lower %}
       {% endif %}
       {# Fallback: if username is admin but role missing, treat as admin #}
       {% if (not user_role) and session.get('username') == 'admin' %}
-        {% set user_role = 'admin' %}
+      {% set user_role = 'admin' %}
       {% endif %}
 
       <div class="collapse navbar-collapse" id="navbarNav">
         <!-- Left Links -->
         <ul class="navbar-nav ms-5 me-auto mb-2 mb-lg-0 gap-4">
           {% if session.get('logged_in') %}
-            {% if user_role == 'admin' %}
-              <li class="nav-item">
-                <a class="nav-link {% if 'dashboard_bp' in request.blueprint %}active{% endif %}"
-                   href="{{ url_for('dashboard_bp.dashboard') }}">
-                  <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                </a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link {% if 'reports_bp' in request.blueprint %}active{% endif %}"
-                   href="{{ url_for('reports_bp.reports_page') }}">
-                  <i class="bi bi-table me-1"></i>Reports
-                </a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link {% if 'admin_bp' in request.blueprint %}active{% endif %}"
-                   href="{{ url_for('admin_bp.admin_settings') }}">
-                  <i class="bi bi-gear me-1"></i>Settings
-                </a>
-              </li>
+          {% if user_role == 'admin' %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.blueprint and 'dashboard_bp' in request.blueprint %}active{% endif %}"
+              href="{{ url_for('dashboard_bp.dashboard') }}">
+              <i class="bi bi-speedometer2 me-1"></i>Dashboard
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.blueprint and 'reports_bp' in request.blueprint %}active{% endif %}"
+              href="{{ url_for('reports_bp.reports_page') }}">
+              <i class="bi bi-table me-1"></i>Reports
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.blueprint and 'admin_bp' in request.blueprint and request.endpoint == 'admin_bp.admin_settings' %}active{% endif %}"
+              href="{{ url_for('admin_bp.admin_settings') }}">
+              <i class="bi bi-gear me-1"></i>Settings
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'admin_bp.admin_programs' %}active{% endif %}"
+              href="{{ url_for('admin_bp.admin_programs') }}">
+              <i class="bi bi-award me-1"></i>Taqeem &amp; Marks
+            </a>
+          </li>
 
-              <!-- Admin: Toggle View as different dashboards -->
-              <li class="nav-item dropdown">
-                <button class="nav-link dropdown-toggle btn btn-link p-0 border-0 text-decoration-none"
-                        id="toggleViewDropdown"
-                        data-bs-toggle="dropdown"
-                        type="button">
-                  <i class="bi bi-eye me-1"></i>Toggle View
+
+          <!-- Admin: Quick Access Dropdown -->
+          <li class="nav-item dropdown">
+            <button class="nav-link dropdown-toggle btn btn-link p-0 border-0 text-decoration-none"
+              id="quickAccessDropdown" data-bs-toggle="dropdown" type="button">
+              <i class="bi bi-compass me-1"></i>Toggle view
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="quickAccessDropdown"
+              style="min-width: 280px;">
+              <!-- Explore Sections -->
+              <li class="dropdown-header">Explorer Tools</li>
+              <li>
+                <button class="dropdown-item darajah-explorer-link" type="button"
+                  onclick="window.location.href='{{ url_for('teacher_dashboard_bp.darajah_explorer') }}'">
+                  <i class="bi bi-search me-2"></i>Darajah Explorer
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="toggleViewDropdown" style="min-width: 280px; max-height: 500px; overflow-y: auto;">
-                  <!-- Explore Sections -->
-                  <li class="dropdown-header">Explore Sections</li>
-                  <li>
-                    <button class="dropdown-item class-explorer-link" type="button"
-                            onclick="window.location='{{ url_for('teacher_dashboard_bp.class_explorer') }}'">
-                      <i class="bi bi-search me-2"></i>Class Explorer
-                    </button>
-                  </li>
-                  <li>
-                    <button class="dropdown-item department-explorer-link" type="button"
-                            onclick="window.location='{{ url_for('hod_dashboard_bp.department_explorer') }}'">
-                      <i class="bi bi-building me-2"></i>Department Explorer
-                    </button>
-                  </li>
-                  <li><hr class="dropdown-divider"></li>
-                  
-                  <!-- Quick Class Access -->
-                  <li class="dropdown-header">Quick Class Access</li>
-                  <li>
-                    <button class="dropdown-item" type="button"
-                            onclick="window.location='{{ url_for('teacher_dashboard_bp.dashboard', class_name='5 B M') }}'">
-                      <i class="bi bi-graduation-cap me-2"></i>Class 5 B M
-                    </button>
-                  </li>
-                  <li>
-                    <button class="dropdown-item" type="button"
-                            onclick="window.location='{{ url_for('teacher_dashboard_bp.dashboard', class_name='1 A F') }}'">
-                      <i class="bi bi-graduation-cap me-2"></i>Class 1 A F
-                    </button>
-                  </li>
-                  <li><hr class="dropdown-divider"></li>
-                  
-                  <!-- Quick Department Access -->
-                  <li class="dropdown-header">Quick Department Access</li>
-                  <li>
-                    <button class="dropdown-item department-item" type="button"
-                            onclick="window.location='{{ url_for('hod_dashboard_bp.dashboard', dept='S-CO') }}'">
-                      <div>
-                        <div class="department-code">S-CO</div>
-                        <div class="department-name">Collegiate I (5-7)</div>
-                      </div>
-                    </button>
-                  </li>
-                  <li>
-                    <button class="dropdown-item department-item" type="button"
-                            onclick="window.location='{{ url_for('hod_dashboard_bp.dashboard', dept='S-CT') }}'">
-                      <div>
-                        <div class="department-code">S-CT</div>
-                        <div class="department-name">Collegiate II & Higher Studies (Std 8-11)</div>
-                      </div>
-                    </button>
-                  </li>
-                  <li><hr class="dropdown-divider"></li>
-                  
-                  <!-- Custom Class Entry -->
-                  <li class="dropdown-header">Custom Class</li>
-                  <div class="px-3 py-2">
-                    <form class="quick-class-form" action="{{ url_for('teacher_dashboard_bp.dashboard') }}" method="get">
-                      <div class="input-group input-group-sm">
-                        <input type="text" class="form-control" name="class_name" placeholder="Enter class (e.g., 5 B M)" required>
-                        <button class="btn btn-primary btn-sm" type="submit">
-                          <i class="bi bi-arrow-right"></i>
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                  
-                  <!-- Custom Department Entry -->
-                  <li class="dropdown-header">Custom Department</li>
-                  <div class="px-3 py-2">
-                    <form class="quick-dept-form" action="{{ url_for('hod_dashboard_bp.dashboard') }}" method="get">
-                      <div class="input-group input-group-sm">
-                        <input type="text" class="form-control" name="dept" placeholder="Enter department code" required>
-                        <button class="btn btn-primary btn-sm" type="submit">
-                          <i class="bi bi-arrow-right"></i>
-                        </button>
-                      </div>
-                    </form>
-                  </div>
-                </ul>
               </li>
+              <li>
+                <button class="dropdown-item marhala-explorer-link" type="button"
+                  onclick="window.location.href='{{ url_for('hod_dashboard_bp.marhala_explorer') }}'">
+                  <i class="bi bi-building me-2"></i>Marhala Explorer
+                </button>
+              </li>
+            </ul>
+          </li>
 
-            {% elif user_role == 'hod' %}
-              <li class="nav-item">
-                <a class="nav-link {% if 'hod_dashboard_bp' in request.blueprint %}active{% endif %}"
-                   href="{{ url_for('hod_dashboard_bp.dashboard') }}">
-                  <i class="bi bi-building me-1"></i>My Department
-                </a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link {% if 'reports_bp' in request.blueprint %}active{% endif %}"
-                   href="{{ url_for('reports_bp.reports_page') }}">
-                  <i class="bi bi-graph-up me-1"></i>Reports
-                </a>
-              </li>
+          {% elif user_role == 'hod' %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.blueprint and 'hod_dashboard_bp' in request.blueprint %}active{% endif %}"
+              href="{{ url_for('hod_dashboard_bp.dashboard') }}">
+              <i class="bi bi-building me-1"></i>My Marhala
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.blueprint and 'reports_bp' in request.blueprint %}active{% endif %}"
+              href="{{ url_for('reports_bp.reports_page') }}">
+              <i class="bi bi-graph-up me-1"></i>Reports
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.blueprint and 'marhala_explorer' in request.blueprint %}active{% endif %}"
+              href="{{ url_for('hod_dashboard_bp.marhala_explorer') }}">
+              <i class="bi bi-compass me-1"></i>Marhala Explorer
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'admin_bp.admin_programs' %}active{% endif %}"
+              href="{{ url_for('admin_bp.admin_programs') }}">
+              <i class="bi bi-award me-1"></i>Taqeem &amp; Marks
+            </a>
+          </li>
 
-            {% elif user_role == 'teacher' %}
-              <li class="nav-item">
-                <a class="nav-link {% if 'teacher_dashboard_bp' in request.blueprint %}active{% endif %}"
-                   href="{{ url_for('teacher_dashboard_bp.dashboard') }}">
-                  <i class="bi bi-people me-1"></i>My Class
-                </a>
-              </li>
-            {% endif %}
+          {% elif user_role == 'teacher' %}
+          <li class="nav-item">
+            <a class="nav-link {% if request.blueprint and 'teacher_dashboard_bp' in request.blueprint %}active{% endif %}"
+              href="{{ url_for('teacher_dashboard_bp.dashboard') }}">
+              <i class="bi bi-people me-1"></i>My Darajah
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.blueprint and 'darajah_explorer' in request.blueprint %}active{% endif %}"
+              href="{{ url_for('teacher_dashboard_bp.darajah_explorer') }}">
+              <i class="bi bi-compass me-1"></i>Darajah Explorer
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link {% if request.endpoint == 'admin_bp.admin_programs' %}active{% endif %}"
+              href="{{ url_for('admin_bp.admin_programs') }}">
+              <i class="bi bi-award me-1"></i>Taqeem &amp; Marks
+            </a>
+          </li>
+          {% endif %}
           {% endif %}
         </ul>
 
         <!-- Right Links -->
         <ul class="navbar-nav align-items-center gap-3">
           {% if session.get('logged_in') %}
-            <!-- Notifications -->
-            <li class="nav-item position-relative">
-              <a href="#" class="nav-link position-relative" title="Notifications" data-bs-toggle="dropdown">
-                <i class="bi bi-bell fs-5"></i>
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notification-badge">3</span>
-              </a>
-              <ul class="dropdown-menu dropdown-menu-end shadow" id="notification-dropdown" style="min-width: 250px;">
-                <li class="dropdown-header">Notifications</li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="#"><i class="bi bi-book me-2"></i>New library books added</a></li>
-                <li><a class="dropdown-item" href="#"><i class="bi bi-clock-history me-2"></i>You have overdue books</a></li>
-                <li><a class="dropdown-item" href="#"><i class="bi bi-calendar-event me-2"></i>Department meeting tomorrow</a></li>
-                <li><a class="dropdown-item" href="#"><i class="bi bi-exclamation-triangle me-2"></i>System maintenance scheduled</a></li>
-                <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item text-center" href="#"><i class="bi bi-list me-1"></i>View all notifications</a></li>
-              </ul>
-            </li>
-            
-            <!-- Theme Toggle -->
-            <li class="nav-item">
-              <button class="btn btn-sm btn-outline-light" id="themeToggle" title="Toggle theme">
-                <i class="bi bi-brightness-high"></i>
-              </button>
-            </li>
-            
-            <!-- Profile Dropdown with avatar -->
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
-                {% set nav_pic = session.get('profile_picture', 'images/avatar.png') %}
-                <img src="{{ url_for('static', filename=nav_pic) }}"
-                     alt="Profile"
-                     class="nav-profile-avatar me-1">
-                <span>{{ session.get('username', 'User') }}</span>
-              </a>
-              <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width: 200px;">
-                <li class="dropdown-header text-center">
-                  <strong>{{ session.get('username', 'User') }}</strong><br>
-                  <small class="text-muted text-capitalize">{{ user_role or 'guest' }}</small>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                  <a class="dropdown-item" href="{{ url_for('profile_bp.view_profile') }}">
-                    <i class="bi bi-person me-2"></i>View Profile
-                  </a>
-                </li>
-                <li>
-                  <a class="dropdown-item" href="{{ url_for('profile_bp.edit_profile') }}">
-                    <i class="bi bi-pencil-square me-2"></i>Edit Profile
-                  </a>
-                </li>
-                <li>
-                  <a class="dropdown-item" href="{{ url_for('profile_bp.change_password') }}">
-                    <i class="bi bi-lock me-2"></i>Change Password
-                  </a>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                  <a class="dropdown-item text-danger" href="{{ url_for('auth_bp.logout') }}">
-                    <i class="bi bi-box-arrow-right me-2"></i>Logout
-                  </a>
-                </li>
-              </ul>
-            </li>
+          <!-- Theme Toggle -->
+          <li class="nav-item">
+            <button class="btn btn-sm btn-outline-light" id="themeToggle" title="Toggle theme">
+              <i class="bi bi-brightness-high"></i>
+            </button>
+          </li>
+
+          <!-- Profile Dropdown with avatar -->
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button"
+              data-bs-toggle="dropdown">
+              {% set nav_pic = session.get('profile_picture', 'images/avatar.png') %}
+              <img src="{{ url_for('static', filename=nav_pic) }}" alt="Profile" class="nav-profile-avatar me-1">
+              <span>{{ session.get('username', 'User') }}</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end shadow" style="min-width: 200px;">
+              <li class="dropdown-header text-center">
+                <strong>{{ session.get('username', 'User') }}</strong><br>
+                <small class="text-muted text-capitalize">{{ user_role or 'guest' }}</small>
+              </li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('profile_bp.view_profile') }}">
+                  <i class="bi bi-person me-2"></i>View Profile
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('profile_bp.edit_profile') }}">
+                  <i class="bi bi-pencil-square me-2"></i>Edit Profile
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item" href="{{ url_for('profile_bp.change_password') }}">
+                  <i class="bi bi-lock me-2"></i>Change Password
+                </a>
+              </li>
+              <li>
+                <hr class="dropdown-divider">
+              </li>
+              <li>
+                <a class="dropdown-item text-danger" href="{{ url_for('auth_bp.logout') }}">
+                  <i class="bi bi-box-arrow-right me-2"></i>Logout
+                </a>
+              </li>
+            </ul>
+          </li>
           {% else %}
-            <li class="nav-item">
-              <a class="btn btn-outline-light btn-sm" href="{{ url_for('auth_bp.login') }}">
-                <i class="bi bi-person-lock me-1"></i>Login
-              </a>
-            </li>
+          <li class="nav-item">
+            <a class="btn btn-outline-light btn-sm" href="{{ url_for('auth_bp.login') }}">
+              <i class="bi bi-person-lock me-1"></i>Login
+            </a>
+          </li>
           {% endif %}
         </ul>
       </div>
@@ -442,11 +523,44 @@
         <a href="mailto:library@ajsn.co.ke">
           <i class="bi bi-envelope me-1"></i>Contact
         </a>
-        <span class="text-muted ms-3">v2.0.0</span>
+        <span class="text-muted ms-3">v2.1.0</span>
       </div>
     </div>
   </footer>
   {% endif %}
+
+  <!-- Global Confirmation Modal -->
+  <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true" style="z-index: 1200;">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg rounded-4">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title fw-bold" id="confirmModalTitle">Confirm Action</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body py-4" id="confirmModalMessage">
+          Are you sure you want to proceed with this action?
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary rounded-pill px-4" id="confirmModalBtn">Confirm</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;">
+    <div id="liveToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+      <div class="toast-header">
+        <strong class="me-auto" id="toastTitle">Notification</strong>
+        <small id="toastTime">Just now</small>
+        <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+      </div>
+      <div class="toast-body" id="toastMessage">
+        Message will appear here.
+      </div>
+    </div>
+  </div>
 
   <!-- Scripts -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js" defer></script>
@@ -470,17 +584,17 @@
       const dtEl = document.getElementById('currentDateTime');
       if (dtEl) {
         const fmt = new Intl.DateTimeFormat(undefined, {
-          weekday: 'short', 
-          year: 'numeric', 
-          month: 'short', 
+          weekday: 'short',
+          year: 'numeric',
+          month: 'short',
           day: '2-digit',
-          hour: '2-digit', 
+          hour: '2-digit',
           minute: '2-digit'
         });
-        const tick = () => { 
-          dtEl.textContent = fmt.format(new Date()); 
+        const tick = () => {
+          dtEl.textContent = fmt.format(new Date());
         };
-        tick(); 
+        tick();
         setInterval(tick, 60000); // Update every minute
       }
 
@@ -493,58 +607,73 @@
           document.body.classList.add('bg-dark', 'text-light');
           toggleBtn.innerHTML = '<i class="bi bi-moon"></i>';
         }
-        
+
         toggleBtn.addEventListener('click', () => {
           const isDark = document.body.classList.toggle('bg-dark');
           document.body.classList.toggle('text-light');
-          
+
           // Save preference
           localStorage.setItem('theme', isDark ? 'dark' : 'light');
-          
+
           // Update icon
-          toggleBtn.innerHTML = isDark ? 
-            '<i class="bi bi-moon"></i>' : 
+          toggleBtn.innerHTML = isDark ?
+            '<i class="bi bi-moon"></i>' :
             '<i class="bi bi-brightness-high"></i>';
         });
       }
 
-      // Quick form submissions
-      document.querySelectorAll('.quick-class-form').forEach(form => {
-        form.addEventListener('submit', function(e) {
-          const classInput = this.querySelector('input[name="class_name"]');
-          if (!classInput.value.trim()) {
-            e.preventDefault();
-            classInput.focus();
-            classInput.classList.add('is-invalid');
-            return false;
-          }
-        });
-      });
+      // Global Confirmation Helper
+      window.confirmAction = function (message, onConfirm, title = 'Confirm Action') {
+        const modal = new bootstrap.Modal(document.getElementById('confirmModal'));
+        document.getElementById('confirmModalTitle').textContent = title;
+        document.getElementById('confirmModalMessage').textContent = message;
 
-      document.querySelectorAll('.quick-dept-form').forEach(form => {
-        form.addEventListener('submit', function(e) {
-          const deptInput = this.querySelector('input[name="dept"]');
-          if (!deptInput.value.trim()) {
-            e.preventDefault();
-            deptInput.focus();
-            deptInput.classList.add('is-invalid');
-            return false;
-          }
-        });
-      });
+        const confirmBtn = document.getElementById('confirmModalBtn');
+        const newBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
 
-      // Notification badge update
-      function updateNotificationBadge() {
-        const badge = document.getElementById('notification-badge');
-        if (badge) {
-          // This is a placeholder - in production, fetch actual count
-          // const count = Math.floor(Math.random() * 5); // Example random count
-          // badge.textContent = count > 0 ? count : '';
-          // badge.style.display = count > 0 ? 'inline-block' : 'none';
+        newBtn.addEventListener('click', () => {
+          onConfirm();
+          modal.hide();
+        });
+
+        modal.show();
+      };
+
+      // Toast notification function
+      window.showToast = function (message, type = 'info', title = 'Notification', duration = 5000) {
+        const toastEl = document.getElementById('liveToast');
+        const toastTitle = document.getElementById('toastTitle');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastTime = document.getElementById('toastTime');
+
+        if (!toastEl) return;
+
+        // Set toast content
+        toastTitle.textContent = title;
+        toastMessage.textContent = message;
+        toastTime.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // Set toast type
+        toastEl.classList.remove('toast-success', 'toast-warning', 'toast-danger', 'toast-info');
+        toastEl.classList.add(`toast-${type}`);
+
+        // Show toast
+        const toast = new bootstrap.Toast(toastEl, {
+          delay: duration,
+          autohide: true
+        });
+        toast.show();
+      };
+
+      // Add active class to current page link
+      const currentPath = window.location.pathname;
+      document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
+        const linkPath = link.getAttribute('href');
+        if (linkPath && currentPath.includes(linkPath.replace(/^\/+/, '').split('?')[0])) {
+          link.classList.add('active');
         }
-      }
-      
-      updateNotificationBadge();
+      });
 
       // Auto-close dropdowns on mobile after click
       if (window.innerWidth < 768) {
@@ -561,13 +690,10 @@
         });
       }
 
-      // Add active class to current page link
-      const currentPath = window.location.pathname;
-      document.querySelectorAll('.navbar-nav .nav-link').forEach(link => {
-        const linkPath = link.getAttribute('href');
-        if (linkPath && currentPath.includes(linkPath.replace(/^\/+/, '').split('?')[0])) {
-          link.classList.add('active');
-        }
+      // Initialize tooltips
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      const tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
       });
 
     });
@@ -575,4 +701,5 @@
 
   {% block scripts %}{% endblock %}
 </body>
+
 </html>

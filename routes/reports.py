@@ -1,22 +1,45 @@
-# routes/reports.py
-from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, send_file
+# routes/reports.py - UPDATED WITH FIXED OPAC LINKS AND STUDENT NAME LINKING
+from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, send_file, current_app
 from db_koha import get_koha_conn
+from services import koha_queries as KQ
+from db_app import get_conn as get_app_conn
 import pandas as pd
 import io
 import re
+import csv
 from datetime import date
-from flask import current_app
+import urllib.parse
 
 from services.exports import dataframe_to_pdf_bytes, dataframe_to_excel_bytes
 from routes.students import get_student_info
 
 bp = Blueprint("reports_bp", __name__)
 
-# Borrower attribute codes we accept as "class"
-CLASS_CODES = ("STD", "CLASS", "DAR", "CLASS_STD")
+# Borrower attribute codes we accept as "darajah"
+DARAJAH_CODES = ("STD", "CLASS", "DAR", "CLASS_STD")
 
 # Borrower attribute codes we accept for TR number lookups
 TR_ATTR_CODES = ("TRNO", "TRN", "TR_NUMBER", "TR")  # include your local variants as needed
+
+# ---------------- OPAC URL HELPER ----------------
+def get_opac_base_url():
+    """Get OPAC base URL from Flask config with fallback."""
+    return current_app.config.get("KOHA_OPAC_BASE_URL", "https://library-nairobi.jameasaifiyah.org")
+
+def get_opac_book_url(biblionumber: int) -> str:
+    """Generate OPAC book URL from biblionumber."""
+    opac_base = get_opac_base_url()
+    # Ensure the URL ends with a single slash and proper catalog path
+    return f"{opac_base.rstrip('/')}/cgi-bin/koha/opac-detail.pl?biblionumber={biblionumber}"
+
+# ---------------- HELPER FUNCTIONS FOR SQL ----------------
+def _darajah_codes_sql() -> str:
+    """Return SQL-safe string for DARAJAH_CODES"""
+    return ", ".join([f"'{code}'" for code in DARAJAH_CODES])
+
+def _tr_codes_sql() -> str:
+    """Return SQL-safe string for TR_ATTR_CODES"""
+    return ", ".join([f"'{code}'" for code in TR_ATTR_CODES])
 
 
 # ---------------- ROLE HELPERS ----------------
@@ -31,9 +54,9 @@ def _current_role() -> str:
     return (session.get("role") or "").strip().lower()
 
 
-def _hod_department() -> str | None:
+def _hod_marhala() -> str | None:
     """
-    Return the HOD's department label as stored in session["department_name"].
+    Return the HOD's marhala label as stored in session["department_name"].
     This should match COALESCE(categories.description, categorycode) in Koha.
     """
     dep = session.get("department_name")
@@ -42,15 +65,59 @@ def _hod_department() -> str | None:
     return None
 
 
+def _teacher_darajah() -> str | None:
+    """
+    Return the teacher's darajah (class) from session.
+    Falls back to class_name if darajah_name not set.
+    """
+    darajah = session.get("darajah_name") or session.get("class_name")
+    if darajah:
+        return str(darajah)
+    return None
+
+
+# ---------------- TEACHER MAPPING HELPER ----------------
+def _get_teachers_for_darajah(darajah_name: str) -> list[dict]:
+    """
+    Get teachers mapped to a specific darajah from the app database.
+    Returns list of teachers with their roles.
+    """
+    try:
+        conn = get_app_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT tm.teacher_name, tm.role, u.email
+            FROM teacher_darajah_mapping tm
+            LEFT JOIN users u ON tm.teacher_username = u.username
+            WHERE tm.darajah_name = ?
+            ORDER BY 
+                CASE tm.role 
+                    WHEN 'masool' THEN 1 
+                    WHEN 'class_teacher' THEN 2 
+                    ELSE 3 
+                END,
+                tm.teacher_name
+        """, (darajah_name,))
+        
+        teachers = []
+        for row in cur.fetchall():
+            role_display = 'Masool' if row[1] == 'masool' else \
+                          'Class Teacher' if row[1] == 'class_teacher' else 'Assistant'
+            teachers.append({
+                'name': row[0],
+                'role': role_display,
+                'email': row[2]
+            })
+        
+        cur.close()
+        conn.close()
+        return teachers
+    except Exception as e:
+        current_app.logger.error(f"Error fetching teachers for darajah {darajah_name}: {e}")
+        return []
+
+
 # ---------------- AY WINDOW ----------------
-def _ay_bounds():
-    today = date.today()
-    year = today.year
-    if today.month < 4:
-        return None, None
-    start = date(year, 4, 1)
-    end = min(today, date(year, 12, 31))
-    return start, end
 
 
 # ---------------- INDIVIDUAL LOOKUP ----------------
@@ -129,17 +196,16 @@ def _resolve_borrower_by_identifier(identifier: str) -> int | None:
         return bn
 
     # 4) TR number via borrower_attributes (joined to borrowers for active filter)
-    placeholders = ",".join(["%s"] * len(TR_ATTR_CODES))
     sql = f"""
         SELECT b.borrowernumber
         FROM borrower_attributes ba
         JOIN borrowers b ON b.borrowernumber = ba.borrowernumber
-        WHERE ba.code IN ({placeholders})
+        WHERE ba.code IN ({_tr_codes_sql()})
           AND ba.attribute=%s
           {active_filter}
         LIMIT 1
     """
-    cur.execute(sql, (*TR_ATTR_CODES, identifier))
+    cur.execute(sql, (identifier,))
     row = cur.fetchone()
     cur.close()
     conn.close()
@@ -150,26 +216,18 @@ def _resolve_borrower_by_identifier(identifier: str) -> int | None:
 
 
 # ---------------- UTILITIES ----------------
-def _class_rows_for_value(class_std: str, dept_filter: str | None = None) -> list[dict]:
+def _darajah_rows_for_value(darajah_std: str, marhala_filter: str | None = None) -> list[dict]:
     """
-    Class-wise rows (per Darajah) with AY metrics:
-
+    Darajah-wise rows with AY metrics:
     - Only ACTIVE patrons (dateexpiry IS NULL or >= today)
-    - Optional dept_filter => restrict to that department
-      (matching COALESCE(categories.description, categorycode))
+    - Optional marhala_filter => restrict to that marhala
     - Replaces cardnumber with TRNumber (COALESCE(TR, cardnumber))
-    - Adds:
-        * Issues_AY
-        * FinesPaid_AY
-        * OutstandingBalance
-        * Collections
-        * Language
     """
-    start, end = _ay_bounds()
+    start, end = KQ.get_ay_bounds()
     conn = get_koha_conn()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
-    # Fixed: Collections and language subquery
+    # Get collections and language from Koha
     collections_language_join = """
         LEFT JOIN (
             SELECT s.borrowernumber,
@@ -186,20 +244,26 @@ def _class_rows_for_value(class_std: str, dept_filter: str | None = None) -> lis
             GROUP BY s.borrowernumber
         ) cl ON cl.borrowernumber = b.borrowernumber
     """
-    collections_language_params = [start, end]
+    collections_language_params = [start, end] if start else [None, None]
 
-    dept_clause = ""
-    if dept_filter:
-        dept_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+    marhala_clause = ""
+    if marhala_filter:
+        marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
 
     # Build the query based on whether we have AY dates
     ay_where = "AND DATE(`datetime`) BETWEEN %s AND %s" if start else ""
     fay_where = "AND DATE(`date`) BETWEEN %s AND %s" if start else ""
     
+    # Conditionally include collections and language based on AY dates
+    collections_language_select = "cl.collections AS Collections, cl.language AS Language" if start else "NULL AS Collections, NULL AS Language"
+    
     sql = f"""
         SELECT
           b.borrowernumber,
+          b.cardnumber,
           COALESCE(tr.attribute, b.cardnumber)               AS TRNumber,
+          b.surname,
+          b.firstname,
           CONCAT(
             COALESCE(b.surname, ''),
             CASE WHEN b.surname IS NOT NULL AND b.firstname IS NOT NULL THEN ' ' ELSE '' END,
@@ -209,23 +273,22 @@ def _class_rows_for_value(class_std: str, dept_filter: str | None = None) -> lis
           UPPER(COALESCE(b.sex,''))                          AS Sex,
           b.dateenrolled                                     AS Enrolled,
           b.dateexpiry                                       AS Expiry,
-          COALESCE(a.active_loans, 0)                        AS ActiveLoans,
+          COALESCE(a.currently_issued, 0)                        AS CurrentlyIssued,
           COALESCE(a.overdues, 0)                            AS Overdues,
-          COALESCE(ay.total_issues_ay, 0)                    AS Issues_AY,
-          COALESCE(fay.fines_paid_ay, 0)                     AS FinesPaid_AY,
+          COALESCE(ay.total_issues_ay, 0)                    AS Issues_AcademicYear,
+          COALESCE(fay.fees_paid_ay, 0)                     AS FeesPaid_AcademicYear,
           COALESCE(ob.outstanding, 0)                        AS OutstandingBalance,
-          cl.collections                                     AS Collections,
-          cl.language                                        AS Language
+          {collections_language_select}
         FROM borrowers b
         LEFT JOIN borrower_attributes std
                ON std.borrowernumber = b.borrowernumber
-              AND std.code IN ({",".join(["%s"]*len(CLASS_CODES))})
+              AND std.code IN ({_darajah_codes_sql()})
         LEFT JOIN borrower_attributes tr
                ON tr.borrowernumber = b.borrowernumber
-              AND tr.code IN ({",".join(["%s"]*len(TR_ATTR_CODES))})
+              AND tr.code IN ({_tr_codes_sql()})
         LEFT JOIN (
             SELECT borrowernumber,
-                   COUNT(*) AS active_loans,
+                   COUNT(*) AS currently_issued,
                    SUM(CASE WHEN returndate IS NULL AND date_due < NOW() THEN 1 ELSE 0 END) AS overdues
             FROM issues
             WHERE returndate IS NULL
@@ -244,7 +307,7 @@ def _class_rows_for_value(class_std: str, dept_filter: str | None = None) -> lis
                          WHEN credit_type_code='PAYMENT'
                               AND (status IS NULL OR status <> 'VOID')
                               {fay_where}
-                         THEN -amount ELSE 0 END) AS fines_paid_ay
+                         THEN -amount ELSE 0 END) AS fees_paid_ay
             FROM accountlines
             GROUP BY borrowernumber
         ) fay ON fay.borrowernumber = b.borrowernumber
@@ -255,124 +318,150 @@ def _class_rows_for_value(class_std: str, dept_filter: str | None = None) -> lis
             GROUP BY borrowernumber
         ) ob ON ob.borrowernumber = b.borrowernumber
         LEFT JOIN categories c ON c.categorycode = b.categorycode
-        {collections_language_join}
+        {collections_language_join if start else ""}
         WHERE (std.attribute = %s OR b.branchcode = %s)
           AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-          {dept_clause}
+          {marhala_clause}
         ORDER BY FullName ASC;
     """
 
     # Build parameters
-    params = list(CLASS_CODES) + list(TR_ATTR_CODES)
+    params = []
     if start:
-        params += [start, end]    # ay subquery
+        params.extend([start, end])  # collections_language_params
     if start:
-        params += [start, end]    # fines_ay subquery
-    params += collections_language_params       # collections and language subquery
-    params += [class_std, class_std]
-    if dept_filter:
-        params.append(dept_filter)
+        params.extend([start, end])  # ay subquery
+    if start:
+        params.extend([start, end])  # fees_ay subquery
+    params.extend([darajah_std, darajah_std])
+    if marhala_filter:
+        params.append(marhala_filter)
 
     cur.execute(sql, params)
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    # Calculate total number of students in class after fetching data
-    total_students = len(rows)
-
-    # Add total students to each row
+    # Get teachers for this darajah
+    teachers = _get_teachers_for_darajah(darajah_std)
+    
+    # Add teacher information to each row
     for row in rows:
-        row["TotalStudents"] = total_students
+        row["Darajah"] = darajah_std
+        if teachers:
+            # Add primary teacher (first teacher in list, usually Masool or Class Teacher)
+            primary_teacher = next((t for t in teachers if t['role'] in ['Masool', 'Class Teacher']), teachers[0])
+            row["TeacherName"] = primary_teacher['name']
+            row["TeacherRole"] = primary_teacher['role']
+            row["TeacherEmail"] = primary_teacher['email']
+        else:
+            row["TeacherName"] = "Not Assigned"
+            row["TeacherRole"] = ""
+            row["TeacherEmail"] = ""
 
     return rows
 
-def class_report(class_std: str | None, dept_filter: str | None = None):
-    """
-    Class-wise (Darajah) report.
 
-    - If class_std is provided: one Darajah.
-    - If None: all Darajahs (optionally limited to dept_filter).
-    
+def darajah_report(darajah_std: str | None, marhala_filter: str | None = None):
+    """
+    Darajah-wise report.
     Returns: (DataFrame, total_students)
     """
-    if class_std:
-        # If a specific class is provided, fetch class-specific rows
-        rows = _class_rows_for_value(class_std, dept_filter)
+    if darajah_std:
+        # If a specific darajah is provided, fetch darajah-specific rows
+        rows = _darajah_rows_for_value(darajah_std, marhala_filter)
         total_students = len(rows) if rows else 0
     else:
-        # Discover all classes first (optionally limited to dept_filter)
+        # Discover all darajahs first (optionally limited to marhala_filter)
         conn = get_koha_conn()
         cur = conn.cursor()
 
-        dept_clause = ""
-        params: list = list(CLASS_CODES)
-        if dept_filter:
-            dept_clause = "AND COALESCE(c.description, b.categorycode) = %s"
-            params.append(dept_filter)
+        marhala_clause = ""
+        params = []
+        if marhala_filter:
+            marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+            params.append(marhala_filter)
 
         sql_list = f"""
             SELECT DISTINCT COALESCE(std.attribute, b.branchcode) AS cls
             FROM borrowers b
             LEFT JOIN borrower_attributes std
               ON std.borrowernumber = b.borrowernumber
-             AND std.code IN ({",".join(["%s"]*len(CLASS_CODES))})
+             AND std.code IN ({_darajah_codes_sql()})
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             WHERE COALESCE(std.attribute, b.branchcode) IS NOT NULL
               AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-              {dept_clause}
+              {marhala_clause}
             ORDER BY cls;
         """
         cur.execute(sql_list, params)
-        classes = [r[0] for r in cur.fetchall()]
+        darajahs = [r[0] for r in cur.fetchall()]
         cur.close()
         conn.close()
 
-        # Fetch rows for each class and aggregate them
+        # Fetch rows for each darajah and aggregate them
         rows = []
-        for cls in classes:
-            rows += _class_rows_for_value(cls, dept_filter)
+        for darajah in darajahs:
+            rows += _darajah_rows_for_value(darajah, marhala_filter)
         
         total_students = len(rows)
 
-    # Define the columns for the returned DataFrame
-    cols = [
-        "borrowernumber",
-        "TRNumber",
-        "FullName",
-        "EduEmail",
-        "Sex",
-        "Enrolled",
-        "Expiry",
-        "ActiveLoans",
-        "Overdues",
-        "Issues_AY",
-        "FinesPaid_AY",
-        "OutstandingBalance",
-        "Collections",
-        "Language",
-        "TotalStudents"
-    ]
-
+    # Process rows for display with links
+    processed_rows = []
+    for row in rows:
+        # Create student name link
+        borrowernumber = row.get("borrowernumber")
+        cardnumber = row.get("cardnumber")
+        full_name = row.get("FullName", "")
+        
+        # Clean up the name
+        if not full_name or full_name.strip() == "" or full_name.lower() == "none":
+            full_name = f"Student #{cardnumber}" if cardnumber else "Unknown Student"
+        
+        # Create link to student detail page
+        if borrowernumber:
+            student_link = f'<a href="/students/{borrowernumber}" target="_blank">{full_name}</a>'
+        elif cardnumber:
+            # Try to find by cardnumber
+            student_link = f'<a href="/students/search?q={urllib.parse.quote(cardnumber)}" target="_blank">{full_name}</a>'
+        else:
+            student_link = full_name
+        
+        processed_row = {
+            "TRNumber": row.get("TRNumber", ""),
+            "FullName": student_link,  # Linked name
+            "Sex": row.get("Sex", ""),
+            "CurrentlyIssued": row.get("CurrentlyIssued", 0),
+            "Overdues": row.get("Overdues", 0),
+            "Issues_AcademicYear": row.get("Issues_AcademicYear", 0),
+            "FeesPaid_AcademicYear": row.get("FeesPaid_AcademicYear", 0.0),
+            "Collections": row.get("Collections", ""),
+            "Language": row.get("Language", ""),
+            "Darajah": row.get("Darajah", ""),
+            "TeacherName": row.get("TeacherName", ""),
+            "TeacherRole": row.get("TeacherRole", "")
+        }
+        processed_rows.append(processed_row)
+    
     # Return the rows as a DataFrame and total students
-    df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
+    df = pd.DataFrame(processed_rows) if processed_rows else pd.DataFrame()
+    
     return df, total_students
 
 
-def _dept_rows_for_value(dept: str, dept_filter: str | None = None) -> list[dict]:
+def _marhala_rows_for_value(marhala: str) -> list[dict]:
     """
-    Department-wise rows:
+    Marhala-wise rows:
     - Only ACTIVE patrons (dateexpiry IS NULL or >= today)
-    - Keeps: Class (STD / branchcode)
-    - Keeps: Issues_AY
-    - Adds: Collections, Language
-    - Reorders columns for a more professional layout
+    - Keeps: Darajah (STD / branchcode)
+    - Adds: Collections, Language from Koha
+    - Adds: Teacher information for each student's darajah
     """
-    start, end = _ay_bounds()
+    start, end = KQ.get_ay_bounds()
     conn = get_koha_conn()
-    cur = conn.cursor(dictionary=True)
+    cur = conn.cursor()
 
-    # Fixed: Collections and language subquery
+    # Get collections and language from Koha
     collections_language_join = """
         LEFT JOIN (
             SELECT s.borrowernumber,
@@ -389,15 +478,19 @@ def _dept_rows_for_value(dept: str, dept_filter: str | None = None) -> list[dict
             GROUP BY s.borrowernumber
         ) cl ON cl.borrowernumber = b.borrowernumber
     """
-    collections_language_params = [start, end]
+    collections_language_params = [start, end] if start else [None, None]
 
     # Build the query based on whether we have AY dates
     ay_where = "AND DATE(`datetime`) BETWEEN %s AND %s" if start else ""
     fay_where = "AND DATE(`date`) BETWEEN %s AND %s" if start else ""
     
+    # Conditionally include collections and language based on AY dates
+    collections_language_select = "cl.collections AS Collections, cl.language AS Language" if start else "NULL AS Collections, NULL AS Language"
+    
     sql = f"""
         SELECT
           b.borrowernumber,
+          b.cardnumber,
           COALESCE(tr.attribute, b.cardnumber)               AS TRNumber,
           CONCAT(
             COALESCE(b.surname, ''),
@@ -408,24 +501,23 @@ def _dept_rows_for_value(dept: str, dept_filter: str | None = None) -> list[dict
           UPPER(COALESCE(b.sex,''))                          AS Sex,
           b.dateenrolled                                     AS Enrolled,
           b.dateexpiry                                       AS Expiry,
-          COALESCE(std.attribute, b.branchcode)              AS Class,
-          COALESCE(a.active_loans, 0)                        AS ActiveLoans,
+          COALESCE(std.attribute, b.branchcode)              AS Darajah,
+          COALESCE(a.currently_issued, 0)                        AS CurrentlyIssued,
           COALESCE(a.overdues, 0)                            AS Overdues,
-          COALESCE(ay.total_issues_ay, 0)                    AS Issues_AY,
-          COALESCE(fay.fines_paid_ay, 0)                     AS FinesPaid_AY,
+          COALESCE(ay.total_issues_ay, 0)                    AS Issues_AcademicYear,
+          COALESCE(fay.fees_paid_ay, 0)                     AS FeesPaid_AcademicYear,
           COALESCE(ob.outstanding, 0)                        AS OutstandingBalance,
-          cl.collections                                     AS Collections,
-          cl.language                                        AS Language
+          {collections_language_select}
         FROM borrowers b
         LEFT JOIN borrower_attributes std
                ON std.borrowernumber = b.borrowernumber
-              AND std.code IN ({",".join(["%s"]*len(CLASS_CODES))})
+              AND std.code IN ({_darajah_codes_sql()})
         LEFT JOIN borrower_attributes tr
                ON tr.borrowernumber = b.borrowernumber
-              AND tr.code IN ({",".join(["%s"]*len(TR_ATTR_CODES))})
+              AND tr.code IN ({_tr_codes_sql()})
         LEFT JOIN (
             SELECT borrowernumber,
-                   COUNT(*) AS active_loans,
+                   COUNT(*) AS currently_issued,
                    SUM(CASE WHEN returndate IS NULL AND date_due < NOW() THEN 1 ELSE 0 END) AS overdues
             FROM issues
             WHERE returndate IS NULL
@@ -444,7 +536,7 @@ def _dept_rows_for_value(dept: str, dept_filter: str | None = None) -> list[dict
                          WHEN credit_type_code='PAYMENT'
                               AND (status IS NULL OR status <> 'VOID')
                               {fay_where}
-                         THEN -amount ELSE 0 END) AS fines_paid_ay
+                         THEN -amount ELSE 0 END) AS fees_paid_ay
             FROM accountlines
             GROUP BY borrowernumber
         ) fay ON fay.borrowernumber = b.borrowernumber
@@ -455,86 +547,117 @@ def _dept_rows_for_value(dept: str, dept_filter: str | None = None) -> list[dict
             GROUP BY borrowernumber
         ) ob ON ob.borrowernumber = b.borrowernumber
         LEFT JOIN categories c ON c.categorycode = b.categorycode
-        {collections_language_join}
+        {collections_language_join if start else ""}
         WHERE (COALESCE(c.description, b.categorycode) = %s OR b.categorycode = %s)
           AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
         ORDER BY FullName ASC;
     """
 
     # Build parameters
-    params = list(CLASS_CODES) + list(TR_ATTR_CODES)
+    params = []
     if start:
-        params += [start, end]    # ay subquery
+        params.extend([start, end])  # collections_language_params
     if start:
-        params += [start, end]    # fines_ay subquery
-    params += collections_language_params       # collections and language subquery
-    params += [dept, dept]
+        params.extend([start, end])  # ay subquery
+    if start:
+        params.extend([start, end])  # fees_ay subquery
+    params.extend([marhala, marhala])
 
     cur.execute(sql, params)
     rows = cur.fetchall()
     cur.close()
     conn.close()
 
-    # Add total number of students in department to each row
-    total_students = len(rows)
+    # Add teacher information for each student's darajah
     for row in rows:
-        row["TotalStudents"] = total_students
+        darajah = row.get("Darajah")
+        if darajah:
+            teachers = _get_teachers_for_darajah(darajah)
+            if teachers:
+                # Add primary teacher (first teacher in list, usually Masool or Class Teacher)
+                primary_teacher = next((t for t in teachers if t['role'] in ['Masool', 'Class Teacher']), teachers[0])
+                row["TeacherName"] = primary_teacher['name']
+                row["TeacherRole"] = primary_teacher['role']
+                row["TeacherEmail"] = primary_teacher['email']
+            else:
+                row["TeacherName"] = "Not Assigned"
+                row["TeacherRole"] = ""
+                row["TeacherEmail"] = ""
 
     return rows
 
 
-def department_report(dept_code: str | None):
+def marhala_report(marhala_code: str | None):
     """
-    Department-wise report (Admin only; HOD is blocked before calling this).
-    
+    Marhala-wise report (Admin only; HOD is blocked before calling this).
     Returns: (DataFrame, total_students)
     """
-    if dept_code:
-        rows = _dept_rows_for_value(dept_code)
+    if marhala_code:
+        rows = _marhala_rows_for_value(marhala_code)
         total_students = len(rows) if rows else 0
     else:
         sql_list = """
-            SELECT DISTINCT COALESCE(c.description, b.categorycode) AS dept
+            SELECT DISTINCT COALESCE(c.description, b.categorycode) AS marhala
             FROM borrowers b
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             WHERE COALESCE(c.description, b.categorycode) IS NOT NULL
               AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-            ORDER BY dept;
+            ORDER BY marhala;
         """
         conn = get_koha_conn()
         cur = conn.cursor()
         cur.execute(sql_list)
-        depts = [r[0] for r in cur.fetchall()]
+        marhalas = [r[0] for r in cur.fetchall()]
         cur.close()
         conn.close()
 
         rows = []
-        for d in depts:
-            rows += _dept_rows_for_value(d)
+        for m in marhalas:
+            rows += _marhala_rows_for_value(m)
         
         total_students = len(rows)
 
-    # Adjust columns to make the report more professional and focused
-    cols = [
-        "TRNumber",
-        "FullName",
-        "EduEmail",
-        "Class",
-        "Sex",
-        "Enrolled",
-        "Expiry",
-        "ActiveLoans",
-        "Overdues",
-        "Issues_AY",
-        "FinesPaid_AY",
-        "OutstandingBalance",
-        "Collections",
-        "Language",
-        "TotalStudents"
-    ]
+    # Process rows for display with links
+    processed_rows = []
+    for row in rows:
+        # Create student name link
+        borrowernumber = row.get("borrowernumber")
+        cardnumber = row.get("cardnumber")
+        full_name = row.get("FullName", "")
+        
+        # Clean up the name
+        if not full_name or full_name.strip() == "" or full_name.lower() == "none":
+            full_name = f"Student #{cardnumber}" if cardnumber else "Unknown Student"
+        
+        # Create link to student detail page
+        if borrowernumber:
+            student_link = f'<a href="/students/{borrowernumber}" target="_blank">{full_name}</a>'
+        elif cardnumber:
+            # Try to find by cardnumber
+            student_link = f'<a href="/students/search?q={urllib.parse.quote(cardnumber)}" target="_blank">{full_name}</a>'
+        else:
+            student_link = full_name
+        
+        processed_row = {
+            "TRNumber": row.get("TRNumber", ""),
+            "FullName": student_link,  # Linked name
+            "Darajah": row.get("Darajah", ""),
+            "Sex": row.get("Sex", ""),
+            "CurrentlyIssued": row.get("CurrentlyIssued", 0),
+            "Overdues": row.get("Overdues", 0),
+            "Issues_AcademicYear": row.get("Issues_AcademicYear", 0),
+            "FeesPaid_AcademicYear": row.get("FeesPaid_AcademicYear", 0.0),
+            "Collections": row.get("Collections", ""),
+            "Language": row.get("Language", ""),
+            "TeacherName": row.get("TeacherName", ""),
+            "TeacherRole": row.get("TeacherRole", "")
+        }
+        processed_rows.append(processed_row)
     
-    df = pd.DataFrame(rows, columns=cols) if rows else pd.DataFrame(columns=cols)
+    df = pd.DataFrame(processed_rows) if processed_rows else pd.DataFrame()
+    
     return df, total_students
+
 
 # ---------------- HTML CLEANING UTILITY ----------------
 def clean_html_for_pdf(html_text: str) -> str:
@@ -545,7 +668,10 @@ def clean_html_for_pdf(html_text: str) -> str:
     if not html_text or not isinstance(html_text, str):
         return str(html_text) if html_text is not None else ""
     
-    # Remove span tags completely (they cause issues with inline styles)
+    # Remove all HTML tags including links, keep only text
+    html_text = re.sub(r'<a[^>]*>(.*?)</a>', r'\1', html_text)
+    
+    # Remove span tags completely
     html_text = re.sub(r'<span[^>]*>', '', html_text)
     html_text = re.sub(r'</span>', '', html_text)
     
@@ -573,6 +699,7 @@ def clean_html_for_pdf(html_text: str) -> str:
     
     return html_text
 
+
 def clean_dataframe_for_pdf(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean HTML from all string columns in a DataFrame for PDF export.
@@ -590,29 +717,21 @@ def clean_dataframe_for_pdf(df: pd.DataFrame) -> pd.DataFrame:
     
     return df_clean
 
+
+# ---------------- TOP BOOKS FUNCTION WITH FIXED OPAC URL ----------------
 def top_books_df(
     arabic_only: bool = False,
     english_only: bool = False,
     limit: int = 25,
-    dept_filter: str | None = None,
-    for_pdf: bool = False  # Add this parameter to differentiate between web and PDF
+    marhala_filter: str | None = None,
+    darajah_filter: str | None = None,
+    for_pdf: bool = False
 ):
     """
     Top titles for the CURRENT AY window (Apr 1 -> today, max Dec 31),
     derived from issues + old_issues (all_iss), joined via MARC.
-
-    Professional extras:
-      - Language from MARC 041$a
-      - Collections from items.ccode (GROUP_CONCAT)
-      - Only ACTIVE patrons (dateexpiry IS NULL or >= today)
-
-    Filters:
-      - arabic_only  => 041$a LIKE 'ar%%'
-      - english_only => 041$a LIKE 'eng%%'
-      - dept_filter  => restrict borrowers to COALESCE(categories.description, categorycode)
-      - for_pdf      => if True, don't add HTML links, just plain text
     """
-    start, end = _ay_bounds()
+    start, end = KQ.get_ay_bounds()
     if not start:
         return pd.DataFrame(columns=["Title", "Language", "Collections", "Count", "LastIssued"])
 
@@ -638,9 +757,13 @@ def top_books_df(
         """
         lang_param = "eng%"
 
-    dept_clause = ""
-    if dept_filter:
-        dept_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+    marhala_clause = ""
+    if marhala_filter:
+        marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+
+    darajah_clause = ""
+    if darajah_filter:
+        darajah_clause = "AND COALESCE(std.attribute, b.branchcode) = %s"
 
     sql = f"""
         SELECT
@@ -662,6 +785,9 @@ def top_books_df(
         ) all_iss
         JOIN borrowers b
              ON b.borrowernumber = all_iss.borrowernumber
+        LEFT JOIN borrower_attributes std
+             ON std.borrowernumber = b.borrowernumber
+            AND std.code IN ({_darajah_codes_sql()})
         LEFT JOIN categories c
              ON c.categorycode = b.categorycode
         JOIN items it
@@ -672,16 +798,20 @@ def top_books_df(
              ON bib.biblionumber = bmd.biblionumber
         WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
           AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-          {dept_clause}
+          {marhala_clause}
+          {darajah_clause}
           {lang_clause}
         GROUP BY bib.biblionumber, bib.title, Language
         ORDER BY cnt DESC
         LIMIT %s;
     """
 
-    params: list = [start, end]
-    if dept_filter:
-        params.append(dept_filter)
+    # Build params
+    params = [start, end]
+    if marhala_filter:
+        params.append(marhala_filter)
+    if darajah_filter:
+        params.append(darajah_filter)
     if lang_clause:
         params.append(lang_param)
     params.append(int(limit))
@@ -696,29 +826,32 @@ def top_books_df(
 
     processed_rows = []
     for row in rows:
-        # Tuple indices: 0=Title, 1=Language, 2=Collections, 3=cnt, 4=last_issued, 5=BiblioNumber
         title = row[0]
         language = row[1]
         collections = row[2]
         count = row[3]
         last_issued = row[4]
-        bib_number = row[5]  # This is the BiblioNumber
+        bib_number = row[5]
         
-        # If exporting for PDF, use plain text without HTML
         if for_pdf:
+            # For PDF, just use plain text
             processed_rows.append({
                 "Title": title,
                 "Language": language,
                 "Collections": collections,
                 "Count": count,
                 "LastIssued": last_issued,
-                "BiblioNumber": bib_number  # Keep for reference but not shown
+                "BiblioNumber": bib_number
             })
         else:
-            # For web display, create clickable link
-            title_with_link = f'<a href="https://library-opac.ajsn.co.ke/catalog/{bib_number}" target="_blank">{title}</a>'
+            # For HTML display, create clickable link
+            if bib_number:
+                opac_url = get_opac_book_url(bib_number)
+                title_with_link = f'<a href="{opac_url}" target="_blank" class="book-link">{title}</a>'
+            else:
+                title_with_link = title
             
-            # Add custom styling for Arabic titles
+            # Add language-specific styling
             if language and language.lower().startswith('ar'):
                 title_with_link = f'<span style="font-family: Al Kanz, sans-serif; text-align: center;">{title_with_link}</span>'
             else:
@@ -726,15 +859,204 @@ def top_books_df(
             
             processed_rows.append({
                 "Title": title_with_link,
-                "Language": language,
-                "Collections": collections,
+                "Language": language or "",
+                "Collections": collections or "",
                 "Count": count,
-                "LastIssued": last_issued
+                "LastIssued": last_issued.strftime('%Y-%m-%d') if last_issued else ""
             })
     
     columns = ["Title", "Language", "Collections", "Count", "LastIssued", "BiblioNumber"] if for_pdf else ["Title", "Language", "Collections", "Count", "LastIssued"]
     df = pd.DataFrame(processed_rows, columns=columns)
     return df
+
+
+# ---------------- TOP AUTHORS FUNCTION ----------------
+def top_authors_df(
+    limit: int = 25,
+    marhala_filter: str | None = None,
+    darajah_filter: str | None = None,
+    for_pdf: bool = False
+):
+    """
+    Top authors by number of books issued.
+    """
+    start, end = KQ.get_ay_bounds()
+    if not start:
+        return pd.DataFrame(columns=["Author", "Books Issued", "Top Titles"])
+
+    conn = get_koha_conn()
+    cur = conn.cursor()
+
+    marhala_clause = ""
+    if marhala_filter:
+        marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+
+    darajah_clause = ""
+    if darajah_filter:
+        darajah_clause = "AND COALESCE(std.attribute, b.branchcode) = %s"
+
+    sql = f"""
+        SELECT
+            ExtractValue(
+                bmd.metadata,
+                '//datafield[@tag="100"]/subfield[@code="a"]'
+            ) AS Author,
+            COUNT(DISTINCT bib.biblionumber) AS books_issued,
+            GROUP_CONCAT(DISTINCT bib.title ORDER BY bib.title SEPARATOR '; ') AS top_titles,
+            COUNT(*) AS total_issues
+        FROM (
+            SELECT borrowernumber, itemnumber, issuedate
+            FROM issues
+            UNION ALL
+            SELECT borrowernumber, itemnumber, issuedate
+            FROM old_issues
+        ) all_iss
+        JOIN borrowers b
+             ON b.borrowernumber = all_iss.borrowernumber
+        LEFT JOIN borrower_attributes std
+             ON std.borrowernumber = b.borrowernumber
+            AND std.code IN ({_darajah_codes_sql()})
+        LEFT JOIN categories c
+             ON c.categorycode = b.categorycode
+        JOIN items it
+             ON all_iss.itemnumber = it.itemnumber
+        JOIN biblio bib
+             ON it.biblionumber = bib.biblionumber
+        LEFT JOIN biblio_metadata bmd
+             ON bib.biblionumber = bmd.biblionumber
+        WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
+          AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+          AND ExtractValue(
+                bmd.metadata,
+                '//datafield[@tag="100"]/subfield[@code="a"]'
+              ) IS NOT NULL
+          AND ExtractValue(
+                bmd.metadata,
+                '//datafield[@tag="100"]/subfield[@code="a"]'
+              ) != ''
+          {marhala_clause}
+          {darajah_clause}
+        GROUP BY Author
+        ORDER BY books_issued DESC, total_issues DESC
+        LIMIT %s;
+    """
+
+    # Build params
+    params = [start, end]
+    if marhala_filter:
+        params.append(marhala_filter)
+    if darajah_filter:
+        params.append(darajah_filter)
+    params.append(int(limit))
+
+    cur.execute(sql, params)
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+
+    if not rows:
+        return pd.DataFrame(columns=["Author", "Books Issued", "Top Titles"])
+
+    processed_rows = []
+    for row in rows:
+        author = row[0] or "Unknown Author"
+        books_issued = row[1]
+        top_titles = row[2] or ""
+        # Limit titles display
+        if top_titles:
+            titles_list = top_titles.split('; ')
+            if len(titles_list) > 3:
+                top_titles_display = '; '.join(titles_list[:3]) + f'... (+{len(titles_list)-3} more)'
+            else:
+                top_titles_display = '; '.join(titles_list)
+        else:
+            top_titles_display = ""
+        
+        processed_rows.append({
+            "Author": author,
+            "Books Issued": books_issued,
+            "Top Titles": top_titles_display
+        })
+    
+    return pd.DataFrame(processed_rows)
+
+
+# ---------------- DATA PROCESSING FOR DISPLAY ----------------
+def _process_display_df(df: pd.DataFrame, report_type: str) -> pd.DataFrame:
+    """
+    Process DataFrame for display by renaming columns and formatting.
+    """
+    if df.empty:
+        return df
+    
+    df_display = df.copy()
+    
+    # Rename columns for better display
+    column_rename_map = {
+        "CurrentlyIssued": "Currently Issued",
+        "Issues_AcademicYear": "Issues (Academic Year)",
+        "FeesPaid_AcademicYear": "Fees Paid (Academic Year)",
+        "TRNumber": "TR Number",
+        "FullName": "Full Name",
+        "TeacherName": "Teacher Name",
+        "TeacherRole": "Teacher Role"
+    }
+    
+    df_display = df_display.rename(columns=column_rename_map)
+    
+    # Format numeric columns (for display, not for linked columns)
+    for col in df_display.columns:
+        if col not in ["Full Name", "Title", "Author"]:  # Skip linked/text columns
+            if df_display[col].dtype in ['float64', 'float32', 'int64', 'int32']:
+                df_display[col] = df_display[col].apply(
+                    lambda x: f"{x:,.2f}" if isinstance(x, (float, int)) and '.' in str(x) else f"{x:,}"
+                )
+    
+    return df_display
+
+
+def taqeem_report_df(darajah_name: str, academic_year: str = None):
+    """
+    Generate a Taqeem (Marks) report for a specific darajah.
+    """
+    if academic_year is None:
+        from config import Config
+        academic_year = Config.CURRENT_ACADEMIC_YEAR().replace('H', '').strip()
+    
+    from services.marks_service import calculate_total_taqeem
+    
+    # 1. Get all students in this darajah from our app database
+    conn = get_app_conn()
+    cur = conn.cursor()
+    cur.execute("""
+        SELECT student_username, student_name 
+        FROM student_darajah_mapping 
+        WHERE darajah_name = ? AND academic_year = ?
+        ORDER BY student_name
+    """, (darajah_name, academic_year))
+    students = cur.fetchall()
+    conn.close()
+    
+    if not students:
+        return pd.DataFrame()
+    
+    report_data = []
+    for itsid, name in students:
+        marks = calculate_total_taqeem(itsid, academic_year)
+        
+        report_data.append({
+            "ITSID": itsid,
+            "Name": name,
+            "Book Issues (60)": marks['book_issue']['total'],
+            "Physical Issues": marks['book_issue']['physical_count'],
+            "Digital Issues": marks['book_issue']['digital_count'],
+            "Reviews (30)": marks['book_review']['marks'],
+            "Programs (10)": marks['program_attendance'],
+            "Total (100)": marks['total']
+        })
+    
+    return pd.DataFrame(report_data)
+
 
 # ---------------- ROUTES ----------------
 @bp.route("/")
@@ -745,70 +1067,76 @@ def reports_page():
     role = _current_role()
     is_admin = role == "admin"
     is_hod = role == "hod"
-    hod_dept = _hod_department()
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala()
+    teacher_darajah = _teacher_darajah()
 
     conn = get_koha_conn()
     cur = conn.cursor()
 
-    # Classes list
-    if is_hod and hod_dept:
-        # Only classes within this HOD's department
-        sql_classes = f"""
+    # Darajahs list
+    if is_teacher and teacher_darajah:
+        darajahs = [teacher_darajah]
+    elif is_hod and hod_marhala:
+        # Only darajahs within this HOD's marhala
+        sql_darajahs = f"""
             SELECT DISTINCT COALESCE(std.attribute, b.branchcode) AS cls
             FROM borrowers b
             LEFT JOIN borrower_attributes std
               ON std.borrowernumber = b.borrowernumber
-             AND std.code IN ({",".join(["%s"]*len(CLASS_CODES))})
+             AND std.code IN ({_darajah_codes_sql()})
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             WHERE COALESCE(std.attribute, b.branchcode) IS NOT NULL
               AND COALESCE(c.description, b.categorycode) = %s
               AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
             ORDER BY cls;
         """
-        params = list(CLASS_CODES) + [hod_dept]
-        cur.execute(sql_classes, params)
+        cur.execute(sql_darajahs, (hod_marhala,))
+        darajahs = [r[0] for r in cur.fetchall()]
     else:
-        # All classes for Admin (or other roles)
-        sql_classes = f"""
+        # All darajahs for Admin (or other roles)
+        sql_darajahs = f"""
             SELECT DISTINCT COALESCE(std.attribute, b.branchcode) AS cls
             FROM borrowers b
             LEFT JOIN borrower_attributes std
               ON std.borrowernumber = b.borrowernumber
-             AND std.code IN ({",".join(["%s"]*len(CLASS_CODES))})
+             AND std.code IN ({_darajah_codes_sql()})
             WHERE COALESCE(std.attribute, b.branchcode) IS NOT NULL
               AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
             ORDER BY cls;
         """
-        cur.execute(sql_classes, CLASS_CODES)
-    classes = [r[0] for r in cur.fetchall()]
+        cur.execute(sql_darajahs)
+        darajahs = [r[0] for r in cur.fetchall()]
 
-    # Departments list – only needed for Admin (HOD never sees department-wise option)
+    # Marhalas list – only needed for Admin (HOD never sees marhala-wise option)
     if is_admin:
         cur.execute(
             """
-            SELECT DISTINCT COALESCE(c.description, b.categorycode) AS dept
+            SELECT DISTINCT COALESCE(c.description, b.categorycode) AS marhala
             FROM borrowers b
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             WHERE COALESCE(c.description, b.categorycode) IS NOT NULL
               AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-            ORDER BY dept;
+            ORDER BY marhala;
             """
         )
-        departments = [r[0] for r in cur.fetchall()]
+        marhalas = [r[0] for r in cur.fetchall()]
     else:
-        departments = []
+        marhalas = []
 
     cur.close()
     conn.close()
 
     return render_template(
         "reports.html",
-        classes=classes,
-        departments=departments,
+        darajahs=darajahs,
+        marhalas=marhalas,
         is_hod=is_hod,
         is_admin=is_admin,
-        hod_dept=hod_dept,
+        is_teacher=is_teacher,
+        hod_marhala=hod_marhala,
     )
+
 
 @bp.route("/api/generate_report", methods=["POST"])
 def generate_report():
@@ -818,56 +1146,70 @@ def generate_report():
     role = _current_role()
     is_admin = role == "admin"
     is_hod = role == "hod"
-    hod_dept = _hod_department()
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala()
+    teacher_darajah = _teacher_darajah()
 
     report_type = request.form.get("report_type")
 
-    # -------- CLASS-WISE (Darajah) --------
-    if report_type == "class_wise":
-        class_val = request.form.get("class_value")
+    # -------- DARAJAH-WISE --------
+    if report_type == "darajah_wise":
+        darajah_val = request.form.get("darajah_value")
 
-        if is_hod and hod_dept:
-            # HOD: restrict to their department (class list already filtered in UI as well)
-            df, total_students = class_report(class_val if class_val else None, dept_filter=hod_dept)
+        # Teacher: force to their own darajah only
+        if is_teacher:
+            if not teacher_darajah:
+                return jsonify(success=False, html="<p>No darajah mapped to your account.</p>")
+            if darajah_val and darajah_val != teacher_darajah:
+                return jsonify(success=False, html="<p>You can only view your own darajah.</p>")
+            darajah_val = teacher_darajah
+
+        if is_hod and hod_marhala:
+            # HOD: restrict to their marhala
+            df, total_students = darajah_report(darajah_val if darajah_val else None, marhala_filter=hod_marhala)
         else:
-            df, total_students = class_report(class_val if class_val else None, dept_filter=None)
+            df, total_students = darajah_report(darajah_val if darajah_val else None, marhala_filter=None)
 
-        html = df.to_html(
+        # Process for display
+        df_display = _process_display_df(df, "darajah_wise")
+        
+        html = df_display.to_html(
             classes="table table-sm table-striped",
             index=False,
-            float_format=lambda x: f"{x:,.2f}",
-            escape=False  # ADD THIS LINE - allows HTML rendering
+            escape=False
         )
         
-        # Add total students to response
         response_data = {
             "success": not df.empty,
             "html": html,
             "total_students": total_students,
-            "class_value": class_val or "All"
+            "darajah_value": darajah_val or "All"
         }
         return jsonify(response_data)
 
-    # -------- DEPARTMENT-WISE --------
-    elif report_type == "department_wise":
-        # HOD must NOT see this at all
-        if is_hod:
-            return jsonify(success=False, html="<p>You are not allowed to view department-wise reports.</p>")
+    # -------- MARHALA-WISE --------
+    elif report_type == "marhala_wise":
+        # HOD/Teachers must NOT see this at all
+        if is_hod or is_teacher:
+            return jsonify(success=False, html="<p>You are not allowed to view marhala-wise reports.</p>")
 
-        dept_val = request.form.get("department_value")
-        df, total_students = department_report(dept_val if dept_val else None)
-        html = df.to_html(
+        marhala_val = request.form.get("marhala_value")
+        df, total_students = marhala_report(marhala_val if marhala_val else None)
+        
+        # Process for display
+        df_display = _process_display_df(df, "marhala_wise")
+        
+        html = df_display.to_html(
             classes="table table-sm table-striped",
             index=False,
-            float_format=lambda x: f"{x:,.2f}",
-            escape=False  # ADD THIS LINE
+            escape=False
         )
         
         response_data = {
             "success": not df.empty,
             "html": html,
             "total_students": total_students,
-            "dept_value": dept_val or "All"
+            "marhala_value": marhala_val or "All"
         }
         return jsonify(response_data)
 
@@ -879,39 +1221,71 @@ def generate_report():
             if not borrowernumber:
                 return jsonify(success=False, html="<p>No active student found.</p>")
 
-            # If HOD, ensure this student is in their department
-            if is_hod and hod_dept:
+            # If HOD, ensure this student is in their marhala
+            if is_hod and hod_marhala:
                 conn = get_koha_conn()
                 cur = conn.cursor()
-                cur.execute(
-                    """
-                    SELECT COALESCE(c.description, b.categorycode) AS dept
+                
+                sql = f"""
+                    SELECT COALESCE(c.description, b.categorycode) AS marhala
+                          ,COALESCE(std.attribute, b.branchcode) AS darajah
                     FROM borrowers b
+                    LEFT JOIN borrower_attributes std
+                           ON std.borrowernumber = b.borrowernumber
+                          AND std.code IN ({_darajah_codes_sql()})
                     LEFT JOIN categories c ON c.categorycode = b.categorycode
                     WHERE b.borrowernumber = %s;
-                    """,
-                    (borrowernumber,),
-                )
+                """
+                
+                cur.execute(sql, (borrowernumber,))
                 row = cur.fetchone()
                 cur.close()
                 conn.close()
-                if not row or (row[0] != hod_dept):
-                    return jsonify(success=False, html="<p>Student not in your department.</p>")
+                
+                if not row or (row[0] != hod_marhala):
+                    return jsonify(success=False, html="<p>Student not in your marhala.</p>")
+
+            # If Teacher, ensure student is in their darajah
+            if is_teacher and teacher_darajah:
+                conn = get_koha_conn()
+                cur = conn.cursor()
+                
+                sql = f"""
+                    SELECT COALESCE(std.attribute, b.branchcode) AS darajah
+                    FROM borrowers b
+                    LEFT JOIN borrower_attributes std
+                           ON std.borrowernumber = b.borrowernumber
+                          AND std.code IN ({_darajah_codes_sql()})
+                    WHERE b.borrowernumber = %s;
+                """
+                
+                cur.execute(sql, (borrowernumber,))
+                row = cur.fetchone()
+                cur.close()
+                conn.close()
+                
+                if not row or row[0] != teacher_darajah:
+                    return jsonify(success=False, html="<p>Student not in your darajah.</p>")
 
             info = get_student_info(str(borrowernumber))
             if not info:
                 return jsonify(success=False, html="<p>No student found.</p>")
 
-            # ✅ Get OPAC base URL from Flask config
-            opac_base = current_app.config.get("KOHA_OPAC_BASE_URL", "https://library-opac.ajsn.co.ke")
+            # Get darajah information for teacher mapping
+            darajah = info.get('class', '')
+            teachers = _get_teachers_for_darajah(darajah) if darajah else []
             
-            # ✅ Render with OPAC URL
+            # Get OPAC base URL for template
+            opac_base = get_opac_base_url()
+            
+            # Render with OPAC URL and teacher information
             rendered_html = render_template(
                 "student.html", 
                 found=True, 
                 info=info, 
                 hide_nav=True,
-                opac_base_url=opac_base  # This is the key - pass the URL to template
+                opac_base_url=opac_base,
+                teachers=teachers
             )
             return jsonify(success=True, html=rendered_html)
         except Exception as e:
@@ -920,82 +1294,192 @@ def generate_report():
 
     # -------- TOP 25 ENGLISH (MARC 041 eng%) --------
     elif report_type == "top_books":
-        if is_hod and hod_dept:
-            df = top_books_df(arabic_only=False, english_only=True, dept_filter=hod_dept, for_pdf=False)
+        if is_teacher:
+            if not teacher_darajah:
+                return jsonify(success=False, html="<p>No darajah mapped to your account.</p>")
+            df = top_books_df(arabic_only=False, english_only=True, marhala_filter=None, darajah_filter=teacher_darajah, for_pdf=False)
+        elif is_hod and hod_marhala:
+            df = top_books_df(arabic_only=False, english_only=True, marhala_filter=hod_marhala, darajah_filter=None, for_pdf=False)
         else:
-            df = top_books_df(arabic_only=False, english_only=True, dept_filter=None, for_pdf=False)
+            df = top_books_df(arabic_only=False, english_only=True, marhala_filter=None, darajah_filter=None, for_pdf=False)
 
         html = df.to_html(
             classes="table table-sm table-striped",
             index=False,
-            float_format=lambda x: f"{x:,.2f}",
-            escape=False  # ADD THIS LINE
+            escape=False
         )
         return jsonify(success=not df.empty, html=html)
 
     # -------- TOP 25 ARABIC (MARC 041 ar%) --------
     elif report_type == "top_arabic":
-        if is_hod and hod_dept:
-            df = top_books_df(arabic_only=True, english_only=False, dept_filter=hod_dept, for_pdf=False)
+        if is_teacher:
+            if not teacher_darajah:
+                return jsonify(success=False, html="<p>No darajah mapped to your account.</p>")
+            df = top_books_df(arabic_only=True, english_only=False, marhala_filter=None, darajah_filter=teacher_darajah, for_pdf=False)
+        elif is_hod and hod_marhala:
+            df = top_books_df(arabic_only=True, english_only=False, marhala_filter=hod_marhala, darajah_filter=None, for_pdf=False)
         else:
-            df = top_books_df(arabic_only=True, english_only=False, dept_filter=None, for_pdf=False)
+            df = top_books_df(arabic_only=True, english_only=False, marhala_filter=None, darajah_filter=None, for_pdf=False)
 
         html = df.to_html(
             classes="table table-sm table-striped",
             index=False,
-            float_format=lambda x: f"{x:,.2f}",
-            escape=False  # ADD THIS LINE
+            escape=False
         )
         return jsonify(success=not df.empty, html=html)
 
+    # -------- TOP 25 AUTHORS --------
+    elif report_type == "top_authors":
+        if is_teacher:
+            if not teacher_darajah:
+                return jsonify(success=False, html="<p>No darajah mapped to your account.</p>")
+            df = top_authors_df(marhala_filter=None, darajah_filter=teacher_darajah, for_pdf=False)
+        elif is_hod and hod_marhala:
+            df = top_authors_df(marhala_filter=hod_marhala, darajah_filter=None, for_pdf=False)
+        else:
+            df = top_authors_df(marhala_filter=None, darajah_filter=None, for_pdf=False)
+
+        html = df.to_html(
+            classes="table table-sm table-striped",
+            index=False,
+            escape=False
+        )
+        return jsonify(success=not df.empty, html=html)
+
+    # -------- TAQEEM (MARKS) REPORT --------
+    elif report_type == "taqeem_wise":
+        darajah_val = request.form.get("darajah_value")
+        if not darajah_val:
+            return jsonify(success=False, html="<p>Please select a darajah.</p>")
+            
+        df = taqeem_report_df(darajah_val)
+        if df.empty:
+            return jsonify(success=False, html="<p>No students found for this darajah.</p>")
+            
+        html = df.to_html(
+            classes="table table-sm table-striped",
+            index=False,
+            escape=True
+        )
+        
+        return jsonify(success=True, html=html, total_students=len(df), darajah_value=darajah_val)
+
     return jsonify(success=False, html="<p>Unknown report type.</p>")
 
+
+
 # ---------------- EXPORT ROUTES (PDF) ----------------
-@bp.route("/export/class/<class_val>/pdf")
-def export_class_pdf(class_val):
+@bp.route("/export/darajah/<darajah_val>/pdf")
+def export_darajah_pdf(darajah_val):
     if not session.get("logged_in"):
         return redirect(url_for("auth_bp.login"))
 
     role = _current_role()
     is_hod = role == "hod"
-    hod_dept = _hod_department() if is_hod else None
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
 
-    df, _ = class_report(class_val if class_val != "All" else None, dept_filter=hod_dept)
+    if is_teacher:
+        if not teacher_darajah or (darajah_val != teacher_darajah and darajah_val != "All"):
+            return redirect(url_for("reports_bp.reports_page"))
+        darajah_val = teacher_darajah
+
+    df, _ = darajah_report(darajah_val if darajah_val != "All" else None, marhala_filter=hod_marhala)
     
     # Clean HTML from DataFrame before PDF generation
     df_clean = clean_dataframe_for_pdf(df)
     
-    pdf_bytes = dataframe_to_pdf_bytes(f"Class Report - {class_val}", df_clean)
+    # Rename columns for better display in PDF
+    column_rename_map = {
+        "CurrentlyIssued": "Currently Issued",
+        "Issues_AcademicYear": "Issues (Academic Year)",
+        "FeesPaid_AcademicYear": "Fees Paid (Academic Year)",
+        "TRNumber": "TR Number",
+        "FullName": "Full Name",
+        "TeacherName": "Teacher Name",
+        "TeacherRole": "Teacher Role"
+    }
+    df_clean = df_clean.rename(columns=column_rename_map)
+    
+    # Explicitly set portrait orientation
+    pdf_bytes = dataframe_to_pdf_bytes(
+        f"Darajah Report - {darajah_val}", 
+        df_clean,
+        orientation='portrait'  # Changed to portrait
+    )
+    
     return send_file(
         io.BytesIO(pdf_bytes),
         as_attachment=True,
-        download_name=f"class_report_{class_val}.pdf",
+        download_name=f"darajah_report_{darajah_val}.pdf",
         mimetype="application/pdf",
     )
 
 
-@bp.route("/export/department/<dept_val>/pdf")
-def export_department_pdf(dept_val):
+@bp.route("/export/taqeem/<darajah_val>/pdf")
+def export_taqeem_pdf(darajah_val):
     if not session.get("logged_in"):
         return redirect(url_for("auth_bp.login"))
 
-    # HOD not allowed department-wise
+    df = taqeem_report_df(darajah_val)
+    if df.empty:
+        return redirect(url_for("reports_bp.reports_page"))
+
+    pdf_bytes = dataframe_to_pdf_bytes(
+        f"Taqeem Marks Report - {darajah_val}", 
+        df,
+        orientation='landscape'
+    )
+    
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        as_attachment=True,
+        download_name=f"taqeem_report_{darajah_val}.pdf",
+        mimetype="application/pdf",
+    )
+
+
+
+@bp.route("/export/marhala/<marhala_val>/pdf")
+def export_marhala_pdf(marhala_val):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    # HOD not allowed marhala-wise
     if _current_role() == "hod":
         return redirect(url_for("reports_bp.reports_page"))
 
-    df, _ = department_report(dept_val if dept_val != "All" else None)
+    df, _ = marhala_report(marhala_val if marhala_val != "All" else None)
     
     # Clean HTML from DataFrame before PDF generation
     df_clean = clean_dataframe_for_pdf(df)
     
-    pdf_bytes = dataframe_to_pdf_bytes(f"Department Report - {dept_val}", df_clean)
+    # Rename columns for better display in PDF
+    column_rename_map = {
+        "CurrentlyIssued": "Currently Issued",
+        "Issues_AcademicYear": "Issues (Academic Year)",
+        "FeesPaid_AcademicYear": "Fees Paid (Academic Year)",
+        "TRNumber": "TR Number",
+        "FullName": "Full Name",
+        "TeacherName": "Teacher Name",
+        "TeacherRole": "Teacher Role"
+    }
+    df_clean = df_clean.rename(columns=column_rename_map)
+    
+    # Explicitly set portrait orientation
+    pdf_bytes = dataframe_to_pdf_bytes(
+        f"Marhala Report - {marhala_val}", 
+        df_clean,
+        orientation='portrait'  # Changed to portrait
+    )
+    
     return send_file(
         io.BytesIO(pdf_bytes),
         as_attachment=True,
-        download_name=f"department_report_{dept_val}.pdf",
+        download_name=f"marhala_report_{marhala_val}.pdf",
         mimetype="application/pdf",
     )
-
 
 @bp.route("/export/top_books/pdf")
 def export_top_books_pdf():
@@ -1004,10 +1488,21 @@ def export_top_books_pdf():
 
     role = _current_role()
     is_hod = role == "hod"
-    hod_dept = _hod_department() if is_hod else None
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
 
     # Get data for PDF (plain text, no HTML)
-    df = top_books_df(arabic_only=False, english_only=True, dept_filter=hod_dept, for_pdf=True)
+    df = top_books_df(
+        arabic_only=False,
+        english_only=True,
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
     
     # Clean any remaining HTML just in case
     df_clean = clean_dataframe_for_pdf(df)
@@ -1023,7 +1518,12 @@ def export_top_books_pdf():
         "LastIssued": "Last Issued"
     })
     
-    pdf_bytes = dataframe_to_pdf_bytes("Top 25 English Books (AY)", df_clean)
+    pdf_bytes = dataframe_to_pdf_bytes(
+        "Top 25 English Books (Academic Year)", 
+        df_clean,
+        orientation='portrait'
+    )
+    
     return send_file(
         io.BytesIO(pdf_bytes),
         as_attachment=True,
@@ -1039,10 +1539,21 @@ def export_top_arabic_pdf():
 
     role = _current_role()
     is_hod = role == "hod"
-    hod_dept = _hod_department() if is_hod else None
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
 
     # Get data for PDF (plain text, no HTML)
-    df = top_books_df(arabic_only=True, english_only=False, dept_filter=hod_dept, for_pdf=True)
+    df = top_books_df(
+        arabic_only=True,
+        english_only=False,
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
     
     # Clean any remaining HTML just in case
     df_clean = clean_dataframe_for_pdf(df)
@@ -1058,7 +1569,12 @@ def export_top_arabic_pdf():
         "LastIssued": "Last Issued"
     })
     
-    pdf_bytes = dataframe_to_pdf_bytes("Top 25 Arabic Books (AY)", df_clean)
+    pdf_bytes = dataframe_to_pdf_bytes(
+        "Top 25 Arabic Books (Academic Year)", 
+        df_clean,
+        orientation='portrait'
+    )
+    
     return send_file(
         io.BytesIO(pdf_bytes),
         as_attachment=True,
@@ -1067,49 +1583,137 @@ def export_top_arabic_pdf():
     )
 
 
-# ---------------- EXPORT ROUTES (EXCEL) ----------------
-@bp.route("/export/class/<class_val>/excel")
-def export_class_excel(class_val):
+@bp.route("/export/top_authors/pdf")
+def export_top_authors_pdf():
     if not session.get("logged_in"):
         return redirect(url_for("auth_bp.login"))
 
     role = _current_role()
     is_hod = role == "hod"
-    hod_dept = _hod_department() if is_hod else None
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
 
-    df, _ = class_report(class_val if class_val != "All" else None, dept_filter=hod_dept)
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
+
+    # Get data for PDF (plain text, no HTML)
+    df = top_authors_df(
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
     
-    # Clean HTML for Excel export too (Excel can handle HTML but cleaner is better)
+    # Clean any remaining HTML just in case
     df_clean = clean_dataframe_for_pdf(df)
     
-    xls_bytes = dataframe_to_excel_bytes(df_clean, sheet_name=f"Class_{class_val}")
+    pdf_bytes = dataframe_to_pdf_bytes(
+        "Top 25 Authors (Academic Year)", 
+        df_clean,
+        orientation='portrait'
+    )
+    
     return send_file(
-        io.BytesIO(xls_bytes),
+        io.BytesIO(pdf_bytes),
         as_attachment=True,
-        download_name=f"class_report_{class_val}.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        download_name="top_authors.pdf",
+        mimetype="application/pdf",
     )
 
 
-@bp.route("/export/department/<dept_val>/excel")
-def export_department_excel(dept_val):
+# ---------------- EXPORT ROUTES (EXCEL) ----------------
+@bp.route("/export/darajah/<darajah_val>/excel")
+def export_darajah_excel(darajah_val):
     if not session.get("logged_in"):
         return redirect(url_for("auth_bp.login"))
 
-    # HOD not allowed department-wise
-    if _current_role() == "hod":
-        return redirect(url_for("reports_bp.reports_page"))
+    role = _current_role()
+    is_hod = role == "hod"
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
 
-    df, _ = department_report(dept_val if dept_val != "All" else None)
+    if is_teacher:
+        if not teacher_darajah or (darajah_val != teacher_darajah and darajah_val != "All"):
+            return redirect(url_for("reports_bp.reports_page"))
+        darajah_val = teacher_darajah
+
+    df, _ = darajah_report(darajah_val if darajah_val != "All" else None, marhala_filter=hod_marhala)
     
     # Clean HTML for Excel export
     df_clean = clean_dataframe_for_pdf(df)
     
-    xls_bytes = dataframe_to_excel_bytes(df_clean, sheet_name=f"Dept_{dept_val}")
+    # Rename columns for better display
+    column_rename_map = {
+        "CurrentlyIssued": "Currently Issued",
+        "Issues_AcademicYear": "Issues (Academic Year)",
+        "FeesPaid_AcademicYear": "Fees Paid (Academic Year)",
+        "TRNumber": "TR Number",
+        "FullName": "Full Name",
+        "TeacherName": "Teacher Name",
+        "TeacherRole": "Teacher Role"
+    }
+    df_clean = df_clean.rename(columns=column_rename_map)
+    
+    xls_bytes = dataframe_to_excel_bytes(df_clean, sheet_name=f"Darajah_{darajah_val}")
     return send_file(
         io.BytesIO(xls_bytes),
         as_attachment=True,
-        download_name=f"department_report_{dept_val}.xlsx",
+        download_name=f"darajah_report_{darajah_val}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@bp.route("/export/taqeem/<darajah_val>/excel")
+def export_taqeem_excel(darajah_val):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    df = taqeem_report_df(darajah_val)
+    if df.empty:
+        return redirect(url_for("reports_bp.reports_page"))
+
+    xls_bytes = dataframe_to_excel_bytes(df, sheet_name=f"Taqeem_{darajah_val}")
+    return send_file(
+        io.BytesIO(xls_bytes),
+        as_attachment=True,
+        download_name=f"taqeem_report_{darajah_val}.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+
+@bp.route("/export/marhala/<marhala_val>/excel")
+def export_marhala_excel(marhala_val):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    # HOD not allowed marhala-wise
+    if _current_role() == "hod":
+        return redirect(url_for("reports_bp.reports_page"))
+
+    df, _ = marhala_report(marhala_val if marhala_val != "All" else None)
+    
+    # Clean HTML for Excel export
+    df_clean = clean_dataframe_for_pdf(df)
+    
+    # Rename columns for better display
+    column_rename_map = {
+        "CurrentlyIssued": "Currently Issued",
+        "Issues_AcademicYear": "Issues (Academic Year)",
+        "FeesPaid_AcademicYear": "Fees Paid (Academic Year)",
+        "TRNumber": "TR Number",
+        "FullName": "Full Name",
+        "TeacherName": "Teacher Name",
+        "TeacherRole": "Teacher Role"
+    }
+    df_clean = df_clean.rename(columns=column_rename_map)
+    
+    xls_bytes = dataframe_to_excel_bytes(df_clean, sheet_name=f"Marhala_{marhala_val}")
+    return send_file(
+        io.BytesIO(xls_bytes),
+        as_attachment=True,
+        download_name=f"marhala_report_{marhala_val}.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
@@ -1121,10 +1725,21 @@ def export_top_books_excel():
 
     role = _current_role()
     is_hod = role == "hod"
-    hod_dept = _hod_department() if is_hod else None
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
 
     # Get plain text data for Excel
-    df = top_books_df(arabic_only=False, english_only=True, dept_filter=hod_dept, for_pdf=True)
+    df = top_books_df(
+        arabic_only=False,
+        english_only=True,
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
     
     # Clean HTML for Excel export
     df_clean = clean_dataframe_for_pdf(df)
@@ -1156,10 +1771,21 @@ def export_top_arabic_excel():
 
     role = _current_role()
     is_hod = role == "hod"
-    hod_dept = _hod_department() if is_hod else None
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
 
     # Get plain text data for Excel
-    df = top_books_df(arabic_only=True, english_only=False, dept_filter=hod_dept, for_pdf=True)
+    df = top_books_df(
+        arabic_only=True,
+        english_only=False,
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
     
     # Clean HTML for Excel export
     df_clean = clean_dataframe_for_pdf(df)
@@ -1181,4 +1807,340 @@ def export_top_arabic_excel():
         as_attachment=True,
         download_name="top_arabic_books.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+@bp.route("/export/top_authors/excel")
+def export_top_authors_excel():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    role = _current_role()
+    is_hod = role == "hod"
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
+
+    # Get plain text data for Excel
+    df = top_authors_df(
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
+    
+    # Clean HTML for Excel export
+    df_clean = clean_dataframe_for_pdf(df)
+    
+    xls_bytes = dataframe_to_excel_bytes(df_clean, sheet_name="TopAuthors")
+    return send_file(
+        io.BytesIO(xls_bytes),
+        as_attachment=True,
+        download_name="top_authors.xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+
+
+# ---------------- EXPORT ROUTES (CSV) ----------------
+@bp.route("/export/darajah/<darajah_val>/csv")
+def export_darajah_csv(darajah_val):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    role = _current_role()
+    is_hod = role == "hod"
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher:
+        if not teacher_darajah or (darajah_val != teacher_darajah and darajah_val != "All"):
+            return redirect(url_for("reports_bp.reports_page"))
+        darajah_val = teacher_darajah
+
+    df, _ = darajah_report(darajah_val if darajah_val != "All" else None, marhala_filter=hod_marhala)
+    
+    # Clean HTML for CSV
+    df_clean = clean_dataframe_for_pdf(df)
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    df_clean.to_csv(output, index=False, encoding='utf-8')
+    output.seek(0)
+    
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        as_attachment=True,
+        download_name=f"darajah_report_{darajah_val}.csv",
+        mimetype="text/csv",
+    )
+
+
+@bp.route("/export/taqeem/<darajah_val>/csv")
+def export_taqeem_csv(darajah_val):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    df = taqeem_report_df(darajah_val)
+    if df.empty:
+        return redirect(url_for("reports_bp.reports_page"))
+
+    output = io.StringIO()
+    df.to_csv(output, index=False, encoding='utf-8')
+    output.seek(0)
+    
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        as_attachment=True,
+        download_name=f"taqeem_report_{darajah_val}.csv",
+        mimetype="text/csv",
+    )
+
+
+
+@bp.route("/export/marhala/<marhala_val>/csv")
+def export_marhala_csv(marhala_val):
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    # HOD not allowed marhala-wise
+    if _current_role() == "hod":
+        return redirect(url_for("reports_bp.reports_page"))
+
+    df, _ = marhala_report(marhala_val if marhala_val != "All" else None)
+    
+    # Clean HTML for CSV
+    df_clean = clean_dataframe_for_pdf(df)
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    df_clean.to_csv(output, index=False, encoding='utf-8')
+    output.seek(0)
+    
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        as_attachment=True,
+        download_name=f"marhala_report_{marhala_val}.csv",
+        mimetype="text/csv",
+    )
+
+
+@bp.route("/export/top_books/csv")
+def export_top_books_csv():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    role = _current_role()
+    is_hod = role == "hod"
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
+
+    # Get plain text data for CSV
+    df = top_books_df(
+        arabic_only=False,
+        english_only=True,
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
+    
+    # Remove BiblioNumber column if it exists
+    if "BiblioNumber" in df.columns:
+        df = df.drop(columns=["BiblioNumber"])
+    
+    # Rename columns for better display
+    df = df.rename(columns={
+        "Title": "Book Title",
+        "Count": "Times Issued",
+        "LastIssued": "Last Issued"
+    })
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    df.to_csv(output, index=False, encoding='utf-8')
+    output.seek(0)
+    
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        as_attachment=True,
+        download_name="top_english_books.csv",
+        mimetype="text/csv",
+    )
+
+
+@bp.route("/export/top_arabic/csv")
+def export_top_arabic_csv():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    role = _current_role()
+    is_hod = role == "hod"
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
+
+    # Get plain text data for CSV
+    df = top_books_df(
+        arabic_only=True,
+        english_only=False,
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
+    
+    # Remove BiblioNumber column if it exists
+    if "BiblioNumber" in df.columns:
+        df = df.drop(columns=["BiblioNumber"])
+    
+    # Rename columns for better display
+    df = df.rename(columns={
+        "Title": "Book Title",
+        "Count": "Times Issued",
+        "LastIssued": "Last Issued"
+    })
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    df.to_csv(output, index=False, encoding='utf-8')
+    output.seek(0)
+    
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        as_attachment=True,
+        download_name="top_arabic_books.csv",
+        mimetype="text/csv",
+    )
+
+
+@bp.route("/export/top_authors/csv")
+def export_top_authors_csv():
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    role = _current_role()
+    is_hod = role == "hod"
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher and not teacher_darajah:
+        return redirect(url_for("reports_bp.reports_page"))
+
+    # Get plain text data for CSV
+    df = top_authors_df(
+        marhala_filter=hod_marhala if not is_teacher else None,
+        darajah_filter=teacher_darajah if is_teacher else None,
+        for_pdf=True,
+    )
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    df.to_csv(output, index=False, encoding='utf-8')
+    output.seek(0)
+    
+    return send_file(
+        io.BytesIO(output.getvalue().encode('utf-8')),
+        as_attachment=True,
+        download_name="top_authors.csv",
+        mimetype="text/csv",
+    )
+
+# ---------------- LANDSCAPE PDF EXPORT ROUTES ----------------
+@bp.route("/export/darajah/<darajah_val>/pdf-landscape")
+def export_darajah_pdf_landscape(darajah_val):
+    """Export darajah report as PDF (landscape orientation)."""
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    role = _current_role()
+    is_hod = role == "hod"
+    is_teacher = role == "teacher"
+    hod_marhala = _hod_marhala() if is_hod else None
+    teacher_darajah = _teacher_darajah() if is_teacher else None
+
+    if is_teacher:
+        if not teacher_darajah or (darajah_val != teacher_darajah and darajah_val != "All"):
+            return redirect(url_for("reports_bp.reports_page"))
+        darajah_val = teacher_darajah
+
+    df, _ = darajah_report(darajah_val if darajah_val != "All" else None, marhala_filter=hod_marhala)
+    
+    # Clean HTML from DataFrame before PDF generation
+    df_clean = clean_dataframe_for_pdf(df)
+    
+    # Rename columns for better display in PDF
+    column_rename_map = {
+        "CurrentlyIssued": "Currently Issued",
+        "Issues_AcademicYear": "Issues (Academic Year)",
+        "FeesPaid_AcademicYear": "Fees Paid (Academic Year)",
+        "TRNumber": "TR Number",
+        "FullName": "Full Name",
+        "TeacherName": "Teacher Name",
+        "TeacherRole": "Teacher Role"
+    }
+    df_clean = df_clean.rename(columns=column_rename_map)
+    
+    # Use landscape orientation
+    pdf_bytes = dataframe_to_pdf_bytes(
+        f"Darajah Report - {darajah_val} (Landscape)", 
+        df_clean,
+        orientation='landscape'
+    )
+    
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        as_attachment=True,
+        download_name=f"darajah_report_{darajah_val}_landscape.pdf",
+        mimetype="application/pdf",
+    )
+
+
+@bp.route("/export/marhala/<marhala_val>/pdf-landscape")
+def export_marhala_pdf_landscape(marhala_val):
+    """Export marhala report as PDF (landscape orientation)."""
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+
+    # HOD not allowed marhala-wise
+    if _current_role() == "hod":
+        return redirect(url_for("reports_bp.reports_page"))
+
+    df, _ = marhala_report(marhala_val if marhala_val != "All" else None)
+    
+    # Clean HTML from DataFrame before PDF generation
+    df_clean = clean_dataframe_for_pdf(df)
+    
+    # Rename columns for better display in PDF
+    column_rename_map = {
+        "CurrentlyIssued": "Currently Issued",
+        "Issues_AcademicYear": "Issues (Academic Year)",
+        "FeesPaid_AcademicYear": "Fees Paid (Academic Year)",
+        "TRNumber": "TR Number",
+        "FullName": "Full Name",
+        "TeacherName": "Teacher Name",
+        "TeacherRole": "Teacher Role"
+    }
+    df_clean = df_clean.rename(columns=column_rename_map)
+    
+    # Use landscape orientation
+    pdf_bytes = dataframe_to_pdf_bytes(
+        f"Marhala Report - {marhala_val} (Landscape)", 
+        df_clean,
+        orientation='landscape'
+    )
+    
+    return send_file(
+        io.BytesIO(pdf_bytes),
+        as_attachment=True,
+        download_name=f"marhala_report_{marhala_val}_landscape.pdf",
+        mimetype="application/pdf",
     )

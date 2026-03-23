@@ -55,6 +55,13 @@ def login():
             flash("❌ Please enter username and password.", "danger")
             return render_template("index.html", hide_nav=True)
 
+        # Brute force protection check
+        from services.security_service import limiter
+        ip_addr = request.remote_addr
+        if limiter.is_locked(ip_addr) or limiter.is_locked(username):
+            flash("🚫 Account locked due to too many failed attempts. Please try again in 5 minutes.", "danger")
+            return render_template("index.html", hide_nav=True)
+
         conn = get_conn()
         cur = conn.cursor()
         cur.execute("SELECT * FROM users WHERE username = ?", (username,))
@@ -62,11 +69,13 @@ def login():
         conn.close()
 
         if not row:
-            flash("❌ Invalid username", "danger")
+            limiter.log_attempt(ip_addr)
+            limiter.log_attempt(username)
+            flash("❌ Invalid username or login credentials", "danger")
             return render_template("index.html", hide_nav=True)
 
         # 0 id, 1 username, 2 email, 3 role, 4 password_hash,
-        # 5 department_name, 6 class_name, 7 profile_picture, ...
+        # 5 department_name, 6 class_name, 7 profile_picture, 8 darajah_name (if exists)
         user = {
             "id": row[0],
             "username": row[1],
@@ -76,16 +85,35 @@ def login():
             "department_name": row[5],
             "class_name": row[6],
             "profile_picture": row[7] if len(row) > 7 else None,
+            "darajah_name": row[8] if len(row) > 8 else None,
         }
 
         if not check_password_hash(user["password_hash"], password):
+            limiter.log_attempt(ip_addr)
+            limiter.log_attempt(username)
             flash("❌ Incorrect password", "danger")
             return render_template("index.html", hide_nav=True)
+
+        # Successful Login
+        limiter.reset(ip_addr)
+        limiter.reset(username)
 
         # Normalise role and profile picture
         raw_role = (user["role"] or "").strip()
         role = raw_role.lower() if raw_role else "admin"
         profile_pic = user["profile_picture"] or "images/avatar.png"
+        
+        # Determine darajah_name for teachers
+        darajah_name = None
+        if role == "teacher":
+            # First try darajah_name column
+            darajah_name = user.get("darajah_name")
+            # If not found, try class_name column
+            if not darajah_name:
+                darajah_name = user.get("class_name")
+            # Also check department_name as a fallback
+            if not darajah_name:
+                darajah_name = user.get("department_name")
 
         session.clear()
         session["logged_in"] = True
@@ -94,7 +122,15 @@ def login():
         session["role"] = role
         session["department_name"] = user["department_name"]
         session["class_name"] = user["class_name"]
+        # Store marhala name explicitly for HODs
+        if role == "hod":
+            session["marhala_name"] = user["department_name"]
         session["profile_picture"] = profile_pic
+        
+        # Store darajah_name for teachers
+        if role == "teacher" and darajah_name:
+            session["darajah_name"] = darajah_name
+            current_app.logger.info(f"Teacher {username} logged in with darajah_name: {darajah_name}")
 
         if role == "admin":
             return redirect(url_for("dashboard_bp.dashboard"))
@@ -136,13 +172,26 @@ def token_login():
         flash("❌ User not found.", "danger")
         return redirect(url_for("auth_bp.login"))
 
+    # Get darajah_name for teachers
+    darajah_name = None
+    if len(row) > 8:
+        darajah_name = row[8]  # darajah_name column
+    elif not darajah_name:
+        darajah_name = row[6]  # class_name column
+
     session.clear()
     session["logged_in"] = True
     session["user_id"] = row[0]
     session["username"] = row[1]
     session["role"] = role
-    session["class_name"] = class_name or row[6]  # Default to class_name from DB if none provided
+    session["class_name"] = class_name or row[6]
+    if role == "hod":
+        session["marhala_name"] = row[5]
     session["profile_picture"] = row[7] if len(row) > 7 else "images/avatar.png"
+    
+    # Store darajah_name for teachers
+    if role == "teacher" and darajah_name:
+        session["darajah_name"] = darajah_name
 
     return redirect(url_for("teacher_dashboard_bp.dashboard"))
 

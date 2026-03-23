@@ -1,530 +1,841 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid py-3">
+<div class="container-fluid py-4">
 
-  <!-- Heading + Download button -->
-  <div class="d-flex justify-content-between align-items-center mb-3">
+  <!-- Header Section -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
     <div>
-      {% if parsed_class.display and parsed_class.display != parsed_class.original %}
-        <h2 class="mb-1">📘 {{ parsed_class.display }} – Library Report</h2>
-      {% else %}
-        <h2 class="mb-1">📘 {{ class_name }} – Library Report</h2>
-      {% endif %}
-      <p class="text-muted mb-0">
-        Darajah Masool: <strong>{{ darajah_masool_name }}</strong>
-        {% if session.get('role') == 'admin' and request.args.get('class') %}
-          <span class="badge bg-info ms-2">Admin view</span>
+      <h2 class="h3 mb-1 text-dark fw-bold">
+        {% if parsed_darajah and parsed_darajah.display %}
+        {{ parsed_darajah.display }}
+        {% else %}
+        {{ darajah_name }}
         {% endif %}
+        Dashboard
+      </h2>
+      <p class="text-muted mb-0 d-flex align-items-center flex-wrap gap-2">
+        Teacher: <strong>{{ darajah_masool_name or username }}</strong>
+        <span class="mx-2">|</span>
+        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">
+          {{ total_students }} Students • {{ active_borrowers }} Active
+        </span>
       </p>
     </div>
 
-    <div class="text-end">
-      <!-- Admin class selector dropdown -->
-      {% if is_admin and all_classes %}
-      <div class="dropdown d-inline-block me-2">
-        <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" 
-                data-bs-toggle="dropdown" aria-expanded="false">
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      {% if all_darajahs and all_darajahs|length > 1 and is_admin %}
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" data-bs-toggle="dropdown">
           <i class="fas fa-exchange-alt me-1"></i> Switch Class
         </button>
-        <ul class="dropdown-menu dropdown-menu-end" style="max-height: 300px; overflow-y: auto;">
-          {% for class_item in all_classes %}
+        <ul class="dropdown-menu dropdown-menu-end shadow-lg" style="max-height: 400px; overflow-y: auto;">
+          {% for d in all_darajahs %}
           <li>
-            <a class="dropdown-item {% if class_item.name == class_name %}active{% endif %}" 
-               href="{{ url_for('teacher_dashboard_bp.dashboard', class_name=class_item.name) }}">
-              {% if class_item.display and class_item.display != class_item.name %}
-                {{ class_item.display }}
-              {% else %}
-                {{ class_item.name }}
-              {% endif %}
-              <small class="text-muted ms-1">({{ class_item.gender }})</small>
+            <a class="dropdown-item {% if d.name == darajah_name %}active{% endif %}"
+              href="{{ url_for('teacher_dashboard_bp.dashboard', darajah_name=d.name) }}">
+              <div class="d-flex justify-content-between align-items-center">
+                <span>{{ d.display }}</span>
+                <small class="text-muted ms-3">{{ d.active_students }} students</small>
+              </div>
             </a>
           </li>
           {% endfor %}
         </ul>
       </div>
       {% endif %}
-      
-      <a href="{{ url_for('teacher_dashboard_bp.download_class_pdf') }}"
-         class="btn btn-danger shadow-sm">
-        <i class="fas fa-download me-1"></i> Classwise Library Report
+
+      <a href="{{ url_for('teacher_dashboard_bp.download_darajah_pdf', darajah_name=darajah_name) }}"
+        class="btn btn-sm btn-danger d-flex align-items-center">
+        <i class="fas fa-download me-2"></i> Export Report
       </a>
-    </div>
-  </div>
 
-  <!-- Class info badge -->
-  {% if parsed_class %}
-  <div class="mb-3">
-    {% if parsed_class.year %}
-    <span class="badge bg-primary me-2">
-      <i class="fas fa-graduation-cap me-1"></i> Year {{ parsed_class.year }}
-    </span>
-    {% endif %}
-    
-    {% if parsed_class.section %}
-    <span class="badge bg-info me-2">
-      <i class="fas fa-layer-group me-1"></i> Section {{ parsed_class.section }}
-    </span>
-    {% endif %}
-    
-    {% if parsed_class.gender %}
-    <span class="badge {% if parsed_class.gender == 'Boys' %}bg-primary{% elif parsed_class.gender == 'Girls' %}bg-pink{% else %}bg-secondary{% endif %} me-2">
-      <i class="fas fa-{% if parsed_class.gender == 'Boys' %}male{% elif parsed_class.gender == 'Girls' %}female{% else %}users{% endif %} me-1"></i>
-      {{ parsed_class.gender }}
-    </span>
-    {% endif %}
-    
-    {% if parsed_class.is_arabic %}
-    <span class="badge bg-warning text-dark">
-      <i class="fas fa-language me-1"></i> Arabic Section
-    </span>
-    {% endif %}
-  </div>
-  {% endif %}
+      <a href="{{ url_for('teacher_dashboard_bp.search_student') }}?{% if is_admin and darajah_name %}darajah_name={{ darajah_name }}&{% endif %}q="
+        class="btn btn-sm btn-outline-primary d-flex align-items-center">
+        <i class="fas fa-search me-2"></i> Search
+      </a>
 
-  <!-- KPI cards -->
-  <div class="row g-3 mb-4">
-    <div class="col-md-3">
-      <div class="card kpi-card kpi-card-blue h-100">
-        <div class="card-body">
-          <div class="text-muted small">Students in Darajah</div>
-          <div class="fs-3 fw-bold">{{ total_students }}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-md-3">
-      <div class="card kpi-card kpi-card-green h-100">
-        <div class="card-body">
-          <div class="text-muted small">Total Books Issued</div>
-          <div class="fs-3 fw-bold">{{ books_issued_class }}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-md-3">
-      <div class="card kpi-card kpi-card-gold h-100">
-        <div class="card-body">
-          <div class="text-muted small">Currently Overdue</div>
-          <div class="fs-3 fw-bold">{{ total_overdues_current }}</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="col-md-3">
-      <div class="card kpi-card kpi-card-teal h-100">
-        <div class="card-body">
-          <div class="text-muted small">Total Fines Paid</div>
-          <div class="fs-4 fw-bold">
-            {{ "%.2f"|format(total_fines) }}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Trend + Top students -->
-  <div class="row g-3 mb-4">
-
-    <!-- Borrowing trend -->
-    <div class="col-lg-8">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-white">
-          <h5 class="mb-0">📈 Borrowing Trend {{ trend_period_label }}</h5>
-        </div>
-        <div class="card-body">
-          <div style="height: 240px;">
-            <canvas id="classTrendChart"></canvas>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Top students -->
-    <div class="col-lg-4">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-white">
-          <h5 class="mb-0">⭐ Top 5 Readers</h5>
-        </div>
-        <div class="card-body">
-          {% if top_students %}
-            <ol class="list-group list-group-numbered list-group-flush">
-              {% for s in top_students %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                  <div>
-                    <div class="fw-semibold">
-                      <a href="{{ url_for('students_bp.student', identifier=s.TRNumber) }}"
-                         class="link-primary text-decoration-none">
-                        {{ s.FullName }}
-                      </a>
-                    </div>
-                    <div class="text-muted small">TR {{ s.TRNumber }}</div>
-                  </div>
-
-                  <span class="badge bg-success rounded-pill px-3">
-                    {{ s.Issues_AY }} books
-                  </span>
-                </li>
-              {% endfor %}
-            </ol>
-          {% else %}
-            <p class="text-muted mb-0">No borrowing data for this academic year.</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Top Arabic + English titles -->
-  <div class="row g-3 mb-4">
-
-    <!-- Arabic -->
-    <div class="col-lg-6">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-white">
-          <h5 class="mb-0">📚 Top Arabic Titles</h5>
-        </div>
-        <div class="card-body">
-          {% if top_arabic %}
-            <div class="table-responsive">
-              <table class="table table-sm table-striped align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th class="text-center">Title</th>
-                    <th class="text-center">Times Issued</th>
-                    <th>Collections</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for t in top_arabic %}
-                    <tr>
-                      <td class="small text-center">
-                        {% if t.Biblio_ID %}
-                          <a href="https://library-opac.ajsn.co.ke/cgi-bin/koha/opac-detail.pl?biblionumber={{ t.Biblio_ID }}"
-                             target="_blank"
-                             class="link-primary text-decoration-none">
-                            {{ t.Title|default('Untitled', true) }}
-                          </a>
-                        {% else %}
-                          <a href="https://library-opac.ajsn.co.ke/cgi-bin/koha/opac-search.pl?q=ti%3A{{ t.Title|urlencode|default('', true) }}"
-                             target="_blank"
-                             class="link-primary text-decoration-none">
-                            {{ t.Title|default('Untitled', true) }}
-                          </a>
-                        {% endif %}
-                      </td>
-                      <td class="text-center fw-bold">{{ t.Times_Issued|default(0) }}</td>
-                      <td class="small text-muted">{{ t.Collections|default('—') }}</td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          {% else %}
-            <p class="text-muted mb-0">No Arabic titles issued for this class in AY.</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- English -->
-    <div class="col-lg-6">
-      <div class="card border-0 shadow-sm h-100">
-        <div class="card-header bg-white">
-          <h5 class="mb-0">📚 Top English Titles</h5>
-        </div>
-        <div class="card-body">
-          {% if top_english %}
-            <div class="table-responsive">
-              <table class="table table-sm table-striped align-middle mb-0">
-                <thead class="table-light">
-                  <tr>
-                    <th class="text-center">Title</th>
-                    <th class="text-center">Times Issued</th>
-                    <th>Collections</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% for t in top_english %}
-                    <tr>
-                      <td class="small text-center">
-                        {% if t.Biblio_ID %}
-                          <a href="https://library-opac.ajsn.co.ke/cgi-bin/koha/opac-detail.pl?biblionumber={{ t.Biblio_ID }}"
-                             target="_blank"
-                             class="link-primary text-decoration-none">
-                            {{ t.Title|default('Untitled', true) }}
-                          </a>
-                        {% else %}
-                          <a href="https://library-opac.ajsn.co.ke/cgi-bin/koha/opac-search.pl?q=ti%3A{{ t.Title|urlencode|default('', true) }}"
-                             target="_blank"
-                             class="link-primary text-decoration-none">
-                            {{ t.Title|default('Untitled', true) }}
-                          </a>
-                        {% endif %}
-                      </td>
-                      <td class="text-center fw-bold">{{ t.Times_Issued|default(0) }}</td>
-                      <td class="small text-muted">{{ t.Collections|default('—') }}</td>
-                    </tr>
-                  {% endfor %}
-                </tbody>
-              </table>
-            </div>
-          {% else %}
-            <p class="text-muted mb-0">No English titles issued for this class in AY.</p>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Current month issued -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">Currently Issued</h5>
-      <span class="text-muted small">
-        Month: {{ current_month_label }} • Academic Year: {{ ay_period_label }}
+      {% if parsed_darajah %}
+      {% if parsed_darajah.year %}
+      <span class="badge bg-primary">
+        <i class="fas fa-graduation-cap me-1"></i> Darajah {{ parsed_darajah.year }}
       </span>
-    </div>
-
-    <div class="card-body">
-      {% if month_students %}
-        <div class="table-responsive">
-          <table class="table table-sm table-hover align-middle mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>TR No</th>
-                <th>Name</th>
-                <th class="text-center">Counter</th>
-                <th>Currently Issued Titles</th>
-                <th>Collections</th>
-                <th class="text-center">Overdue</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for s in month_students %}
-                <tr>
-                  <td><span class="badge bg-secondary">{{ s.TRNumber|default('—') }}</span></td>
-
-                  <td>
-                    {% if s.TRNumber %}
-                      <a href="{{ url_for('students_bp.student', identifier=s.TRNumber) }}"
-                         class="link-primary text-decoration-none">
-                        {{ s.FullName|default('Name not available') }}
-                      </a>
-                    {% else %}
-                      <span class="text-muted">{{ s.FullName|default('Name not available') }}</span>
-                    {% endif %}
-                  </td>
-
-                  <td class="text-center">
-                    <span class="badge bg-success-subtle text-success-emphasis px-3">
-                      {{ s.Books_CurrentMonth|default(0) }}
-                    </span>
-                  </td>
-
-                  <td class="small">
-                    {% if s.Titles_CurrentMonth %}
-                      {% set titles = s.Titles_CurrentMonth.split(' • ') %}
-                      {% for t in titles %}
-                        {% if t and t|trim %}
-                          <a href="https://library-opac.ajsn.co.ke/cgi-bin/koha/opac-search.pl?q=ti%3A{{ t|urlencode }}"
-                             target="_blank"
-                             class="link-secondary text-decoration-none">
-                            {{ t }}
-                          </a>{% if not loop.last %}<span class="text-muted"> • </span>{% endif %}
-                        {% endif %}
-                      {% endfor %}
-                    {% else %}
-                      —
-                    {% endif %}
-                  </td>
-
-                  <td class="small text-muted">{{ s.Collections_CurrentMonth|default('—') }}</td>
-                  <td class="text-center">{{ s.Overdues_Current|default(0) }}</td>
-
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-
-        {% if collections_summary %}
-          <p class="mt-3 mb-0 text-muted small">
-            <strong>Collections used this month:</strong>
-            {{ collections_summary|default('None') }}
-          </p>
-        {% endif %}
-
-      {% else %}
-        <p class="text-muted mb-0">No issues recorded for this class in {{ current_month_label }}.</p>
+      {% endif %}
+      {% if parsed_darajah.section %}
+      <span class="badge bg-info">
+        <i class="fas fa-layer-group me-1"></i> Section {{ parsed_darajah.section }}
+      </span>
+      {% endif %}
+      {% if parsed_darajah.gender %}
+      <span
+        class="badge {% if parsed_darajah.gender == 'Boys' %}bg-blue{% elif parsed_darajah.gender == 'Girls' %}bg-pink{% else %}bg-secondary{% endif %}">
+        <i
+          class="fas fa-{% if parsed_darajah.gender == 'Boys' %}male{% elif parsed_darajah.gender == 'Girls' %}female{% else %}users{% endif %} me-1"></i>
+        {{ parsed_darajah.gender }}
+      </span>
+      {% endif %}
       {% endif %}
     </div>
   </div>
 
-  <!-- Full student list -->
-  <div class="card border-0 shadow-sm mb-4">
-    <div class="card-header bg-white d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">👩‍🎓 Students Summary ({{ ay_period_label }})</h5>
-
-      <!-- Search form -->
-      <form class="d-flex" method="get" action="{{ url_for('teacher_dashboard_bp.search_student') }}">
-        {% if session.get('role') == 'admin' and request.args.get('class') %}
-          <input type="hidden" name="class" value="{{ request.args.get('class') }}">
-        {% endif %}
-        <input type="text" name="q" class="form-control form-control-sm me-2"
-               placeholder="Search by name or TR No" required>
-        <button class="btn btn-sm btn-outline-primary" type="submit">Search</button>
-      </form>
+  <!-- KPI Grid -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+      <div class="card h-100 kpi-card kpi-vibrant-blue">
+        <div class="card-body">
+          <i class="fas fa-users floating-icon"></i>
+          <div class="kpi-label">Students in Darajah</div>
+          <div class="kpi-value">{{ total_students }}</div>
+          <div class="kpi-subtext">{{ active_borrowers }} active borrowers</div>
+        </div>
+      </div>
     </div>
 
-    <div class="card-body">
-      {% if students %}
+    <div class="col-md-3 col-6">
+      <div class="card h-100 kpi-card kpi-vibrant-green">
+        <div class="card-body">
+          <i class="fas fa-book floating-icon"></i>
+          <div class="kpi-label">Books Issued (AY)</div>
+          <div class="kpi-value">{{ books_issued_darajah }}</div>
+          <div class="kpi-subtext">
+            {% if active_borrowers > 0 %}
+            {{ "%.1f"|format(books_issued_darajah / active_borrowers) }} per student
+            {% else %}
+            0 per student
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-6">
+      <div class="card h-100 kpi-card kpi-vibrant-gold">
+        <div class="card-body">
+          <i class="fas fa-clock floating-icon"></i>
+          <div class="kpi-label">Currently Overdue</div>
+          <div class="kpi-value">{{ total_overdues_current }}</div>
+          <div class="kpi-subtext">
+            {% if total_overdues_current > 0 %}
+            Requires follow-up
+            {% else %}
+            All books returned
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3 col-6">
+      <div class="card h-100 kpi-card kpi-vibrant-teal">
+        <div class="card-body">
+          <i class="fas fa-money-bill-wave floating-icon"></i>
+          <div class="kpi-label">Total Fees Paid (AY)</div>
+          <div class="kpi-value fs-4">KSh {{ "{:,.2f}".format(total_fees) }}</div>
+          <div class="kpi-subtext">Fees collected</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Analytics Section -->
+  <div class="row g-4 mb-4">
+    <!-- Borrowing Trend -->
+    <div class="col-lg-8">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+          <h5 class="mb-0 fw-bold"><i class="fas fa-chart-line text-primary me-2"></i>Borrowing Trend (Academic Year)
+          </h5>
+          <span class="badge bg-primary bg-opacity-10 text-primary">{{ trend_period_label }}</span>
+        </div>
+        <div class="card-body">
+          <div style="height: 300px;">
+            <canvas id="darajahTrendChart"></canvas>
+          </div>
+          {% if trend_values and trend_values|length > 0 %}
+          <div class="row mt-4 text-center g-2">
+            <div class="col-4">
+              <div class="small text-muted">Total Issues</div>
+              <div class="h5 fw-bold text-primary">{{ trend_values|sum }}</div>
+            </div>
+            <div class="col-4">
+              <div class="small text-muted">Monthly Average</div>
+              <div class="h5 fw-bold text-success">{{ (trend_values|sum / trend_values|length)|round(1) }}</div>
+            </div>
+            <div class="col-4">
+              <div class="small text-muted">Peak Month</div>
+              <div class="h5 fw-bold text-warning">
+                {% set max_val = trend_values|max %}
+                {% set max_idx = trend_values.index(max_val) %}
+                {{ trend_labels[max_idx] if max_idx < trend_labels|length else '' }}: {{ max_val }} </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Readers -->
+      <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0 fw-bold"><i class="fas fa-crown text-warning me-2"></i>Top Readers (AY)</h5>
+            <span class="badge bg-success">{{ top_students|length }} students</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="list-group list-group-flush">
+              {% if top_students and top_students|length > 0 %}
+              {% for s in top_students %}
+              <div class="list-group-item d-flex justify-content-between align-items-center py-3">
+                <div>
+                  <div class="fw-bold">
+                    <a href="{{ url_for('students.student', identifier=s.TRNumber) }}"
+                      class="text-decoration-none text-dark hover-link">
+                      {{ s.FullName }}
+                    </a>
+                  </div>
+                  <small class="text-muted">
+                    <i class="fas fa-id-card me-1"></i> {{ s.TRNumber }}
+                    {% if s.Class %}
+                    <span class="mx-1">•</span> {{ s.Class }}
+                    {% endif %}
+                  </small>
+                </div>
+                <span class="badge bg-success rounded-pill px-3 py-2">{{ s.Issues_AY }} books</span>
+              </div>
+              {% endfor %}
+              {% else %}
+              <div class="p-4 text-center">
+                <i class="fas fa-book-open fa-2x text-muted mb-3 opacity-25"></i>
+                <p class="text-muted mb-0">No reading data recorded for this Academic Year.</p>
+              </div>
+              {% endif %}
+            </div>
+            {% if top_students and top_students|length > 0 %}
+            <div class="card-footer bg-white text-center py-2">
+              <a href="{{ url_for('teacher_dashboard_bp.search_student') }}?{% if is_admin and darajah_name %}darajah_name={{ darajah_name }}&{% endif %}q="
+                class="small text-decoration-none">
+                <i class="fas fa-users me-1"></i> View all students
+              </a>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Current Month Activity -->
+    <div class="row g-4 mb-4">
+      <div class="col-12">
+        <div class="card border-0 shadow-sm">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0 fw-bold">
+              <i class="fas fa-calendar-alt text-info me-2"></i>
+              Current Month Activity ({{ current_month_label }})
+            </h5>
+            <div>
+              <span class="badge bg-info me-2">{{ month_students|length }} active students</span>
+              {% if collections_summary %}
+              <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary border-opacity-25">
+                <i class="fas fa-layer-group me-1"></i> {{ collections_summary }}
+              </span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-4">Student</th>
+                    <th class="text-center">TR No</th>
+                    <th class="text-center">Books This Month</th>
+                    <th>Books Borrowed</th>
+                    <th class="text-center">Collections</th>
+                    <th class="text-center">Overdue</th>
+                    <th class="text-end pe-4">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if month_students and month_students|length > 0 %}
+                  {% for s in month_students %}
+                  <tr>
+                    <td class="ps-4">
+                      <div class="fw-bold">{{ s.display_name or s.FullName }}</div>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge bg-secondary bg-opacity-10 text-secondary">{{ s.TRNumber }}</span>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge bg-info rounded-pill px-3">{{ s.Books_CurrentMonth }}</span>
+                    </td>
+                    <td>
+                      <div class="small text-truncate" style="max-width: 250px;" title="{{ s.Titles_CurrentMonth }}">
+                        {% if s.Titles_CurrentMonth %}
+                        {{ s.Titles_CurrentMonth|truncate(50) }}
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <span class="small text-muted">{{ s.Collections_CurrentMonth|default('—', true) }}</span>
+                    </td>
+                    <td class="text-center">
+                      {% if s.Overdues_Current and s.Overdues_Current > 0 %}
+                      <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
+                        {{ s.Overdues_Current }}
+                      </span>
+                      {% else %}
+                      <span class="text-muted small">—</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-end pe-4">
+                      <a href="{{ url_for('students.student', identifier=s.TRNumber) }}"
+                        class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                        <i class="fas fa-user me-1"></i> View
+                      </a>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="7" class="text-center py-5">
+                      <i class="fas fa-calendar-day fa-2x text-muted mb-3 opacity-25"></i>
+                      <p class="text-muted mb-0">No borrowing activity in the current month.</p>
+                    </td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Popular Titles Section -->
+    <div class="row g-4 mb-4">
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0 fw-bold"><i class="fas fa-book text-info me-2"></i>Top Arabic Titles (AY)</h5>
+            <span class="badge bg-info">{{ top_arabic|length }} titles</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-3">Title</th>
+                    <th class="text-center">Times Issued</th>
+                    <th class="text-center pe-3">Collections</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if top_arabic and top_arabic|length > 0 %}
+                  {% for t in top_arabic %}
+                  <tr>
+                    <td class="ps-3">
+                      <div class="small fw-bold arabic-text">
+                        {% if t.OPAC_URL %}
+                        <a href="{{ t.OPAC_URL }}" target="_blank" class="text-decoration-none text-dark">
+                          {{ t.Title|default('Untitled', true)|truncate(50) }}
+                        </a>
+                        {% else %}
+                        {{ t.Title|default('Untitled', true)|truncate(50) }}
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge bg-info bg-opacity-10 text-info px-3">{{ t.Times_Issued|default(0) }}</span>
+                    </td>
+                    <td class="text-center pe-3">
+                      <span class="small text-muted">{{ t.Collections|default('—', true) }}</span>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="3" class="text-center py-4 text-muted">
+                      <i class="fas fa-book fa-2x mb-2 opacity-25"></i><br>
+                      No Arabic titles issued this Academic Year.
+                    </td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+            <h5 class="mb-0 fw-bold"><i class="fas fa-book text-success me-2"></i>Top English Titles (AY)</h5>
+            <span class="badge bg-success">{{ top_english|length }} titles</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-3">Title</th>
+                    <th class="text-center">Times Issued</th>
+                    <th class="text-center pe-3">Collections</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if top_english and top_english|length > 0 %}
+                  {% for t in top_english %}
+                  <tr>
+                    <td class="ps-3">
+                      <div class="small fw-bold">
+                        {% if t.OPAC_URL %}
+                        <a href="{{ t.OPAC_URL }}" target="_blank" class="text-decoration-none text-dark">
+                          {{ t.Title|default('Untitled', true)|truncate(50) }}
+                        </a>
+                        {% else %}
+                        {{ t.Title|default('Untitled', true)|truncate(50) }}
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      <span class="badge bg-success bg-opacity-10 text-success px-3">{{ t.Times_Issued|default(0)
+                        }}</span>
+                    </td>
+                    <td class="text-center pe-3">
+                      <span class="small text-muted">{{ t.Collections|default('—', true) }}</span>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="3" class="text-center py-4 text-muted">
+                      <i class="fas fa-book fa-2x mb-2 opacity-25"></i><br>
+                      No English titles issued this Academic Year.
+                    </td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed Student Roster - STUDENTS WITH BOOKS ISSUED -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+        <div>
+          <h5 class="mb-0 fw-bold">
+            <i class="fas fa-users-cog text-dark me-2"></i>
+            Students with Books Issued (Academic Year)
+          </h5>
+          <p class="text-muted small mb-0 mt-1">
+            <i class="fas fa-info-circle me-1"></i>
+            Showing {{ students|length }} of {{ total_students }} total students who borrowed books
+          </p>
+        </div>
+        <div class="input-group input-group-sm" style="width: 250px;">
+          <span class="input-group-text bg-light border-end-0">
+            <i class="fas fa-search text-muted"></i>
+          </span>
+          <input type="text" id="studentSearch" class="form-control border-start-0 bg-light"
+            placeholder="Search by name or TR...">
+        </div>
+      </div>
+      <div class="card-body p-0">
         <div class="table-responsive">
-          <table class="table table-sm table-hover align-middle mb-0">
+          <table class="table table-hover align-middle mb-0" id="studentTable">
             <thead class="table-light">
               <tr>
-                <th>TR No</th>
-                <th>Student</th>
-                <th class="text-center">Books Issued</th>
-                <th class="text-center">Overdues</th>
-                <th class="text-center">Fines Paid</th>
+                <th class="ps-4">TR Number</th>
+                <th>Student Name</th>
+                <th class="text-center">Books Issued (AY)</th>
+                <th class="text-center">Currently Overdue</th>
+                <th class="text-end pe-4">Fees Paid (AY)</th>
                 <th class="text-center">Actions</th>
               </tr>
             </thead>
-
             <tbody>
-              {% for s in students %}
-                <tr>
-                  <td><span class="badge bg-secondary">{{ s.TRNumber|default('—') }}</span></td>
-
-                  <td>
-                    {% if s.TRNumber %}
-                      <a href="{{ url_for('students_bp.student', identifier=s.TRNumber) }}"
-                         class="link-primary text-decoration-none">
-                        {{ s.FullName|default('Name not available') }}
-                      </a>
-                    {% else %}
-                      <span class="text-muted">{{ s.FullName|default('Name not available') }}</span>
-                    {% endif %}
-                  </td>
-
-                  <td class="text-center fw-bold">{{ s.Issues_AY|default(0) }}</td>
-                  <td class="text-center">{{ s.Overdues|default(0) }}</td>
-                  <td class="text-center">{{ "%.2f"|format(s.FinesPaid_AY|default(0.0)) }}</td>
-                  <td class="text-center">
-                    {% if s.TRNumber %}
-                      <a href="{{ url_for('teacher_dashboard_bp.download_report', scope='student:' ~ s.TRNumber, fmt='pdf') }}"
-                         class="btn btn-sm btn-outline-danger" title="Download PDF">
-                        <i class="fas fa-download"></i>
-                      </a>
-                    {% endif %}
-                  </td>
-                </tr>
+              {% if students and students|length > 0 %}
+              {% for student in students %}
+              <tr class="student-row">
+                <td class="ps-4">
+                  <span class="badge bg-secondary">{{ student.TRNumber }}</span>
+                </td>
+                <td>
+                  <div class="fw-bold">
+                    <a href="{{ url_for('students.student', identifier=student.TRNumber) }}"
+                      class="text-decoration-none text-dark hover-link">
+                      {{ student.display_name or student.FullName }}
+                    </a>
+                  </div>
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-success rounded-pill px-3">{{ student.Issues_AY }}</span>
+                </td>
+                <td class="text-center">
+                  {% if student.Overdues and student.Overdues > 0 %}
+                  <span class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25">
+                    {{ student.Overdues }} overdue
+                  </span>
+                  {% else %}
+                  <span class="badge bg-light text-dark">0</span>
+                  {% endif %}
+                </td>
+                <td class="text-end pe-4">
+                  <span class="fw-medium">KSh {{ "{:.2f}".format(student.FeesPaid_AY) }}</span>
+                </td>
+                <td class="text-center">
+                  <div class="btn-group btn-group-sm">
+                    <a href="{{ url_for('students.student', identifier=student.TRNumber) }}"
+                      class="btn btn-outline-primary" title="View Profile">
+                      <i class="fas fa-user"></i>
+                    </a>
+                    <a href="{{ url_for('teacher_dashboard_bp.download_report', scope='student:' ~ student.TRNumber, fmt='pdf') }}"
+                      class="btn btn-outline-danger" title="Download PDF">
+                      <i class="fas fa-download"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
               {% endfor %}
+              {% else %}
+              <tr>
+                <td colspan="6" class="text-center py-5">
+                  <i class="fas fa-book-open fa-3x text-muted mb-3 opacity-25"></i>
+                  <h5 class="text-muted">No borrowing activity yet</h5>
+                  <p class="text-muted small mb-0">Students in this darajah haven't issued any books in the current
+                    Academic Year.</p>
+                </td>
+              </tr>
+              {% endif %}
             </tbody>
-
           </table>
         </div>
-      {% else %}
-        <p class="text-muted mb-0">No student data available for this class.</p>
+      </div>
+      {% if students and students|length > 0 %}
+      <div class="card-footer bg-white text-muted small py-2">
+        <div class="d-flex justify-content-between align-items-center">
+          <span>
+            <i class="fas fa-chart-bar me-1"></i>
+            Total books issued: <strong>{{ books_issued_darajah }}</strong>
+            • Active borrowers: <strong>{{ active_borrowers }}</strong>
+            • Avg per student: <strong>{{ "%.1f"|format(books_issued_darajah / active_borrowers) if active_borrowers > 0
+              else 0 }}</strong>
+          </span>
+          <a href="{{ url_for('teacher_dashboard_bp.search_student') }}?{% if is_admin and darajah_name %}darajah_name={{ darajah_name }}&{% endif %}q="
+            class="btn btn-sm btn-link">
+            View all students <i class="fas fa-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
       {% endif %}
     </div>
+
+    <!-- Data for Chart (Passed to JS via data-attributes) -->
+    <div id="trend-data" data-labels='{{ trend_labels|tojson|safe if trend_labels else "[]" }}'
+      data-values='{{ trend_values|tojson|safe if trend_values else "[]" }}' style="display: none;"></div>
+
+    <!-- Performance Summary -->
+    <div class="card bg-primary text-white border-0 shadow-lg mb-4 overflow-hidden">
+      <div class="card-body p-4 position-relative">
+        <div class="row align-items-center">
+          <div class="col-lg-8 mb-3 mb-lg-0">
+            <h4 class="fw-bold mb-2">
+              <i class="fas fa-chart-pie me-2"></i>
+              Darajah Performance Summary
+            </h4>
+            <p class="text-white-75 mb-0">
+              <span class="me-3">
+                <i class="fas fa-book me-1"></i> {{ books_issued_darajah }} total issues
+              </span>
+              <span class="me-3">
+                <i class="fas fa-users me-1"></i> {{ active_borrowers }} active borrowers
+              </span>
+              <span>
+                <i class="fas fa-chart-line me-1"></i>
+                {{ "%.1f"|format(books_issued_darajah / active_borrowers) if active_borrowers > 0 else 0 }} avg per
+                student
+              </span>
+            </p>
+          </div>
+          <div class="col-lg-4 text-lg-end">
+            <button class="btn btn-light px-4 py-2 fw-bold shadow-sm" onclick="window.print()">
+              <i class="fas fa-print me-2"></i>Print Summary
+            </button>
+          </div>
+        </div>
+        <div class="position-absolute end-0 top-0 h-100 w-25 opacity-10">
+          <i class="fas fa-graduation-cap fa-5x position-absolute bottom-0 end-0 me-3 mb-3"></i>
+        </div>
+      </div>
+    </div>
+
   </div>
+  {% endblock %}
 
-</div>
+  {% block extra_css %}
+  <style>
+    .kpi-card {
+      border: none !important;
+      color: white;
+      overflow: hidden;
+      position: relative;
+      border-radius: 16px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
 
-<!-- Chart -->
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const ctx = document.getElementById("classTrendChart");
-  if (!ctx) return;
+    .kpi-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
 
-  const labels = {{ trend_labels|tojson }};
-  const values = {{ trend_values|tojson }};
+    .kpi-card .floating-icon {
+      opacity: 0.15;
+      font-size: 3.5rem;
+      position: absolute;
+      right: 1rem;
+      bottom: -0.5rem;
+      color: white;
+    }
 
-  if (!labels.length || !values.length) {
-    // Display a message if no data
-    ctx.parentElement.innerHTML = '<p class="text-muted text-center mt-4">No trend data available for this period.</p>';
-    return;
-  }
+    .kpi-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      opacity: 0.9;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
 
-  const maxVal = Math.max(...values);
+    .kpi-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 0.25rem;
+    }
 
-  const pointColors = values.map(v =>
-    v === maxVal ? "#d63384" : "#a45a26"
-  );
+    .kpi-subtext {
+      font-size: 0.7rem;
+      opacity: 0.8;
+    }
 
-  new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: labels,
-      datasets: [{
-        label: "Books Issued (Academic Year)",
-        data: values,
-        fill: false,
-        borderColor: "#a45a26",
-        backgroundColor: "rgba(164,90,38,0.15)",
-        tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: pointColors,
-        pointBorderColor: pointColors
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: { legend: { display: true } },
-      scales: {
-        y: {
-          beginAtZero: true,
-          ticks: { precision: 0 },
-          title: { display: true, text: "Number of Books" }
-        },
-        x: {
-          title: { display: true, text: "(Academic Year)" }
-        }
+    .kpi-vibrant-blue {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .kpi-vibrant-green {
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+
+    .kpi-vibrant-gold {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .kpi-vibrant-teal {
+      background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+    }
+
+    .kpi-vibrant-purple {
+      background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+    }
+
+    .kpi-vibrant-red {
+      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+
+    .hover-link:hover {
+      color: #0d6efd !important;
+      text-decoration: underline !important;
+    }
+
+    .bg-blue {
+      background-color: #0d6efd;
+      color: white;
+    }
+
+    .bg-pink {
+      background-color: #d63384;
+      color: white;
+    }
+
+    .arabic-text {
+      font-family: 'Traditional Arabic', 'Amiri', 'Scheherazade', serif;
+      font-size: 1.1rem;
+    }
+
+    .table thead th {
+      background-color: #f8f9fa;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #495057;
+    }
+
+    .table tbody td {
+      vertical-align: middle;
+    }
+
+    .badge {
+      font-weight: 500;
+    }
+
+    .card-header {
+      border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    }
+
+    @media (max-width: 768px) {
+      .kpi-value {
+        font-size: 1.4rem;
+      }
+
+      .table thead th {
+        font-size: 0.7rem;
+        white-space: nowrap;
+      }
+
+      .table tbody td {
+        white-space: nowrap;
       }
     }
-  });
-});
-</script>
-{% endblock %}
+  </style>
+  {% endblock %}
 
-{% block extra_css %}
-<style>
-  .bg-pink {
-    background-color: #e83e8c !important;
-  }
-  
-  .kpi-card {
-    border: none;
-    border-radius: 12px;
-    transition: transform 0.2s;
-  }
-  
-  .kpi-card:hover {
-    transform: translateY(-5px);
-  }
-  
-  .kpi-card-blue {
-    background: linear-gradient(135deg, #4dabf7 0%, #1c7ed6 100%);
-    color: white;
-  }
-  
-  .kpi-card-green {
-    background: linear-gradient(135deg, #40c057 0%, #2b8a3e 100%);
-    color: white;
-  }
-  
-  .kpi-card-gold {
-    background: linear-gradient(135deg, #ffc034 0%, #e67700 100%);
-    color: white;
-  }
-  
-  .kpi-card-teal {
-    background: linear-gradient(135deg, #20c997 0%, #0ca678 100%);
-    color: white;
-  }
-</style>
-{% endblock %}
+  {% block scripts %}
+  {{ super() }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      // --- Trend Chart ---
+      const trendCtx = document.getElementById("darajahTrendChart");
+      const trendDataEl = document.getElementById("trend-data");
+
+      if (trendCtx && trendDataEl) {
+        try {
+          const labels = JSON.parse(trendDataEl.dataset.labels || '[]');
+          const values = JSON.parse(trendDataEl.dataset.values || '[]');
+
+          if (labels && labels.length > 0 && values && values.length > 0) {
+            const ctx = trendCtx.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+            gradient.addColorStop(0, 'rgba(13, 110, 253, 0.2)');
+            gradient.addColorStop(1, 'rgba(13, 110, 253, 0)');
+
+            new Chart(trendCtx, {
+              type: "line",
+              data: {
+                labels: labels,
+                datasets: [{
+                  label: "Books Issued",
+                  data: values,
+                  fill: true,
+                  borderColor: "#0d6efd",
+                  backgroundColor: gradient,
+                  tension: 0.4,
+                  pointBackgroundColor: "#ffffff",
+                  pointBorderColor: "#0d6efd",
+                  pointBorderWidth: 2,
+                  pointRadius: 4,
+                  pointHoverRadius: 6
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    padding: 10,
+                    cornerRadius: 6
+                  }
+                },
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    ticks: {
+                      precision: 0,
+                      stepSize: 1
+                    },
+                    grid: {
+                      color: 'rgba(0,0,0,0.05)'
+                    }
+                  },
+                  x: {
+                    grid: {
+                      display: false
+                    },
+                    ticks: {
+                      maxRotation: 45,
+                      minRotation: 0
+                    }
+                  }
+                }
+              }
+            });
+          } else {
+            // Show empty state message
+            trendCtx.parentElement.innerHTML = '<div class="text-center py-5"><i class="fas fa-chart-line fa-3x text-muted mb-3 opacity-25"></i><p class="text-muted">No trend data available for this darajah.</p></div>';
+          }
+        } catch (e) {
+          console.error("Error drawing trend chart:", e);
+        }
+      }
+
+      // --- Student Search ---
+      const studentSearch = document.getElementById('studentSearch');
+      if (studentSearch) {
+        studentSearch.addEventListener('keyup', function () {
+          const searchTerm = this.value.toLowerCase().trim();
+          const rows = document.querySelectorAll('.student-row');
+
+          rows.forEach(row => {
+            const rowText = row.innerText.toLowerCase();
+            if (searchTerm === '' || rowText.includes(searchTerm)) {
+              row.style.display = '';
+            } else {
+              row.style.display = 'none';
+            }
+          });
+
+          // Show/hide "no results" message
+          const visibleRows = document.querySelectorAll('.student-row[style="display: none;"]');
+          const table = document.getElementById('studentTable');
+          let noResultsRow = table.querySelector('.no-results-row');
+
+          if (visibleRows.length === rows.length) {
+            if (!noResultsRow) {
+              noResultsRow = document.createElement('tr');
+              noResultsRow.className = 'no-results-row';
+              noResultsRow.innerHTML = `
+              <td colspan="6" class="text-center py-4">
+                <i class="fas fa-search fa-2x text-muted mb-3 opacity-25"></i>
+                <p class="text-muted mb-0">No students match your search.</p>
+              </td>
+            `;
+              table.querySelector('tbody').appendChild(noResultsRow);
+            }
+          } else if (noResultsRow) {
+            noResultsRow.remove();
+          }
+        });
+      }
+
+      // Initialize tooltips
+      const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+    });
+  </script>
+  {% endblock %}

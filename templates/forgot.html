@@ -16,7 +16,9 @@
       {% endif %}
     {% endwith %}
 
-    <form method="post">
+    <form method="POST" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
       <div class="mb-3">
         <label class="form-label">Email address</label>
         <input name="email" type="email" class="form-control" placeholder="Enter your registered email" required autofocus>

@@ -1,0 +1,710 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h2 mb-2">
+        <i class="fas fa-search me-2"></i>
+        Marhala Explorer
+      </h1>
+      <div class="text-muted">
+        <i class="fas fa-calendar-alt me-1"></i>
+        {% if hijri_today %}
+        Today: <strong>{{ hijri_today }}</strong>
+        {% endif %}
+        | <strong>{{ total_marhalas }}</strong> marhalas available
+      </div>
+    </div>
+
+    <div class="d-flex gap-2">
+      <div class="input-group input-group-sm" style="width: 300px;">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input type="text" id="marhalaSearch" class="form-control" placeholder="Search marhalas...">
+      </div>
+      <a href="{{ url_for('dashboard_bp.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+      </a>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Total Marhalas</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold">{{ total_marhalas }}</h2>
+            </div>
+            <i class="fas fa-building fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Academic Marhalas</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold">{{ academic_marhalas|length }}</h2>
+            </div>
+            <i class="fas fa-graduation-cap fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 bg-info text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Departmental Marhala</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold">{{ non_academic_marhalas|length }}</h2>
+            </div>
+            <i class="fas fa-user-tie fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card shadow-sm border-0 bg-warning text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Total Active Members</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold" id="totalMembers">0</h2>
+            </div>
+            <i class="fas fa-users fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Marhala Grid by Type -->
+  <!-- Academic Marhalas Section -->
+  {% if academic_marhalas %}
+  <div class="card shadow-sm border-0 mb-4 marhala-type-section" data-type="academic">
+    <div class="card-header bg-white border-0">
+      <h5 class="card-title mb-0">
+        <i class="fas fa-graduation-cap me-2 text-success"></i>
+        Academic Marhalas
+        <span class="badge bg-success ms-2">{{ academic_marhalas|length }} marhalas</span>
+      </h5>
+    </div>
+
+    <div class="card-body">
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-3">
+        {% for marhala in academic_marhalas %}
+        {% set issues_per_member = (marhala.ay_issues / marhala.active_borrowers) if marhala.active_borrowers > 0 else 0
+        %}
+
+        <div class="col marhala-card" data-marhala="{{ marhala.display }}" data-type="academic"
+          data-marhala-code="{{ marhala.code }}" data-active-members="{{ marhala.active_borrowers }}"
+          data-total-members="{{ marhala.total_members }}" data-ay-issues="{{ marhala.ay_issues }}"
+          data-issues-per-member="{{ issues_per_member }}" data-current-issues="{{ marhala.currently_issued }}"
+          data-ay-fees="{{ marhala.ay_fees }}" data-overdues="{{ marhala.overdues }}">
+          <div class="card h-100 shadow-sm border hover-lift">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                  <h6 class="card-subtitle mb-1 text-muted">
+                    <i class="fas fa-graduation-cap me-1 text-success"></i>
+                    {{ marhala.type }}
+                    <span class="badge bg-light text-dark ms-1">{{ marhala.code }}</span>
+                  </h6>
+                  <h5 class="card-title mb-0">
+                    {{ marhala.display }}
+                  </h5>
+                </div>
+                <span class="badge bg-primary">
+                  <i class="fas fa-users me-1"></i>
+                  {{ marhala.active_borrowers }}
+                </span>
+              </div>
+
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="small text-muted">Active Students</div>
+                  <div class="fw-bold">{{ marhala.active_borrowers }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-muted">AY Issues</div>
+                  <div class="fw-bold text-success">{{ marhala.ay_issues }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-muted">Fees (AY)</div>
+                  <div class="fw-bold text-warning">{{ format_currency(marhala.ay_fees) }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-muted">Overdues</div>
+                  <div class="fw-bold text-danger">{{ marhala.overdues }}</div>
+                </div>
+              </div>
+
+              <!-- Performance Stats -->
+              {% if issues_per_member > 0 %}
+              <div class="small text-muted mb-1">
+                <i class="fas fa-chart-line me-1"></i>
+                Avg per Student: <strong class="text-dark">{{ "%.1f"|format(issues_per_member) }}</strong>
+              </div>
+              {% endif %}
+
+              <div class="d-grid gap-2">
+                <a href="{{ url_for('hod_dashboard_bp.dashboard', marhala=marhala.code) }}"
+                  class="btn btn-success btn-sm">
+                  <i class="fas fa-chart-bar me-1"></i>
+                  View Dashboard
+                </a>
+                <button class="btn btn-outline-secondary btn-sm marhala-details-btn"
+                  data-marhala-code="{{ marhala.code }}" data-marhala-name="{{ marhala.display }}"
+                  data-marhala-type="academic">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Quick Info
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Departmental Marhala Section -->
+  {% if non_academic_marhalas %}
+  <div class="card shadow-sm border-0 mb-4 marhala-type-section" data-type="non-academic">
+    <div class="card-header bg-white border-0">
+      <h5 class="card-title mb-0">
+        <i class="fas fa-user-tie me-2 text-info"></i>
+        Departmental Marhala
+        <span class="badge bg-info ms-2">{{ non_academic_marhalas|length }} marhalas</span>
+      </h5>
+    </div>
+
+    <div class="card-body">
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-3">
+        {% for marhala in non_academic_marhalas %}
+        {% set issues_per_member = (marhala.ay_issues / marhala.active_borrowers) if marhala.active_borrowers > 0 else 0
+        %}
+
+        <div class="col marhala-card" data-marhala="{{ marhala.display }}"
+          data-type="{{ marhala.type|lower|replace(' ', '-') }}" data-marhala-code="{{ marhala.code }}"
+          data-active-members="{{ marhala.active_borrowers }}" data-total-members="{{ marhala.total_members }}"
+          data-ay-issues="{{ marhala.ay_issues }}" data-issues-per-member="{{ issues_per_member }}"
+          data-current-issues="{{ marhala.currently_issued }}" data-ay-fees="{{ marhala.ay_fees }}"
+          data-overdues="{{ marhala.overdues }}">
+          <div class="card h-100 shadow-sm border hover-lift">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                  <h6 class="card-subtitle mb-1 text-muted">
+                    {% if marhala.type == 'Library Staff' %}
+                    <i class="fas fa-book-reader me-1 text-info"></i>
+                    {% elif marhala.type == 'Teaching Staff' %}
+                    <i class="fas fa-chalkboard-teacher me-1 text-info"></i>
+                    {% elif marhala.type == 'Support Staff' %}
+                    <i class="fas fa-user-tie me-1 text-info"></i>
+                    {% elif marhala.type == 'Administration' %}
+                    <i class="fas fa-building me-1 text-info"></i>
+                    {% else %}
+                    <i class="fas fa-user-tie me-1 text-info"></i>
+                    {% endif %}
+                    {{ marhala.type }}
+                    <span class="badge bg-light text-dark ms-1">{{ marhala.code }}</span>
+                  </h6>
+                  <h5 class="card-title mb-0">
+                    {{ marhala.display }}
+                  </h5>
+                </div>
+                <span class="badge bg-primary">
+                  <i class="fas fa-users me-1"></i>
+                  {{ marhala.active_borrowers }}
+                </span>
+              </div>
+
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="small text-muted">
+                    {% if marhala.type == 'Teaching Staff' %}Active Teachers
+                    {% elif marhala.type == 'Library Staff' %}Active Staff
+                    {% elif marhala.type == 'Support Staff' %}Active Staff
+                    {% elif marhala.type == 'Administration' %}Active Staff
+                    {% else %}Active Members{% endif %}
+                  </div>
+                  <div class="fw-bold">{{ marhala.active_borrowers }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-muted">AY Issues</div>
+                  <div class="fw-bold text-success">{{ marhala.ay_issues }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-muted">Fees (AY)</div>
+                  <div class="fw-bold text-warning">{{ format_currency(marhala.ay_fees) }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-muted">Overdues</div>
+                  <div class="fw-bold text-danger">{{ marhala.overdues }}</div>
+                </div>
+              </div>
+
+              <!-- Performance Stats -->
+              {% if issues_per_member > 0 %}
+              <div class="small text-muted mb-1">
+                <i class="fas fa-chart-line me-1"></i>
+                Avg per Member: <strong class="text-dark">{{ "%.1f"|format(issues_per_member) }}</strong>
+              </div>
+              {% endif %}
+
+              <div class="d-grid gap-2">
+                <a href="{{ url_for('hod_dashboard_bp.dashboard', marhala=marhala.code) }}" class="btn btn-info btn-sm">
+                  <i class="fas fa-chart-bar me-1"></i>
+                  View Dashboard
+                </a>
+                <button class="btn btn-outline-secondary btn-sm marhala-details-btn"
+                  data-marhala-code="{{ marhala.code }}" data-marhala-name="{{ marhala.display }}"
+                  data-marhala-type="{{ marhala.type|lower|replace(' ', '-') }}">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Quick Info
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- No Results Message (hidden by default) -->
+  <div id="noResults" class="text-center py-5" style="display: none;">
+    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+    <h4 class="text-muted">No marhalas found</h4>
+    <p class="text-muted">Try a different search term</p>
+  </div>
+
+  <!-- No Marhalas Message -->
+  {% if total_marhalas == 0 %}
+  <div class="text-center py-5">
+    <i class="fas fa-building fa-3x text-muted mb-3"></i>
+    <h4 class="text-muted">No Marhalas Found</h4>
+    <p class="text-muted">There are no marhalas configured in the system.</p>
+    <a href="{{ url_for('dashboard_bp.dashboard') }}" class="btn btn-primary">
+      <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Marhala Details Modal -->
+<div class="modal fade" id="marhalaDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalMarhalaName"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Members</h6>
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-users fa-2x text-primary me-3"></i>
+                  <div>
+                    <div class="fs-4 fw-bold" id="modalActiveMembers">0</div>
+                    <div class="small text-muted">active members</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Academic Year Activity</h6>
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-book fa-2x text-success me-3"></i>
+                  <div>
+                    <div class="fs-4 fw-bold" id="modalAyIssues">0</div>
+                    <div class="small text-muted">books issued</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Fees Collected (AY)</h6>
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-money-bill fa-2x text-warning me-3"></i>
+                  <div>
+                    <div class="fs-4 fw-bold" id="modalAyFees">0.00</div>
+                    <div class="small text-muted">Total Fees paid</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Current Status</h6>
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-clock fa-2x text-danger me-3"></i>
+                  <div>
+                    <div class="fs-4 fw-bold" id="modalOverdues">0</div>
+                    <div class="small text-muted">overdue items</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <h6 class="text-muted mb-2">Marhala Details:</h6>
+          <div id="marhalaDetailsList" class="text-muted small">
+            Loading marhala details...
+          </div>
+        </div>
+
+        <div class="text-center">
+          <a href="#" id="modalDashboardLink" class="btn btn-primary me-2">
+            <i class="fas fa-chart-bar me-1"></i>
+            Open Full Dashboard
+          </a>
+          <button id="modalReportLink" class="btn btn-outline-danger me-2" disabled title="Coming soon">
+            <i class="fas fa-download me-1"></i>
+            Download Report
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .marhala-card .card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+  }
+
+  .marhala-card .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+    border-color: #4dabf7;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    transition: transform 0.2s ease;
+  }
+
+  .marhala-type-section {
+    transition: all 0.3s ease;
+  }
+
+  .bg-pink {
+    background: linear-gradient(135deg, #ec4899 0%, #db2777 100%) !important;
+  }
+
+  .badge {
+    font-weight: 500;
+  }
+
+  .marhala-card .card-title {
+    font-size: 1.1rem;
+  }
+
+  /* Loading animation for modal */
+  .loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% {
+      transform: rotate(0deg);
+    }
+
+    100% {
+      transform: rotate(360deg);
+    }
+  }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Initialize statistics counts
+  function updateMarhalaStatistics() {
+    const academic = document.querySelectorAll('.marhala-card[data-type="academic"]').length;
+    const nonAcademic = document.querySelectorAll('.marhala-card[data-type^="non"]').length;
+    let totalMembers = 0;
+
+    // Calculate totals from all marhala cards
+    document.querySelectorAll('.marhala-card').forEach(card => {
+      const activeMembers = parseInt(card.getAttribute('data-active-members') || 0);
+      totalMembers += activeMembers;
+    });
+
+    // Update counters
+    document.getElementById('totalMembers').textContent = totalMembers;
+  }
+
+  // Marhala search functionality
+  document.getElementById('marhalaSearch').addEventListener('input', function (e) {
+    const searchTerm = e.target.value.toLowerCase();
+    let visibleCount = 0;
+
+    document.querySelectorAll('.marhala-card').forEach(card => {
+      const marhalaName = card.getAttribute('data-marhala').toLowerCase();
+      const marhalaCode = card.getAttribute('data-marhala-code').toLowerCase();
+      const marhalaType = card.getAttribute('data-type').toLowerCase();
+
+      const matches = marhalaName.includes(searchTerm) ||
+        marhalaCode.includes(searchTerm) ||
+        marhalaType.includes(searchTerm) ||
+        searchTerm === '';
+
+      card.style.display = matches ? 'block' : 'none';
+      if (matches) visibleCount++;
+    });
+
+    // Show/hide marhala type sections based on visible cards
+    document.querySelectorAll('.marhala-type-section').forEach(section => {
+      const marhalaType = section.getAttribute('data-type');
+      const visibleInSection = section.querySelectorAll('.marhala-card[style*="block"]').length;
+      section.style.display = visibleInSection > 0 ? 'block' : 'none';
+    });
+
+    // Show no results message if needed
+    document.getElementById('noResults').style.display = visibleCount === 0 && searchTerm !== '' ? 'block' : 'none';
+
+    // Update statistics counts
+    updateMarhalaStatistics();
+  });
+
+  // Show marhala details modal
+  async function showMarhalaDetails(marhalaCode, marhalaName, marhalaType) {
+    try {
+      // Set modal title and basic links
+      document.getElementById('modalMarhalaName').textContent = marhalaName;
+      document.getElementById('modalDashboardLink').href = `/hod_dashboard?marhala=${encodeURIComponent(marhalaCode)}`;
+
+      // Disable download button for now
+      const reportBtn = document.getElementById('modalReportLink');
+      reportBtn.disabled = true;
+      reportBtn.title = "Coming soon";
+      reportBtn.onclick = function (e) {
+        e.preventDefault();
+        alert('Download functionality coming soon!');
+      };
+
+      // Show loading state briefly
+      document.getElementById('modalActiveMembers').innerHTML = '<span class="loading-spinner"></span>';
+      document.getElementById('modalAyIssues').innerHTML = '<span class="loading-spinner"></span>';
+      document.getElementById('modalAyFees').innerHTML = '<span class="loading-spinner"></span>';
+      document.getElementById('modalOverdues').innerHTML = '<span class="loading-spinner"></span>';
+      document.getElementById('marhalaDetailsList').innerHTML = '<span class="loading-spinner"></span> Loading marhala details...';
+
+      // Find the marhala card to get data from it
+      const marhalaCard = document.querySelector(`.marhala-card[data-marhala-code="${marhalaCode}"]`);
+
+      // Small delay to show loading animation
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      if (marhalaCard) {
+        // Get data from the card's data attributes
+        const type = marhalaType || marhalaCard.getAttribute('data-type');
+        const activeMembers = marhalaCard.getAttribute('data-active-members');
+        const totalMembers = marhalaCard.getAttribute('data-total-members');
+        const ayIssues = marhalaCard.getAttribute('data-ay-issues');
+        const issuesPerMember = parseFloat(marhalaCard.getAttribute('data-issues-per-member')) || 0;
+        const currentIssues = marhalaCard.getAttribute('data-current-issues');
+        const ayFees = marhalaCard.getAttribute('data-ay-fees');
+        const overdues = marhalaCard.getAttribute('data-overdues');
+
+        // Update modal with stats
+        document.getElementById('modalActiveMembers').textContent = activeMembers || '0';
+        document.getElementById('modalAyIssues').textContent = ayIssues || '0';
+        document.getElementById('modalAyFees').textContent = ayFees || '0.00';
+        document.getElementById('modalOverdues').textContent = overdues || '0';
+
+        // Update marhala details
+        const detailsList = document.getElementById('marhalaDetailsList');
+        let detailsHtml = '';
+
+        // Marhala basic info
+        detailsHtml += `
+          <div class="row mb-2">
+            <div class="col-md-6">
+              <strong><i class="fas fa-code me-1"></i> Code:</strong> ${marhalaCode}
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-tag me-1"></i> Type:</strong> ${type === 'academic' ? 'Academic' : type}
+            </div>
+          </div>
+        `;
+
+        // Marhala statistics
+        detailsHtml += `
+          <div class="row mb-2">
+            <div class="col-md-6">
+              <strong><i class="fas fa-users me-1"></i> Active Members:</strong> ${activeMembers} / ${totalMembers}
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-book-open me-1"></i> Currently Issued:</strong> ${currentIssues || '0'}
+            </div>
+          </div>
+          <div class="row mb-2">
+            <div class="col-md-6">
+              <strong><i class="fas fa-book me-1"></i> AY Total Issues:</strong> <span class="text-success">${ayIssues || '0'}</span>
+            </div>
+            <div class="col-md-6">
+              <strong><i class="fas fa-money-bill me-1"></i> AY Fees:</strong> <span class="text-warning">${ayFees}</span>
+            </div>
+          </div>
+        `;
+
+        // Performance stats
+        if (issuesPerMember > 0) {
+          detailsHtml += `
+            <div class="row mb-2">
+              <div class="col-md-6">
+                <strong><i class="fas fa-chart-line me-1"></i> Avg per Member:</strong> ${issuesPerMember.toFixed(1)}
+              </div>
+              <div class="col-md-6">
+                <strong><i class="fas fa-exclamation-triangle me-1"></i> Overdues:</strong> <span class="text-danger">${overdues || '0'}</span>
+              </div>
+            </div>
+          `;
+        } else {
+          detailsHtml += `
+            <div class="row mb-2">
+              <div class="col-md-6">
+                <strong><i class="fas fa-exclamation-triangle me-1"></i> Overdues:</strong> <span class="text-danger">${overdues || '0'}</span>
+              </div>
+            </div>
+          `;
+        }
+
+        // Summary
+        detailsHtml += `
+          <div class="row mt-3">
+            <div class="col-12">
+              <div class="alert alert-light">
+                <h6 class="alert-heading"><i class="fas fa-chart-line me-1"></i> Performance Summary</h6>
+                <div class="small">
+                  <div class="d-flex justify-content-between">
+                    <span>Member Activity:</span>
+                    <span class="fw-bold">${activeMembers || '0'} active members</span>
+                  </div>
+                  <div class="d-flex justify-content-between">
+                    <span>Reading Activity:</span>
+                    <span class="fw-bold text-success">${ayIssues || '0'} books issued</span>
+                  </div>
+                  <div class="d-flex justify-content-between">
+                    <span>Financial Contribution:</span>
+                    <span class="fw-bold text-warning">${ayFees} collected</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+
+        detailsList.innerHTML = detailsHtml || '<div class="alert alert-info">No additional details available.</div>';
+
+      } else {
+        throw new Error('Marhala card not found');
+      }
+
+    } catch (error) {
+      console.error('Error fetching marhala details:', error);
+
+      // Show error message
+      document.getElementById('marhalaDetailsList').innerHTML =
+        `<div class="alert alert-danger">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Unable to load marhala details. Please try again.
+          <br><small>Error: ${error.message}</small>
+        </div>`;
+
+      // Set default values
+      document.getElementById('modalActiveMembers').textContent = 'Error';
+      document.getElementById('modalAyIssues').textContent = 'Error';
+      document.getElementById('modalAyFees').textContent = 'Error';
+      document.getElementById('modalOverdues').textContent = 'Error';
+    }
+
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('marhalaDetailsModal'));
+    modal.show();
+  }
+
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function () {
+    // Set up marhala detail buttons
+    document.querySelectorAll('.marhala-details-btn').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const marhalaCode = this.getAttribute('data-marhala-code');
+        const marhalaName = this.getAttribute('data-marhala-name');
+        const marhalaType = this.getAttribute('data-marhala-type');
+        showMarhalaDetails(marhalaCode, marhalaName, marhalaType);
+      });
+    });
+
+    // Add click handler for marhala cards (excluding buttons)
+    document.querySelectorAll('.marhala-card .card').forEach(card => {
+      card.addEventListener('click', function (e) {
+        // Don't trigger if clicking on buttons or links
+        if (!e.target.closest('a') && !e.target.closest('button')) {
+          const marhalaCode = this.closest('.marhala-card').getAttribute('data-marhala-code');
+          window.location.href = `/hod_dashboard?marhala=${encodeURIComponent(marhalaCode)}`;
+        }
+      });
+    });
+
+    // Update search placeholder
+    document.getElementById('marhalaSearch').placeholder = "Search marhalas (name, code, or type)...";
+
+    // Initialize counters
+    updateMarhalaStatistics();
+
+    // Add keyboard shortcut for search (Ctrl+F)
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('marhalaSearch').focus();
+      }
+    });
+
+    // Focus search on page load
+    setTimeout(() => {
+      document.getElementById('marhalaSearch').focus();
+    }, 100);
+  });
+</script>
+{% endblock %}

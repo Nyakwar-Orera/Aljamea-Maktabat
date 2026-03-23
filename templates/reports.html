@@ -10,7 +10,8 @@
     <div class="card h-100">
       <div class="card-header d-flex align-items-center justify-content-between">
         <span>Choose Report</span>
-        <button id="toggleExpand" type="button" class="btn btn-sm btn-outline-secondary" title="Expand / Collapse sidebar">
+        <button id="toggleExpand" type="button" class="btn btn-sm btn-outline-secondary"
+          title="Expand / Collapse sidebar">
           <i class="bi bi-arrows-fullscreen me-1"></i>Expand
         </button>
       </div>
@@ -19,34 +20,35 @@
           <div class="mb-3">
             <label for="reportType" class="form-label">Report Type</label>
             <select id="reportType" name="report_type" class="form-select" required>
-              <option value="class_wise">Class-wise (Darajah)</option>
+              <option value="darajah_wise">Darajah-wise</option>
               {% if not is_hod %}
-              <option value="department_wise">Department-wise</option>
+              <option value="marhala_wise">Marhala-wise</option>
               {% endif %}
               <option value="individual">Individual Student</option>
               <option value="top_books">Top 25 English Books</option>
               <option value="top_arabic">Top 25 Arabic Books</option>
+              <option value="taqeem_wise">Taqeem (Marks) Report</option>
             </select>
           </div>
 
-          <!-- Class field -->
-          <div id="classField" class="mb-3 d-none">
-            <label for="classValue" class="form-label">Darajah</label>
-            <select id="classValue" name="class_value" class="form-select">
-              <option value="">All</option>
-              {% for c in classes %}
-              <option value="{{ c }}">{{ c }}</option>
+          <!-- Darajah field -->
+          <div id="darajahField" class="mb-3 d-none">
+            <label for="darajahValue" class="form-label">Darajah</label>
+            <select id="darajahValue" name="darajah_value" class="form-select">
+              <option value="">All Darajahs</option>
+              {% for d in darajahs %}
+              <option value="{{ d }}">{{ d }}</option>
               {% endfor %}
             </select>
           </div>
 
-          <!-- Department field (Admin only; HOD never sees dept-wise) -->
-          <div id="deptField" class="mb-3 d-none">
-            <label for="departmentValue" class="form-label">Department</label>
-            <select id="departmentValue" name="department_value" class="form-select">
-              <option value="">All</option>
-              {% for d in departments %}
-              <option value="{{ d }}">{{ d }}</option>
+          <!-- Marhala field (Admin only; HOD never sees marhala-wise) -->
+          <div id="marhalaField" class="mb-3 d-none">
+            <label for="marhalaValue" class="form-label">Marhala</label>
+            <select id="marhalaValue" name="marhala_value" class="form-select">
+              <option value="">All Marhalas</option>
+              {% for m in marhalas %}
+              <option value="{{ m }}">{{ m }}</option>
               {% endfor %}
             </select>
           </div>
@@ -55,10 +57,15 @@
           <div id="individualField" class="mb-3 d-none">
             <label for="identifier" class="form-label">Search Student</label>
             <input id="identifier" name="identifier" class="form-control"
-                   placeholder="Enter Card Number, ITS ID, TR Number, or Borrower Number">
+              placeholder="Enter Card Number, ITS ID, TR Number, or Borrower Number">
+            <div class="form-text">
+              <small>Search by: Card Number, ITS ID, TR Number, or Borrower Number</small>
+            </div>
           </div>
 
-          <button type="submit" class="btn btn-primary w-100">Generate</button>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-file-earmark-text me-1"></i>Generate Report
+          </button>
         </form>
       </div>
     </div>
@@ -74,6 +81,15 @@
             <i class="bi bi-fullscreen me-1"></i>Fullscreen
           </button>
           <div id="exportButtons" class="d-none"></div>
+          <div id="exportDropdown" class="dropdown d-none">
+            <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button" id="exportMenu"
+              data-bs-toggle="dropdown" aria-expanded="false">
+              <i class="bi bi-download me-1"></i>Export
+            </button>
+            <ul class="dropdown-menu" aria-labelledby="exportMenu" id="exportMenuItems">
+              <!-- Export options will be dynamically added here -->
+            </ul>
+          </div>
         </div>
       </div>
 
@@ -81,13 +97,26 @@
       <div class="card-body p-0 d-flex flex-column">
         <!-- Helper text -->
         <div class="px-3 pt-3 pb-2 border-bottom bg-light">
-          <p class="text-muted mb-0 small">Select report options and click <strong>Generate</strong>.</p>
+          <p class="text-muted mb-0 small">
+            <i class="bi bi-info-circle me-1"></i>
+            Select report options and click <strong>Generate Report</strong>.
+            {% if is_hod %}
+            <span class="text-info d-block mt-1">
+              <i class="bi bi-shield-lock me-1"></i>
+              Viewing data for your Marhala: <strong>{{ hod_marhala }}</strong>
+            </span>
+            {% endif %}
+          </p>
         </div>
 
         <!-- Output area grows and scrolls -->
         <div class="report-output-wrap flex-grow-1">
           <div id="reportOutput" class="p-3">
-            <p class="text-muted">No report yet.</p>
+            <div class="text-center text-muted py-5">
+              <i class="bi bi-file-earmark-text display-4 mb-3"></i>
+              <p class="mb-1">No report generated yet</p>
+              <p class="small">Select a report type and generate to view data</p>
+            </div>
           </div>
         </div>
       </div>
@@ -102,32 +131,44 @@
   @font-face {
     font-family: 'Al Kanz';
     src: url('{{ url_for("static", filename="fonts/alkanz.woff2") }}') format('woff2'),
-         url('{{ url_for("static", filename="fonts/alkanz.woff") }}') format('woff'),
-         url('{{ url_for("static", filename="fonts/alkanz.ttf") }}') format('truetype');
+    url('{{ url_for("static", filename="fonts/alkanz.woff") }}') format('woff'),
+    url('{{ url_for("static", filename="fonts/alkanz.ttf") }}') format('truetype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
   }
-  
+
   .report-output-wrap {
     max-height: calc(100vh - 280px);
     overflow: auto;
   }
+
   #reportOutput table thead th {
     position: sticky;
     top: 0;
     background: #fff;
     z-index: 2;
-    box-shadow: inset 0 -1px 0 rgba(0,0,0,.05);
+    box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .05);
   }
-  #reportsLayout.expanded .selector-col { display: none !important; }
-  #reportsLayout.expanded .output-col   { flex: 0 0 100%; max-width: 100%; }
+
+  #reportsLayout.expanded .selector-col {
+    display: none !important;
+  }
+
+  #reportsLayout.expanded .output-col {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+
   #reportOutput table {
     font-size: 0.9rem;
     white-space: nowrap;
   }
-  .table-responsive { overflow-x: auto; }
-  
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
   /* Arabic text styling */
   .arabic-text {
     font-family: 'Al Kanz', 'Traditional Arabic', 'Arial', sans-serif !important;
@@ -136,19 +177,19 @@
     direction: rtl;
     line-height: 1.6;
   }
-  
+
   /* Center all table headers */
   #reportOutput table thead th {
     text-align: center !important;
     vertical-align: middle !important;
   }
-  
+
   /* Center all table cells */
   #reportOutput table tbody td {
     text-align: center !important;
     vertical-align: middle !important;
   }
-  
+
   /* Special styling for Arabic titles in book reports */
   .arabic-title {
     font-family: 'Al Kanz', 'Traditional Arabic', 'Arial', sans-serif !important;
@@ -157,7 +198,7 @@
     direction: rtl;
     line-height: 1.6;
   }
-  
+
   /* English titles styling */
   .english-title {
     font-family: 'Arial', 'Helvetica', sans-serif;
@@ -165,269 +206,559 @@
     text-align: center !important;
     direction: ltr;
   }
-  
+
   /* Make sure links in tables are properly aligned */
   #reportOutput table a {
     text-decoration: none;
     color: #0d6efd;
   }
+
   #reportOutput table a:hover {
     text-decoration: underline;
   }
-  
+
   /* Ensure proper spacing in tables */
-  #reportOutput table td, #reportOutput table th {
+  #reportOutput table td,
+  #reportOutput table th {
     padding: 0.75rem;
   }
-  
+
   /* Table row hover effect */
   #reportOutput table tbody tr:hover {
     background-color: rgba(0, 0, 0, 0.04);
   }
-  
+
   /* Hide empty names or show placeholder */
   .empty-name {
     color: #999;
     font-style: italic;
+  }
+
+  /* Teacher information styling */
+  .teacher-info {
+    background-color: #f8f9fa;
+    border-left: 4px solid #0d6efd;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 4px;
+  }
+
+  .teacher-name {
+    font-weight: bold;
+    color: #0d6efd;
+  }
+
+  .teacher-role {
+    font-style: italic;
+    color: #6c757d;
+  }
+
+  /* Status badges */
+  .status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .status-active {
+    background-color: #d1e7dd;
+    color: #0f5132;
+  }
+
+  .status-inactive {
+    background-color: #f8d7da;
+    color: #842029;
+  }
+
+  .status-overdue {
+    background-color: #fff3cd;
+    color: #664d03;
+  }
+
+  /* Student info styling */
+  .student-detail {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .student-detail dt {
+    color: #6c757d;
+    font-weight: 500;
+  }
+
+  .student-detail dd {
+    color: #212529;
+    font-weight: 600;
+  }
+
+  /* Export dropdown styling */
+  .export-dropdown-item {
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+  }
+
+  .export-dropdown-item:hover {
+    background-color: #f8f9fa;
   }
 </style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", function(){
-  const reportType = document.getElementById("reportType");
-  const classField = document.getElementById("classField");
-  const deptField = document.getElementById("deptField");
-  const individualField = document.getElementById("individualField");
-  const identifierInput = document.getElementById("identifier");
-  const form = document.getElementById("reportForm");
-  const output = document.getElementById("reportOutput");
-  const exportButtons = document.getElementById("exportButtons");
-  const reportCard = document.getElementById("reportCard");
-  const layout = document.getElementById("reportsLayout");
-  const toggleExpandBtn = document.getElementById("toggleExpand");
-  const fullscreenBtn = document.getElementById("btnFullscreen");
-  const titleSpan = document.getElementById("currentReportTitle");
+  document.addEventListener("DOMContentLoaded", function () {
+    const reportType = document.getElementById("reportType");
+    const darajahField = document.getElementById("darajahField");
+    const marhalaField = document.getElementById("marhalaField");
+    const individualField = document.getElementById("individualField");
+    const identifierInput = document.getElementById("identifier");
+    const form = document.getElementById("reportForm");
+    const output = document.getElementById("reportOutput");
+    const exportButtons = document.getElementById("exportButtons");
+    const exportDropdown = document.getElementById("exportDropdown");
+    const exportMenuItems = document.getElementById("exportMenuItems");
+    const reportCard = document.getElementById("reportCard");
+    const layout = document.getElementById("reportsLayout");
+    const toggleExpandBtn = document.getElementById("toggleExpand");
+    const fullscreenBtn = document.getElementById("btnFullscreen");
+    const titleSpan = document.getElementById("currentReportTitle");
 
-  // Report export endpoints (PDF + Excel)
-  const CLASS_PDF  = "{{ url_for('reports_bp.export_class_pdf', class_val='__CLASS__') }}";
-  const CLASS_XLS  = "{{ url_for('reports_bp.export_class_excel', class_val='__CLASS__') }}";
-  const DEPT_PDF   = "{{ url_for('reports_bp.export_department_pdf', dept_val='__DEPT__') }}";
-  const DEPT_XLS   = "{{ url_for('reports_bp.export_department_excel', dept_val='__DEPT__') }}";
-  const TOPALL_PDF = "{{ url_for('reports_bp.export_top_books_pdf') }}";
-  const TOPALL_XLS = "{{ url_for('reports_bp.export_top_books_excel') }}";
-  const TOPAR_PDF  = "{{ url_for('reports_bp.export_top_arabic_pdf') }}";
-  const TOPAR_XLS  = "{{ url_for('reports_bp.export_top_arabic_excel') }}";
+    // Report export endpoints - UPDATED with CSV and landscape PDF
+    const DARAJAH_PDF = "{{ url_for('reports_bp.export_darajah_pdf', darajah_val='__DARAJAH__') }}";
+    const DARAJAH_PDF_LANDSCAPE = "{{ url_for('reports_bp.export_darajah_pdf_landscape', darajah_val='__DARAJAH__') }}";
+    const DARAJAH_XLS = "{{ url_for('reports_bp.export_darajah_excel', darajah_val='__DARAJAH__') }}";
+    const DARAJAH_CSV = "{{ url_for('reports_bp.export_darajah_csv', darajah_val='__DARAJAH__') }}";
 
-  function toggleFields(){
-    const t = reportType.value;
-    classField.classList.toggle("d-none", t !== "class_wise");
-    deptField.classList.toggle("d-none", t !== "department_wise");
-    individualField.classList.toggle("d-none", t !== "individual");
-    if (identifierInput) identifierInput.required = (t === "individual");
-  }
-  reportType.addEventListener("change", toggleFields);
-  toggleFields();
+    const MARHALA_PDF = "{{ url_for('reports_bp.export_marhala_pdf', marhala_val='__MARHALA__') }}";
+    const MARHALA_PDF_LANDSCAPE = "{{ url_for('reports_bp.export_marhala_pdf_landscape', marhala_val='__MARHALA__') }}";
+    const MARHALA_XLS = "{{ url_for('reports_bp.export_marhala_excel', marhala_val='__MARHALA__') }}";
+    const MARHALA_CSV = "{{ url_for('reports_bp.export_marhala_csv', marhala_val='__MARHALA__') }}";
 
-  // Expand/collapse sidebar
-  toggleExpandBtn.addEventListener("click", () => {
-    layout.classList.toggle("expanded");
-    toggleExpandBtn.innerHTML = layout.classList.contains("expanded")
-      ? '<i class="bi bi-aspect-ratio me-1"></i>Collapse'
-      : '<i class="bi bi-arrows-fullscreen me-1"></i>Expand';
-  });
+    const TOPALL_PDF = "{{ url_for('reports_bp.export_top_books_pdf') }}";
+    const TOPALL_XLS = "{{ url_for('reports_bp.export_top_books_excel') }}";
+    const TOPALL_CSV = "{{ url_for('reports_bp.export_top_books_csv') }}";
 
-  // Fullscreen the output card
-  fullscreenBtn.addEventListener("click", async () => {
-    try {
-      if (!document.fullscreenElement) {
-        await reportCard.requestFullscreen();
-        fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit me-1"></i>Exit Fullscreen';
-      } else {
-        await document.exitFullscreen();
-        fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen me-1"></i>Fullscreen';
+    const TOPAR_PDF = "{{ url_for('reports_bp.export_top_arabic_pdf') }}";
+    const TOPAR_XLS = "{{ url_for('reports_bp.export_top_arabic_excel') }}";
+    const TOPAR_CSV = "{{ url_for('reports_bp.export_top_arabic_csv') }}";
+
+    const TAQEEM_PDF = "{{ url_for('reports_bp.export_taqeem_pdf', darajah_val='__DARAJAH__') }}";
+    const TAQEEM_XLS = "{{ url_for('reports_bp.export_taqeem_excel', darajah_val='__DARAJAH__') }}";
+    const TAQEEM_CSV = "{{ url_for('reports_bp.export_taqeem_csv', darajah_val='__DARAJAH__') }}";
+
+    function toggleFields() {
+      const t = reportType.value;
+      darajahField.classList.toggle("d-none", t !== "darajah_wise");
+      marhalaField.classList.toggle("d-none", t !== "marhala_wise");
+      individualField.classList.toggle("d-none", t !== "individual");
+
+      // Show darajah field for darajah_wise and taqeem_wise
+      const showDarajah = (t === "darajah_wise" || t === "taqeem_wise");
+      darajahField.classList.toggle("d-none", !showDarajah);
+      if (showDarajah) {
+        document.getElementById("darajahValue").required = true;
       }
-    } catch (e) {
-      console.error(e);
+
+      if (identifierInput) identifierInput.required = (t === "individual");
     }
-  });
+    reportType.addEventListener("change", toggleFields);
+    toggleFields();
 
-  function buildTitle(type, classValue, deptValue, identifierVal, totalStudents = 0) {
-    if (type === "class_wise") {
-      return `Class-wise${classValue ? `: ${classValue}` : ""}${totalStudents > 0 ? ` (${totalStudents} students)` : ""}`;
-    }
-    if (type === "department_wise") {
-      return `Department-wise${deptValue ? `: ${deptValue}` : ""}${totalStudents > 0 ? ` (${totalStudents} students)` : ""}`;
-    }
-    if (type === "individual") {
-      return `Individual Student: ${identifierVal || "Unknown"}`;
-    }
-    if (type === "top_books") return "Top 25 English Books";
-    if (type === "top_arabic") return "Top 25 Arabic Books";
-    return "Report Output";
-  }
-
-  function applyArabicStyling() {
-    // Apply Arabic styling to Arabic text in the report output
-    const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-    
-    // Find all table cells in the report output
-    const tableCells = output.querySelectorAll('td');
-    tableCells.forEach(cell => {
-      const text = cell.textContent || cell.innerText;
-      // Check if text contains Arabic characters
-      if (arabicPattern.test(text)) {
-        cell.classList.add('arabic-text');
-      }
+    // Expand/collapse sidebar
+    toggleExpandBtn.addEventListener("click", () => {
+      layout.classList.toggle("expanded");
+      toggleExpandBtn.innerHTML = layout.classList.contains("expanded")
+        ? '<i class="bi bi-aspect-ratio me-1"></i>Collapse'
+        : '<i class="bi bi-arrows-fullscreen me-1"></i>Expand';
     });
-    
-    // Apply special styling to book title links
-    const titleLinks = output.querySelectorAll('a');
-    titleLinks.forEach(link => {
-      const linkText = link.textContent || link.innerText;
-      if (arabicPattern.test(linkText)) {
-        link.classList.add('arabic-title');
-      } else {
-        link.classList.add('english-title');
-      }
-    });
-    
-    // Ensure all table headers are centered
-    const tableHeaders = output.querySelectorAll('th');
-    tableHeaders.forEach(header => {
-      header.style.textAlign = 'center';
-    });
-    
-    // Ensure all table data cells are centered
-    const tableDataCells = output.querySelectorAll('td');
-    tableDataCells.forEach(cell => {
-      cell.style.textAlign = 'center';
-    });
-    
-    // Fix empty names (replace empty strings with placeholder)
-    const nameCells = output.querySelectorAll('td:nth-child(3)'); // Assuming FullName is 3rd column
-    nameCells.forEach(cell => {
-      const text = cell.textContent.trim();
-      if (!text || text === '' || text.toLowerCase() === 'none') {
-        cell.textContent = 'Name not available';
-        cell.classList.add('empty-name');
-      }
-    });
-  }
 
-  form.addEventListener("submit", function(e){
-    e.preventDefault();
-    const data = new FormData(form);
-
-    const type = reportType.value;
-    const classValue = document.getElementById("classValue")?.value || "";
-    const deptValue  = document.getElementById("departmentValue")?.value || "";
-    const identifierVal = (identifierInput?.value || "").trim();
-
-    // Update header title to reflect exact search
-    const niceTitle = buildTitle(type, classValue, deptValue, identifierVal);
-    titleSpan.textContent = niceTitle;
-
-    // Status
-    output.innerHTML = "<p class='text-info mb-0'>Generating report, please wait...</p>";
-    exportButtons.classList.add("d-none");
-    exportButtons.innerHTML = "";
-
-    fetch("{{ url_for('reports_bp.generate_report') }}", { method: "POST", body: data })
-      .then(r => r.json())
-      .then(j => {
-        if (j.success && j.html) {
-          let links = "";
-
-          // Get total students from response if available
-          const totalStudents = j.total_students || 0;
-          
-          // Update title with total students for class and department reports
-          if (type === "class_wise" || type === "department_wise") {
-            const updatedTitle = buildTitle(type, classValue, deptValue, identifierVal, totalStudents);
-            titleSpan.textContent = updatedTitle;
-          }
-
-          // Build export buttons
-          if (type === "class_wise") {
-            const pdf = CLASS_PDF.replace("__CLASS__", encodeURIComponent(classValue || "All"));
-            const xls = CLASS_XLS.replace("__CLASS__", encodeURIComponent(classValue || "All"));
-            links = `
-              <a href="${pdf}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">
-                <i class="bi bi-file-pdf me-1"></i>Export PDF
-              </a>
-              <a href="${xls}" class="btn btn-success btn-sm" aria-label="Export Excel — ${niceTitle}">
-                <i class="bi bi-file-excel me-1"></i>Export Excel
-              </a>
-            `;
-          } else if (type === "department_wise") {
-            const pdf = DEPT_PDF.replace("__DEPT__", encodeURIComponent(deptValue || "All"));
-            const xls = DEPT_XLS.replace("__DEPT__", encodeURIComponent(deptValue || "All"));
-            links = `
-              <a href="${pdf}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">
-                <i class="bi bi-file-pdf me-1"></i>Export PDF
-              </a>
-              <a href="${xls}" class="btn btn-success btn-sm" aria-label="Export Excel — ${niceTitle}">
-                <i class="bi bi-file-excel me-1"></i>Export Excel
-              </a>
-            `;
-          } else if (type === "individual") {
-            const pdfUrl = "/students/" + encodeURIComponent(identifierVal) + "/pdf";
-            links = `
-              <a href="${pdfUrl}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">
-                <i class="bi bi-file-pdf me-1"></i>Export PDF
-              </a>
-            `;
-          } else if (type === "top_books") {
-            links = `
-              <a href="${TOPALL_PDF}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">
-                <i class="bi bi-file-pdf me-1"></i>Export PDF
-              </a>
-              <a href="${TOPALL_XLS}" class="btn btn-success btn-sm" aria-label="Export Excel — ${niceTitle}">
-                <i class="bi bi-file-excel me-1"></i>Export Excel
-              </a>
-            `;
-          } else if (type === "top_arabic") {
-            links = `
-              <a href="${TOPAR_PDF}" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">
-                <i class="bi bi-file-pdf me-1"></i>Export PDF
-              </a>
-              <a href="${TOPAR_XLS}" class="btn btn-success btn-sm" aria-label="Export Excel — ${niceTitle}">
-                <i class="bi bi-file-excel me-1"></i>Export Excel
-              </a>
-            `;
-          }
-
-          if (type === "class_wise" || type === "department_wise" || type === "top_books" || type === "top_arabic") {
-            output.innerHTML = `<div class="table-responsive">${j.html}</div>`;
-          } else {
-            output.innerHTML = j.html;
-          }
-
-          // Apply Arabic styling after content is loaded
-          setTimeout(applyArabicStyling, 100);
-
-          if (links) {
-            exportButtons.innerHTML = links;
-            exportButtons.classList.remove("d-none");
-          }
-
-          if (window.showToast) showToast("Report generated successfully!", "success");
+    // Fullscreen the output card
+    fullscreenBtn.addEventListener("click", async () => {
+      try {
+        if (!document.fullscreenElement) {
+          await reportCard.requestFullscreen();
+          fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit me-1"></i>Exit Fullscreen';
         } else {
-          output.innerHTML = j.html || "<p class='text-warning mb-0'>No data found for the selected report.</p>";
-          if (window.showToast) showToast("No data found for this selection", "warning");
+          await document.exitFullscreen();
+          fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen me-1"></i>Fullscreen';
         }
-      })
-      .catch(err => {
-        output.innerHTML = "<p class='text-danger mb-0'>Error requesting report.</p>";
-        if (window.showToast) showToast("Error requesting report", "danger");
-        console.error(err);
+      } catch (e) {
+        console.error(e);
+      }
+    });
+
+    function buildTitle(type, darajahValue, marhalaValue, identifierVal, totalStudents = 0) {
+      if (type === "darajah_wise") {
+        const darajahText = darajahValue ? `Darajah: ${darajahValue}` : "All Darajahs";
+        return `${darajahText}${totalStudents > 0 ? ` (${totalStudents} students)` : ""}`;
+      }
+      if (type === "marhala_wise") {
+        const marhalaText = marhalaValue ? `Marhala: ${marhalaValue}` : "All Marhalas";
+        return `${marhalaText}${totalStudents > 0 ? ` (${totalStudents} students)` : ""}`;
+      }
+      if (type === "individual") {
+        return `Student Profile: ${identifierVal || "Search Result"}`;
+      }
+      if (type === "top_books") return "Top 25 English Books (Academic Year)";
+      if (type === "top_arabic") return "Top 25 Arabic Books (Academic Year)";
+      if (type === "taqeem_wise") return `Taqeem (Marks) Report - ${darajahValue || "Select Darajah"}`;
+      return "Report Output";
+    }
+
+    function applyArabicStyling() {
+      // Apply Arabic styling to Arabic text in the report output
+      const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+
+      // Find all table cells in the report output
+      const tableCells = output.querySelectorAll('td');
+      tableCells.forEach(cell => {
+        const text = cell.textContent || cell.innerText;
+        // Check if text contains Arabic characters
+        if (arabicPattern.test(text)) {
+          cell.classList.add('arabic-text');
+        }
       });
+
+      // Apply special styling to book title links
+      const titleLinks = output.querySelectorAll('a');
+      titleLinks.forEach(link => {
+        const linkText = link.textContent || link.innerText;
+        if (arabicPattern.test(linkText)) {
+          link.classList.add('arabic-title');
+        } else {
+          link.classList.add('english-title');
+        }
+      });
+
+      // Ensure all table headers are centered
+      const tableHeaders = output.querySelectorAll('th');
+      tableHeaders.forEach(header => {
+        header.style.textAlign = 'center';
+      });
+
+      // Ensure all table data cells are centered
+      const tableDataCells = output.querySelectorAll('td');
+      tableDataCells.forEach(cell => {
+        cell.style.textAlign = 'center';
+      });
+
+      // Fix empty names (replace empty strings with placeholder)
+      const nameCells = output.querySelectorAll('td:nth-child(3)'); // Assuming FullName is 3rd column
+      nameCells.forEach(cell => {
+        const text = cell.textContent.trim();
+        if (!text || text === '' || text.toLowerCase() === 'none') {
+          cell.textContent = 'Name not available';
+          cell.classList.add('empty-name');
+        }
+      });
+
+      // Add teacher information styling if present
+      const teacherInfoElements = output.querySelectorAll('.teacher-info, .teacher-name, .teacher-role');
+      teacherInfoElements.forEach(el => {
+        if (el.classList.contains('teacher-info')) {
+          el.style.backgroundColor = '#f8f9fa';
+          el.style.borderLeft = '4px solid #0d6efd';
+          el.style.padding = '10px';
+          el.style.marginBottom = '10px';
+          el.style.borderRadius = '4px';
+        }
+        if (el.classList.contains('teacher-name')) {
+          el.style.fontWeight = 'bold';
+          el.style.color = '#0d6efd';
+        }
+        if (el.classList.contains('teacher-role')) {
+          el.style.fontStyle = 'italic';
+          el.style.color = '#6c757d';
+        }
+      });
+
+      // Add status badges styling
+      const statusCells = output.querySelectorAll('td');
+      statusCells.forEach(cell => {
+        const text = cell.textContent.trim().toLowerCase();
+        if (text === 'active' || text === 'active student') {
+          cell.innerHTML = '<span class="status-badge status-active">Active</span>';
+        } else if (text === 'inactive' || text === 'inactive student') {
+          cell.innerHTML = '<span class="status-badge status-inactive">Inactive</span>';
+        } else if (text.includes('overdue') || text.includes('due')) {
+          cell.innerHTML = `<span class="status-badge status-overdue">${text}</span>`;
+        }
+      });
+    }
+
+    function createExportMenuItems(type, darajahValue, marhalaValue, niceTitle) {
+      // Clear existing menu items
+      exportMenuItems.innerHTML = '';
+
+      if (type === "darajah_wise") {
+        const darajahEncoded = encodeURIComponent(darajahValue || "All");
+
+        const menuItems = [
+          {
+            label: 'PDF (Portrait)',
+            url: DARAJAH_PDF.replace("__DARAJAH__", darajahEncoded),
+            icon: 'bi-file-pdf',
+            color: 'text-danger'
+          },
+          {
+            label: 'PDF (Landscape)',
+            url: DARAJAH_PDF_LANDSCAPE.replace("__DARAJAH__", darajahEncoded),
+            icon: 'bi-file-pdf',
+            color: 'text-danger'
+          },
+          {
+            label: 'Excel',
+            url: DARAJAH_XLS.replace("__DARAJAH__", darajahEncoded),
+            icon: 'bi-file-excel',
+            color: 'text-success'
+          },
+          {
+            label: 'CSV',
+            url: DARAJAH_CSV.replace("__DARAJAH__", darajahEncoded),
+            icon: 'bi-file-earmark-text',
+            color: 'text-primary'
+          }
+        ];
+
+        menuItems.forEach(item => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+          <a class="dropdown-item export-dropdown-item" href="${item.url}" aria-label="${item.label} — ${niceTitle}">
+            <i class="bi ${item.icon} ${item.color} me-2"></i>${item.label}
+          </a>
+        `;
+          exportMenuItems.appendChild(li);
+        });
+
+      } else if (type === "marhala_wise") {
+        const marhalaEncoded = encodeURIComponent(marhalaValue || "All");
+
+        const menuItems = [
+          {
+            label: 'PDF (Portrait)',
+            url: MARHALA_PDF.replace("__MARHALA__", marhalaEncoded),
+            icon: 'bi-file-pdf',
+            color: 'text-danger'
+          },
+          {
+            label: 'PDF (Landscape)',
+            url: MARHALA_PDF_LANDSCAPE.replace("__MARHALA__", marhalaEncoded),
+            icon: 'bi-file-pdf',
+            color: 'text-danger'
+          },
+          {
+            label: 'Excel',
+            url: MARHALA_XLS.replace("__MARHALA__", marhalaEncoded),
+            icon: 'bi-file-excel',
+            color: 'text-success'
+          },
+          {
+            label: 'CSV',
+            url: MARHALA_CSV.replace("__MARHALA__", marhalaEncoded),
+            icon: 'bi-file-earmark-text',
+            color: 'text-primary'
+          }
+        ];
+
+        menuItems.forEach(item => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+          <a class="dropdown-item export-dropdown-item" href="${item.url}" aria-label="${item.label} — ${niceTitle}">
+            <i class="bi ${item.icon} ${item.color} me-2"></i>${item.label}
+          </a>
+        `;
+          exportMenuItems.appendChild(li);
+        });
+
+      } else if (type === "top_books") {
+        const menuItems = [
+          {
+            label: 'PDF',
+            url: TOPALL_PDF,
+            icon: 'bi-file-pdf',
+            color: 'text-danger'
+          },
+          {
+            label: 'Excel',
+            url: TOPALL_XLS,
+            icon: 'bi-file-excel',
+            color: 'text-success'
+          },
+          {
+            label: 'CSV',
+            url: TOPALL_CSV,
+            icon: 'bi-file-earmark-text',
+            color: 'text-primary'
+          }
+        ];
+
+        menuItems.forEach(item => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+          <a class="dropdown-item export-dropdown-item" href="${item.url}" aria-label="${item.label} — ${niceTitle}">
+            <i class="bi ${item.icon} ${item.color} me-2"></i>${item.label}
+          </a>
+        `;
+          exportMenuItems.appendChild(li);
+        });
+
+      } else if (type === "top_arabic") {
+        const menuItems = [
+          {
+            label: 'PDF',
+            url: TOPAR_PDF,
+            icon: 'bi-file-pdf',
+            color: 'text-danger'
+          },
+          {
+            label: 'Excel',
+            url: TOPAR_XLS,
+            icon: 'bi-file-excel',
+            color: 'text-success'
+          },
+          {
+            label: 'CSV',
+            url: TOPAR_CSV,
+            icon: 'bi-file-earmark-text',
+            color: 'text-primary'
+          }
+        ];
+
+        menuItems.forEach(item => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+          <a class="dropdown-item export-dropdown-item" href="${item.url}" aria-label="${item.label} — ${niceTitle}">
+            <i class="bi ${item.icon} ${item.color} me-2"></i>${item.label}
+          </a>
+        `;
+          exportMenuItems.appendChild(li);
+        });
+      } else if (type === "taqeem_wise") {
+        const darajahEncoded = encodeURIComponent(darajahValue || "All");
+        const menuItems = [
+          {
+            label: 'PDF (Landscape)',
+            url: TAQEEM_PDF.replace("__DARAJAH__", darajahEncoded),
+            icon: 'bi-file-pdf',
+            color: 'text-danger'
+          },
+          {
+            label: 'Excel',
+            url: TAQEEM_XLS.replace("__DARAJAH__", darajahEncoded),
+            icon: 'bi-file-excel',
+            color: 'text-success'
+          },
+          {
+            label: 'CSV',
+            url: TAQEEM_CSV.replace("__DARAJAH__", darajahEncoded),
+            icon: 'bi-file-earmark-text',
+            color: 'text-primary'
+          }
+        ];
+        menuItems.forEach(item => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+          <a class="dropdown-item export-dropdown-item" href="${item.url}" aria-label="${item.label} — ${niceTitle}">
+            <i class="bi ${item.icon} ${item.color} me-2"></i>${item.label}
+          </a>
+        `;
+          exportMenuItems.appendChild(li);
+        });
+      }
+    }
+
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      const data = new FormData(form);
+
+      const type = reportType.value;
+      const darajahValue = document.getElementById("darajahValue")?.value || "";
+      const marhalaValue = document.getElementById("marhalaValue")?.value || "";
+      const identifierVal = (identifierInput?.value || "").trim();
+
+      // Update header title to reflect exact search
+      const niceTitle = buildTitle(type, darajahValue, marhalaValue, identifierVal);
+      titleSpan.textContent = niceTitle;
+
+      // Status
+      output.innerHTML = `
+      <div class="text-center py-4">
+        <div class="spinner-border text-primary mb-3" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="text-primary mb-0">Generating report, please wait...</p>
+      </div>
+    `;
+      exportButtons.classList.add("d-none");
+      exportDropdown.classList.add("d-none");
+      exportMenuItems.innerHTML = "";
+
+      window.csrfFetch("{{ url_for('reports_bp.generate_report') }}", { method: "POST", body: data })
+        .then(r => r.json())
+        .then(j => {
+          if (j.success && j.html) {
+            // Get total students from response if available
+            const totalStudents = j.total_students || 0;
+
+            // Update title with total students for darajah and marhala reports
+            if (type === "darajah_wise" || type === "marhala_wise") {
+              const updatedTitle = buildTitle(type, darajahValue, marhalaValue, identifierVal, totalStudents);
+              titleSpan.textContent = updatedTitle;
+            }
+
+            // Create export menu for darajah, marhala, and book reports
+            if (type === "darajah_wise" || type === "marhala_wise" ||
+              type === "top_books" || type === "top_arabic" || type === "taqeem_wise") {
+              createExportMenuItems(type, darajahValue, marhalaValue, niceTitle);
+              exportDropdown.classList.remove("d-none");
+            } else if (type === "individual") {
+              // Individual reports use simple PDF button
+              exportButtons.innerHTML = `
+              <a href="/students/${encodeURIComponent(identifierVal)}/pdf" class="btn btn-danger btn-sm" aria-label="Export PDF — ${niceTitle}">
+                <i class="bi bi-file-pdf me-1"></i>PDF
+              </a>
+            `;
+              exportButtons.classList.remove("d-none");
+            }
+
+            if (type === "darajah_wise" || type === "marhala_wise" || type === "top_books" || type === "top_arabic") {
+              output.innerHTML = `<div class="table-responsive">${j.html}</div>`;
+            } else {
+              output.innerHTML = j.html;
+            }
+
+            // Apply Arabic styling after content is loaded
+            setTimeout(applyArabicStyling, 100);
+
+            if (window.showToast) showToast("Report generated successfully!", "success");
+          } else {
+            output.innerHTML = `
+            <div class="alert alert-warning text-center py-4">
+              <i class="bi bi-exclamation-triangle display-4 text-warning mb-3"></i>
+              <p class="mb-1">No data found for the selected report</p>
+              <p class="small mb-0">Try selecting different criteria</p>
+            </div>
+          `;
+            if (window.showToast) showToast("No data found for this selection", "warning");
+          }
+        })
+        .catch(err => {
+          output.innerHTML = `
+          <div class="alert alert-danger text-center py-4">
+            <i class="bi bi-x-circle display-4 text-danger mb-3"></i>
+            <p class="mb-1">Error requesting report</p>
+            <p class="small mb-0">Please try again or contact support</p>
+          </div>
+        `;
+          if (window.showToast) showToast("Error requesting report", "danger");
+          console.error(err);
+        });
+    });
+
+    // Apply styling when the page loads (in case there's already content)
+    setTimeout(applyArabicStyling, 500);
   });
-  
-  // Apply styling when the page loads (in case there's already content)
-  setTimeout(applyArabicStyling, 500);
-});
 </script>
 {% endblock %}

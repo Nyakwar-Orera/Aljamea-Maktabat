@@ -1,4 +1,3 @@
-# tasks/monthly_reports.py
 from __future__ import annotations
 
 from flask import render_template, current_app
@@ -32,23 +31,23 @@ from services.exports import (
     _shape_if_rtl,
 )
 
-# Local copy of the attribute codes we treat as "class" and "TR number"
-_CLASS_ATTR_CODES = ("STD", "CLASS", "DAR", "CLASS_STD")
+# Local copy of the attribute codes we treat as "darajah" and "TR number"
+_DARAJAH_ATTR_CODES = ("STD", "CLASS", "DAR", "CLASS_STD")
 _TR_ATTR_CODES = ("TRNO", "TRN", "TR_NUMBER", "TR")
 
 
 # -------------------------------------------------------------------
 # Koha lookups (no mapping uploads needed)
 # -------------------------------------------------------------------
-def koha_distinct_classes() -> List[str]:
+def koha_distinct_darajahs() -> List[str]:
     """
-    Get distinct classes from Koha.
-    Uses borrower_attributes for class (STD/CLASS/...) with a fallback to branchcode.
+    Get distinct darajahs from Koha.
+    Uses borrower_attributes for darajah (STD/CLASS/...) with a fallback to branchcode.
     """
     conn = get_koha_conn()
     cur = conn.cursor()
 
-    placeholders = ",".join(["%s"] * len(_CLASS_ATTR_CODES))
+    placeholders = ",".join(["%s"] * len(_DARAJAH_ATTR_CODES))
     cur.execute(
         f"""
         SELECT DISTINCT COALESCE(std.attribute, b.branchcode) AS cls
@@ -59,36 +58,36 @@ def koha_distinct_classes() -> List[str]:
         WHERE COALESCE(std.attribute, b.branchcode) IS NOT NULL
         ORDER BY cls;
         """,
-        _CLASS_ATTR_CODES,
+        _DARAJAH_ATTR_CODES,
     )
-    classes = [r[0] for r in cur.fetchall()]
+    darajahs = [r[0] for r in cur.fetchall()]
     cur.close()
     conn.close()
-    return classes
+    return darajahs
 
 
 # -------------------------------------------------------------------
 # Local recipients (address book)
 # -------------------------------------------------------------------
-def _get_teacher_email_for_class(class_name: str) -> str | None:
+def _get_teacher_emails_for_darajah(darajah_name: str) -> List[str]:
     """
-    From local appdata 'users' table: role='teacher' and exact class_name.
+    From local appdata 'teacher_darajah_mapping' table.
+    Returns list of teacher emails for a darajah.
     """
     conn = get_appdata_conn()
     cur = conn.cursor()
     cur.execute(
         """
-        SELECT email
-        FROM users
-        WHERE role='teacher' AND class_name=?
-        LIMIT 1
+        SELECT DISTINCT teacher_email 
+        FROM teacher_darajah_mapping 
+        WHERE darajah_name = ? AND teacher_email IS NOT NULL AND teacher_email <> ''
         """,
-        (class_name,),
+        (darajah_name,),
     )
-    row = cur.fetchone()
+    emails = [r[0] for r in cur.fetchall()]
     cur.close()
     conn.close()
-    return row[0] if row else None
+    return emails
 
 
 def _get_all_hod_emails() -> List[str]:
@@ -135,19 +134,19 @@ def _safe_image(path: str, max_w_cm: float, max_h_cm: float) -> Image | None:
 # -------------------------------------------------------------------
 # PDF builders
 # -------------------------------------------------------------------
-def build_class_detailed_pdf(class_name: str) -> bytes | None:
+def build_darajah_detailed_pdf(darajah_name: str) -> bytes | None:
     """
-    Generate a beautiful, structured class report PDF:
+    Generate a beautiful, structured darajah report PDF with Taqeem integration:
     - Cover page (with logo, title, date)
-    - Class summary block
-    - Per-student sections with photo (fallback to avatar), metrics, and borrowed books
+    - Darajah summary block with Taqeem overview
+    - Per-student sections with photo, metrics, borrowed books, and Taqeem details
     - Page numbers in footer
     Skips rows without FullName/TRNumber to avoid ReportLab layout errors.
     """
     # Lazy import to avoid circular imports
-    from routes.reports import class_report
+    from routes.reports import darajah_report
 
-    df = class_report(class_name)
+    df = darajah_report(darajah_name)
     if df.empty:
         return None
 
@@ -179,7 +178,7 @@ def build_class_detailed_pdf(class_name: str) -> bytes | None:
         rightMargin=2 * cm,
         topMargin=2 * cm,
         bottomMargin=2 * cm,
-        title=f"Class Report - {class_name}",
+        title=f"Darajah Report - {darajah_name}",
     )
 
     def _footer(canvas, _doc):
@@ -213,32 +212,46 @@ def build_class_detailed_pdf(class_name: str) -> bytes | None:
 
     elements.append(Paragraph(S("Al-Jamea tus-Saifiyah • Maktabat"), styles["CenterTitle"]))
     elements.append(Spacer(1, 0.1 * cm))
-    elements.append(Paragraph(S("📘 Monthly Class Library Report"), styles["CenterTitle"]))
+    elements.append(Paragraph(S("📘 Monthly Darajah Library Report"), styles["CenterTitle"]))
     elements.append(Spacer(1, 0.3 * cm))
-    elements.append(Paragraph(S(f"Class: {class_name}"), styles["CenterTitle"]))
+    elements.append(Paragraph(S(f"Darajah: {darajah_name}"), styles["CenterTitle"]))
     elements.append(Spacer(1, 0.15 * cm))
     elements.append(Paragraph(datetime.now().strftime("%d %B %Y"), styles["CenterTitle"]))
     elements.append(Spacer(1, 0.8 * cm))
     elements.append(
         Paragraph(
-            S("This report provides a detailed breakdown of student borrowing activity, fines, and engagement metrics for the current academic period."),
+            S("This report provides a detailed breakdown of student borrowing activity, fees, engagement metrics, and Taqeem marks for the current academic period."),
             styles["Small"],
         )
     )
     elements.append(PageBreak())
 
-    # ---------- Class Summary ----------
+    # ---------- Darajah Summary ----------
     total_students = int(len(df))
     total_issues = int(df.get("Issues_AY", 0).sum())
-    total_fines = float(df.get("FinesPaid_AY", 0).sum())
+    total_fees = float(df.get("FeesPaid_AY", 0).sum())
     total_overdues = int(df.get("Overdues", 0).sum())
+    
+    # Calculate average Taqeem if available
+    avg_taqeem = "N/A"
+    taqeem_scores = []
+    for _, row in df.iterrows():
+        trno = str(row.get("TRNumber", "")).strip()
+        if trno:
+            info = get_student_info(trno)
+            if info and info.get("Taqeem") and info["Taqeem"].get("total"):
+                taqeem_scores.append(info["Taqeem"]["total"])
+    
+    if taqeem_scores:
+        avg_taqeem = f"{sum(taqeem_scores) / len(taqeem_scores):.1f}/100"
 
     summary_table = Table(
         [
             ["Total Students", total_students],
             ["Total Issues (AY)", total_issues],
             ["Total Overdues", total_overdues],
-            ["Total Fines Paid", f"{total_fines:.2f}"],
+            ["Total Fees Paid", f"{total_fees:.2f}"],
+            ["Average Taqeem", avg_taqeem],
         ],
         colWidths=[7 * cm, 7 * cm],
     )
@@ -255,7 +268,7 @@ def build_class_detailed_pdf(class_name: str) -> bytes | None:
             ]
         )
     )
-    elements.append(Paragraph(S("📊 Class Summary"), styles["Heading2"]))
+    elements.append(Paragraph(S("📊 Darajah Summary"), styles["Heading2"]))
     elements.append(summary_table)
     elements.append(Spacer(1, 0.6 * cm))
 
@@ -270,8 +283,16 @@ def build_class_detailed_pdf(class_name: str) -> bytes | None:
         if not info or not info.get("FullName"):
             continue
 
-        # Header
-        elements.append(Paragraph(S(f"👤 {info.get('FullName')} ({trno})"), styles["SectionHeader"]))
+        # Get Taqeem data
+        taqeem = info.get("Taqeem", {})
+        taqeem_total = taqeem.get("total", 0) if taqeem else 0
+
+        # Header with Taqeem score
+        header_text = f"👤 {info.get('FullName')} ({trno})"
+        if taqeem_total > 0:
+            header_text += f" | Taqeem: {taqeem_total}/100"
+        
+        elements.append(Paragraph(S(header_text), styles["SectionHeader"]))
         elements.append(Spacer(1, 0.15 * cm))
 
         # Photo (real or avatar)
@@ -286,20 +307,26 @@ def build_class_detailed_pdf(class_name: str) -> bytes | None:
         except Exception:
             photo_img = None
 
-        # Metrics (summary) table next to photo
+        # Metrics (summary) table next to photo - INCLUDING TAQEEM
         met = info.get("Metrics", {}) or {}
         summary_data = [
-            ["Lifetime Issues", met.get("LifetimeIssues", 0)],
             ["AY Issues", met.get("AYIssues", 0)],
-            ["Active Loans", met.get("ActiveLoans", 0)],
-            ["Overdue Now", met.get("OverdueNow", 0)],
-            ["Total Fines Paid", f"{met.get('TotalFinesPaid', 0):.2f}"],
+            ["Total Fees Paid", f"{met.get('TotalFeesPaid', 0):.2f}"],
             ["Outstanding Balance", f"{met.get('OutstandingBalance', 0):.2f}"],
             ["Last Issue", met.get("LastIssueDate") or "-"],
-            ["Last Return", met.get("LastReturnDate") or "-"],
-            ["Department", info.get("Department") or "-"],
-            ["Class", info.get("Class") or "-"],
+            ["Darajah", info.get("Darajah") or "-"],
+            ["Marhala", info.get("Marhala") or "-"],
+            ["Taqeem Total", f"{taqeem_total}/100" if taqeem_total > 0 else "N/A"],
         ]
+        
+        # Add Taqeem breakdown if available
+        if taqeem and taqeem.get("book_issue"):
+            summary_data.extend([
+                ["Book Issue Marks", f"{taqeem['book_issue'].get('total', 0)}/60"],
+                ["Book Review Marks", f"{taqeem.get('book_review', {}).get('marks', 0)}/30"],
+                ["Program Attendance", f"{taqeem.get('program_attendance', 0)}/10"],
+            ])
+
         t = Table(summary_data, colWidths=[6 * cm, 6 * cm])
         t.setStyle(
             TableStyle(
@@ -307,6 +334,7 @@ def build_class_detailed_pdf(class_name: str) -> bytes | None:
                     ("FONTNAME", (0, 0), (-1, -1), font_name),
                     ("GRID", (0, 0), (-1, -1), 0.25, colors.lightgrey),
                     ("BACKGROUND", (0, 0), (-1, -1), colors.whitesmoke),
+                    ("BACKGROUND", (0, -3 if taqeem else -1), (-1, -1), colors.lavender),
                     ("FONTSIZE", (0, 0), (-1, -1), 8),
                     ("TOPPADDING", (0, 0), (-1, -1), 4),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
@@ -344,8 +372,8 @@ def build_class_detailed_pdf(class_name: str) -> bytes | None:
                 books_data.append(
                     [
                         S(b.get("title", "N/A")),
-                        S(b.get("date_issued") or "-"),
-                        S(b.get("date_due") or "-"),
+                        S(b.get("_issued_hijri") or "-"),
+                        S(b.get("_due_hijri") or "-"),
                         S("Yes" if b.get("returned") else "No"),
                         S("Overdue" if b.get("overdue") else "On Time"),
                     ]
@@ -391,7 +419,7 @@ def build_department_pdf_bytes(dept_name: str) -> bytes | None:
     df = department_report(dept_name if dept_name else None)
     if df.empty:
         return None
-    return dataframe_to_pdf_bytes(f"Department Report - {dept_name}", df)
+    return dataframe_to_pdf_bytes(f"Marhala Report - {dept_name}", df)
 
 
 # -------------------------------------------------------------------
@@ -421,47 +449,57 @@ def _send_email_with_pdf(app, mail, subject, recipients, html_body, filename, pd
 # -------------------------------------------------------------------
 # Main report senders
 # -------------------------------------------------------------------
-def send_class_reports(app, mail, cc_hods: bool = True):
+def send_darajah_reports(app, mail, cc_hods: bool = True):
     """
-    Generate & send per-class reports using Koha data.
-    Teachers are fetched from local 'users' table by class_name.
+    Generate & send per-darajah reports using Koha data.
+    Teachers are fetched from local 'teacher_darajah_mapping' table.
     Optionally CC all HODs (default: True).
     """
-    classes = koha_distinct_classes()
+    darajahs = koha_distinct_darajahs()
     hod_cc = _get_all_hod_emails() if cc_hods else []
 
-    app.logger.warning("🚀 send_class_reports() started")
-    app.logger.warning(f"📚 Found {len(classes)} classes: {classes}")
+    app.logger.info(f"🚀 send_darajah_reports() started - Found {len(darajahs)} darajahs")
 
     with app.app_context():
-        for class_name in classes:
-            app.logger.warning(f"🧩 Checking class: {class_name}")
-            teacher_email = _get_teacher_email_for_class(class_name)
-            app.logger.warning(f"   ↳ Teacher email: {teacher_email}")
+        for darajah_name in darajahs:
+            app.logger.info(f"🧩 Processing darajah: {darajah_name}")
+            teacher_emails = _get_teacher_emails_for_darajah(darajah_name)
+            app.logger.info(f"   ↳ Teacher emails: {teacher_emails}")
 
-            if not teacher_email:
-                app.logger.warning(f"⚠️ No teacher email for class '{class_name}', skipping.")
+            if not teacher_emails:
+                app.logger.warning(f"⚠️ No teacher emails for darajah '{darajah_name}', skipping.")
                 continue
 
             try:
-                pdf_bytes = build_class_detailed_pdf(class_name)
+                pdf_bytes = build_darajah_detailed_pdf(darajah_name)
                 if not pdf_bytes:
-                    app.logger.info(f"ℹ️ No data for class {class_name}, skipping email.")
+                    app.logger.info(f"ℹ️ No data for darajah {darajah_name}, skipping email.")
                     continue
             except Exception as e:
-                app.logger.error(f"❌ Failed to generate class PDF for {class_name}: {e}")
+                app.logger.error(f"❌ Failed to generate darajah PDF for {darajah_name}: {e}")
                 continue
 
-            subject = f"📘 Monthly Library Report – Class {class_name}"
-            html_body = render_template(
-                "emails/class_report_email.html",
-                class_name=class_name,
-                teacher_name=None,  # optional if not stored
+            subject = f"📘 Monthly Library Report – Darajah {darajah_name}"
+            
+            # Get teacher names for the email
+            conn = get_appdata_conn()
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT DISTINCT teacher_name FROM teacher_darajah_mapping WHERE darajah_name = ?",
+                (darajah_name,)
             )
-            filename = f"class_{class_name}.pdf"
+            teacher_names = [row[0] for row in cur.fetchall()]
+            conn.close()
+            
+            html_body = render_template(
+                "emails/darajah_report_email.html",
+                darajah_name=darajah_name,
+                teacher_names=teacher_names,
+            )
+            filename = f"darajah_{darajah_name.replace(' ', '_')}.pdf"
 
             _send_email_with_pdf(
-                app, mail, subject, [teacher_email], html_body, filename, pdf_bytes, cc=hod_cc
+                app, mail, subject, teacher_emails, html_body, filename, pdf_bytes, cc=hod_cc
             )
 
 
@@ -475,25 +513,26 @@ def send_department_reports(app, mail):
     with app.app_context():
         for dept, head_name, head_email in depts:
             if not head_email:
-                app.logger.warning(f"⚠️ No HOD email for department '{dept}', skipping.")
+                app.logger.warning(f"⚠️ No HOD email for marhala '{dept}', skipping.")
                 continue
 
             try:
                 pdf_bytes = build_department_pdf_bytes(dept)
                 if not pdf_bytes:
-                    app.logger.info(f"ℹ️ No data for department {dept}, skipping email.")
+                    app.logger.info(f"ℹ️ No data for marhala {dept}, skipping email.")
                     continue
             except Exception as e:
-                app.logger.error(f"❌ Failed to generate department PDF for {dept}: {e}")
+                app.logger.error(f"❌ Failed to generate marhala PDF for {dept}: {e}")
                 continue
 
-            subject = f"📊 Monthly Library Report – {dept} Department"
+            subject = f"📊 Monthly Library Report – Marhala {dept}"
             html_body = render_template(
-                "emails/department_report_email.html",
+                "emails/marhala_report_email.html",
+                marhala_name=dept,
                 dept=dept,
                 head_name=head_name,
             )
-            filename = f"department_{dept}.pdf"
+            filename = f"marhala_{dept.replace(' ', '_')}.pdf"
 
             _send_email_with_pdf(app, mail, subject, [head_email], html_body, filename, pdf_bytes)
 
@@ -502,7 +541,7 @@ def send_all_reports(app, mail):
     """
     Entry point used by scheduler and /run_email_reports_now.
     """
-    app.logger.warning("📤 Starting full monthly report dispatch (Koha-driven)...")
-    send_class_reports(app, mail, cc_hods=True)  # CC all HODs by default
+    app.logger.info("📤 Starting full monthly report dispatch (Koha-driven)...")
+    send_darajah_reports(app, mail, cc_hods=True)  # CC all HODs by default
     send_department_reports(app, mail)
-    app.logger.warning("🎉 All monthly reports (class + department) processed successfully.")
+    app.logger.info("🎉 All monthly reports (darajah + marhala) processed successfully.")
