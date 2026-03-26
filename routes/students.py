@@ -1,4 +1,5 @@
-# routes/students.py - UPDATED WITH COMPREHENSIVE TAQEEM FIXES
+# routes/students.py - FULLY CORRECTED VERSION
+
 from flask import (
     Blueprint,
     render_template,
@@ -22,7 +23,7 @@ import csv
 from urllib.parse import quote
 from config import Config
 
-# ✅ Import comprehensive export functions
+# Import comprehensive export functions
 from services.exports import (
     _ensure_font_registered,
     _shape_if_rtl,
@@ -34,7 +35,7 @@ from services.exports import (
     dataframe_to_excel_bytes
 )
 
-# ✅ darajah / class config (max / mustawā) from central Koha queries
+# darajah / class config (max / mustawā) from central Koha queries
 from services import koha_queries as KQ
 from services.koha_queries import darajah_max_books as _darajah_max_books_from_db
 
@@ -53,12 +54,8 @@ _DARAJAH_MAX_CACHE = None
 # ---------------- TAQEEM HELPER FUNCTIONS ----------------
 
 def _calculate_simple_taqeem(student: dict) -> dict:
-    """
-    Simple fallback Taqeem calculation when marks_service is not available.
-    This prevents template errors when Taqeem data is not available.
-    """
+    """Simple fallback Taqeem calculation when marks_service is not available."""
     try:
-        # Get AY from config
         ay_label = Config.CURRENT_ACADEMIC_YEAR()
         ay_only = ay_label.replace('H', '').strip()
         
@@ -67,19 +64,10 @@ def _calculate_simple_taqeem(student: dict) -> dict:
             "total": 0,
             "book_issue": {
                 "total": 0,
-                "physical": {
-                    "issues": 0,
-                    "marks": 0.0
-                },
-                "digital": {
-                    "issues": 0,
-                    "marks": 0.0
-                }
+                "physical": {"issues": 0, "marks": 0.0},
+                "digital": {"issues": 0, "marks": 0.0}
             },
-            "book_review": {
-                "marks": 0,
-                "submitted": 0
-            },
+            "book_review": {"marks": 0, "submitted": 0},
             "program_attendance": 0,
             "last_updated": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
             "student_trno": student.get("TRNumber", ""),
@@ -88,13 +76,12 @@ def _calculate_simple_taqeem(student: dict) -> dict:
         }
     except Exception as e:
         current_app.logger.error(f"Error in simple Taqeem calculation: {e}")
-        # Return minimal structure to avoid template errors
         return {
             "academic_year": Config.CURRENT_ACADEMIC_YEAR().replace('H', '').strip(),
             "total": 0,
             "book_issue": {
-                "total": 0, 
-                "physical": {"issues": 0, "marks": 0.0}, 
+                "total": 0,
+                "physical": {"issues": 0, "marks": 0.0},
                 "digital": {"issues": 0, "marks": 0.0}
             },
             "book_review": {"marks": 0, "submitted": 0},
@@ -105,12 +92,11 @@ def _calculate_simple_taqeem(student: dict) -> dict:
 
 
 def _get_student_taqeem_from_db(student_identifier: str, academic_year: str) -> dict:
-    """
-    Get Taqeem marks from database for a student.
-    Returns dict with marks or None if not found.
-    """
+    """Get Taqeem marks from database for a student."""
+    conn = None
+    cur = None
     try:
-        conn = get_app_conn()
+        conn = get_app_conn()  # This will now create a fresh connection
         cur = conn.cursor()
         
         cur.execute("""
@@ -136,9 +122,6 @@ def _get_student_taqeem_from_db(student_identifier: str, academic_year: str) -> 
         rev_row = cur.fetchone()
         if rev_row:
             review_count = rev_row[0] or 0
-            
-        cur.close()
-        conn.close()
         
         if marks_row:
             return {
@@ -168,23 +151,23 @@ def _get_student_taqeem_from_db(student_identifier: str, academic_year: str) -> 
     except Exception as e:
         current_app.logger.error(f"Error getting student taqeem from DB: {e}")
         return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # ---------------- OPAC URL HELPER ----------------
 def get_opac_base_url():
-    """Get OPAC base URL from Flask config with fallback."""
     return current_app.config.get("KOHA_OPAC_BASE_URL", "https://library-nairobi.jameasaifiyah.org")
 
 def get_opac_book_url(biblionumber: int) -> str:
-    """Generate OPAC book URL from biblionumber."""
     opac_base = get_opac_base_url()
-    # CORRECTED: Use the proper Koha OPAC detail URL format
     return f"{opac_base.rstrip('/')}/cgi-bin/koha/opac-detail.pl?biblionumber={biblionumber}"
 
 def get_opac_author_url(author_name: str) -> str:
-    """Generate OPAC search URL for author with proper URL encoding."""
     opac_base = get_opac_base_url()
-    # URL encode the author name for search (handles spaces, Arabic characters, etc.)
     encoded_author = quote(author_name)
     return f"{opac_base.rstrip('/')}/cgi-bin/koha/opac-search.pl?q=au:{encoded_author}"
 
@@ -192,23 +175,22 @@ def get_opac_author_url(author_name: str) -> str:
 # ---------------- LOGIN DECORATOR ----------------
 def require_login(f):
     from functools import wraps
-
     @wraps(f)
     def wrapper(*args, **kwargs):
         if not session.get("logged_in"):
-            # align with other dashboards
             return redirect(url_for("auth_bp.login"))
         return f(*args, **kwargs)
-
     return wrapper
 
 
 # ---------------- Teacher Mapping Helper ----------------
 def _get_teachers_for_darajah(darajah_name: str) -> list[dict]:
-    """
-    Get teachers mapped to a specific darajah from the app database.
-    Returns list of teachers with their roles.
-    """
+    """Get teachers mapped to a specific darajah."""
+    if not darajah_name:
+        return []
+    
+    conn = None
+    cur = None
     try:
         conn = get_app_conn()
         cur = conn.cursor()
@@ -236,22 +218,22 @@ def _get_teachers_for_darajah(darajah_name: str) -> list[dict]:
                 'email': row[2]
             })
         
-        cur.close()
-        conn.close()
         return teachers
     except Exception as e:
         current_app.logger.error(f"Error fetching teachers for darajah {darajah_name}: {e}")
         return []
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # ---------------- Hijri helpers ----------------
 def _hijri_date_label(d: date) -> str:
-    """Format a date as Hijri using the centralized helper."""
     return KQ.get_hijri_date_label(d)
 
-
 def _to_hijri_str(val) -> str:
-    """Convert a date/datetime/ISO string to a Hijri label string."""
     if not val:
         return "-"
     if isinstance(val, datetime):
@@ -259,7 +241,6 @@ def _to_hijri_str(val) -> str:
     elif isinstance(val, date):
         d = val
     elif isinstance(val, str):
-        # Try YYYY-MM-DD first
         try:
             d = datetime.strptime(val.split(" ")[0], "%Y-%m-%d").date()
         except Exception:
@@ -268,13 +249,7 @@ def _to_hijri_str(val) -> str:
         return str(val)
     return _hijri_date_label(d)
 
-
 def _hijri_month_label_and_key(d: date):
-    """
-    Return (label, sort_key) for a month in Hijri:
-      label   -> e.g. "Jumada al-Ula 1447 H"
-      sort_key-> (year, month) tuple for ordering
-    """
     if not d:
         return "-", (0, 0)
     if isinstance(d, datetime):
@@ -282,7 +257,6 @@ def _hijri_month_label_and_key(d: date):
     
     label = KQ.get_hijri_month_year_label(d)
     
-    # Still need the sort key
     try:
         from hijri_converter import convert
         h = convert.Gregorian(d.year, d.month, d.day).to_hijri()
@@ -290,28 +264,20 @@ def _hijri_month_label_and_key(d: date):
     except Exception:
         return label, (d.year, d.month)
 
-
-
-
 def _ay_period_label():
-    """Human-friendly AY label in Hijri (fallback to Gregorian)."""
     start, end = KQ.get_ay_bounds()
     return f"{_hijri_date_label(start)} to {_hijri_date_label(end)}"
 
 
 # ---------------- Darajah → Max / Mustawā mapping ----------------
 def _load_darajah_max_cache():
-    """
-    Load darajah ranges from services.koha_queries.darajah_max_books()
-    and cache as a list of (low_darajah, high_darajah, max_books).
-    """
     global _DARAJAH_MAX_CACHE
     if _DARAJAH_MAX_CACHE is not None:
         return _DARAJAH_MAX_CACHE
 
     ranges = []
     try:
-        rows = _darajah_max_books_from_db()  # e.g. [('Darajah 1–4', 4), ('Darajah 5–7', 5), ...]
+        rows = _darajah_max_books_from_db()
         for label, max_books in rows:
             digits = re.findall(r"(\d+)", str(label))
             if not digits:
@@ -327,34 +293,20 @@ def _load_darajah_max_cache():
     _DARAJAH_MAX_CACHE = ranges
     return _DARAJAH_MAX_CACHE
 
-
 def _max_books_for_darajah(darajah_label: str):
-    """
-    Return max / mustawā books for a student based on their Darajah.
-
-    Priority:
-      1) Use config from darajah_max_books() in services/koha_queries.py
-      2) Fallback heuristic if no config rows / parse failure:
-           Darajah 1–4  -> 4
-           Darajah 5–7  -> 5
-           Darajah 8–11 -> 6
-    """
     if not darajah_label:
         return None
 
-    # Extract first number from something like "3AF", "5 B M", "Darajah 7", etc.
     m = re.search(r"(\d+)", str(darajah_label))
     if not m:
         return None
     d_num = int(m.group(1))
 
-    # 1) Try central configuration
     ranges = _load_darajah_max_cache()
     for lo, hi, max_books in ranges:
         if lo <= d_num <= hi:
             return max_books
 
-    # 2) Fallback heuristic with gender-specific ranges
     if 1 <= d_num <= 4:
         return 4
     if 5 <= d_num <= 7:
@@ -366,36 +318,25 @@ def _max_books_for_darajah(darajah_label: str):
 
 # ---------------- HTML CLEANING UTILITY ----------------
 def clean_html_for_pdf(html_text: str) -> str:
-    """
-    Clean HTML tags for PDF export.
-    """
     if not html_text or not isinstance(html_text, str):
         return str(html_text) if html_text is not None else ""
-    
-    # Remove HTML tags but keep text content
     html_text = re.sub(r'<[^>]+>', '', html_text)
-    
-    # Remove multiple spaces
     html_text = re.sub(r'\s+', ' ', html_text).strip()
-    
     return html_text
 
 
 # ---------------- BOOK REVIEW HELPER ----------------
 def _get_book_reviews_for_month(student_username: str, month_label: str):
-    """
-    Get book review marks for a student for a specific month.
-    Returns list of review records.
-    """
+    """Get book review marks for a student for a specific month."""
+    conn = None
+    cur = None
     try:
         conn = get_app_conn()
         cur = conn.cursor()
         
-        # Extract year and month from Hijri label like "Rajab al-Asab 1447 H"
         month_year_match = re.search(r'(\d{4})', month_label)
         academic_year = month_year_match.group(1) if month_year_match else Config.CURRENT_ACADEMIC_YEAR().replace('H', '').strip()
         
-        # Get book reviews for this student in the academic year
         cur.execute("""
             SELECT 
                 brm.student_username,
@@ -416,74 +357,399 @@ def _get_book_reviews_for_month(student_username: str, month_label: str):
         columns = [desc[0] for desc in cur.description]
         for row in cur.fetchall():
             review_dict = dict(zip(columns, row))
-            # Convert datetime to string for template
             if review_dict.get('uploaded_at'):
                 review_dict['uploaded_at'] = review_dict['uploaded_at'].strftime('%Y-%m-%d %H:%M')
             reviews.append(review_dict)
         
-        cur.close()
-        conn.close()
         return reviews
     except Exception as e:
         current_app.logger.error(f"Error fetching book reviews for {student_username}: {e}")
         return []
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
-# ---------------- DATA ACCESS ----------------
+# ---------------- DATA ACCESS - FIXED WITH DICTIONARY CURSOR ----------------
 def get_student_info(identifier):
-    """Fetch student details, borrowed books (AY), engagement metrics, fees, photo, and teacher mapping.
-       Lookup supports Cardnumber, ITS (userid), TRNO (borrower_attributes), and Borrowernumber.
-       Darajah and TRNO come from borrower_attributes (multiple code support).
-       Marhala uses categories.description, falling back to categorycode.
-    """
+    """Fetch student details, borrowed books (AY), engagement metrics, fees, photo, and teacher mapping."""
     identifier = (identifier or "").strip()
 
     conn = get_koha_conn()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
 
-    # --- Student core info ---
-    darajah_codes_ph = ",".join(["%s"] * len(DARAJAH_CODES))
-    tr_codes_ph = ",".join(["%s"] * len(TR_ATTR_CODES))
+    try:
+        # --- Student core info ---
+        darajah_codes_ph = ",".join(["%s"] * len(DARAJAH_CODES))
+        tr_codes_ph = ",".join(["%s"] * len(TR_ATTR_CODES))
 
-    sql = f"""
-        SELECT
-            b.borrowernumber,
-            b.cardnumber,
-            CONCAT_WS(' ', b.firstname, b.surname) AS FullName,
-            b.userid AS `ITS ID`,
-            b.email AS EduEmail,
-            b.categorycode,
-            COALESCE(c.description, b.categorycode) AS Marhala,
-            COALESCE(std.attribute, b.branchcode) AS Darajah,
-            tr.attribute AS TRNumber
-        FROM borrowers b
-        LEFT JOIN categories c ON c.categorycode = b.categorycode
-        LEFT JOIN borrower_attributes std
-               ON std.borrowernumber = b.borrowernumber
-              AND std.code IN ({darajah_codes_ph})
-        LEFT JOIN borrower_attributes tr
-               ON tr.borrowernumber = b.borrowernumber
-              AND tr.code IN ({tr_codes_ph})
-        WHERE
-              LOWER(b.cardnumber) = LOWER(%s)                 -- Cardnumber
-           OR LOWER(b.userid)     = LOWER(%s)                 -- ITS ID
-           OR LOWER(COALESCE(tr.attribute,'')) = LOWER(%s)  -- TRNO from attributes
-           OR CAST(b.borrowernumber AS CHAR) = %s             -- Borrowernumber
-        LIMIT 1
-    """
-    params = (*DARAJAH_CODES, *TR_ATTR_CODES, identifier, identifier, identifier, identifier)
-    cur.execute(sql, params)
-    student = cur.fetchone()
-    if not student:
+        sql = f"""
+            SELECT
+                b.borrowernumber,
+                b.cardnumber,
+                CONCAT_WS(' ', b.firstname, b.surname) AS FullName,
+                b.userid AS `ITS ID`,
+                b.email AS EduEmail,
+                b.categorycode,
+                COALESCE(c.description, b.categorycode) AS Marhala,
+                COALESCE(std.attribute, b.branchcode) AS Darajah,
+                tr.attribute AS TRNumber
+            FROM borrowers b
+            LEFT JOIN categories c ON c.categorycode = b.categorycode
+            LEFT JOIN borrower_attributes std
+                   ON std.borrowernumber = b.borrowernumber
+                  AND std.code IN ({darajah_codes_ph})
+            LEFT JOIN borrower_attributes tr
+                   ON tr.borrowernumber = b.borrowernumber
+                  AND tr.code IN ({tr_codes_ph})
+            WHERE
+                  LOWER(b.cardnumber) = LOWER(%s)
+               OR LOWER(b.userid)     = LOWER(%s)
+               OR LOWER(COALESCE(tr.attribute,'')) = LOWER(%s)
+               OR CAST(b.borrowernumber AS CHAR) = %s
+            LIMIT 1
+        """
+        params = (*DARAJAH_CODES, *TR_ATTR_CODES, identifier, identifier, identifier, identifier)
+        cur.execute(sql, params)
+        student = cur.fetchone()
+        
+        if not student:
+            return None
+
+        borrowernumber = student["borrowernumber"]
+        darajah_name = student.get("Darajah", "")
+        student_username = student.get("ITS ID") or student.get("cardnumber")
+
+        # AY bounds
+        start_ay, end_ay = KQ.get_ay_bounds()
+
+        # ===== Library engagement metrics =====
+        # Currently issued books
+        cur.execute(
+            """
+            SELECT
+                bi.biblionumber,
+                bi.title,
+                it.ccode AS collection,
+                ExtractValue(
+                    bmd.metadata,
+                    '//datafield[@tag="041"]/subfield[@code="a"]'
+                ) AS language,
+                iss.issuedate AS date_issued,
+                iss.date_due,
+                iss.returndate,
+                (iss.returndate IS NOT NULL) AS returned
+            FROM issues iss
+            JOIN items it USING (itemnumber)
+            JOIN biblio bi USING (biblionumber)
+            LEFT JOIN biblio_metadata bmd USING (biblionumber)
+            WHERE iss.borrowernumber = %s
+            ORDER BY iss.issuedate DESC
+            LIMIT 200
+            """,
+            (borrowernumber,),
+        )
+        borrowed_books = cur.fetchall()
+
+        # Old issues history
+        try:
+            cur.execute(
+                """
+                SELECT
+                    bi.biblionumber,
+                    bi.title,
+                    it.ccode AS collection,
+                    ExtractValue(
+                        bmd.metadata,
+                        '//datafield[@tag="041"]/subfield[@code="a"]'
+                    ) AS language,
+                    oi.issuedate AS date_issued,
+                    oi.returndate,
+                    oi.returndate AS date_due,
+                    1 AS returned
+                FROM old_issues oi
+                JOIN items it USING (itemnumber)
+                JOIN biblio bi USING (biblionumber)
+                LEFT JOIN biblio_metadata bmd USING (biblionumber)
+                WHERE oi.borrowernumber = %s
+                ORDER BY oi.issuedate DESC
+                LIMIT 300
+                """,
+                (borrowernumber,),
+            )
+            borrowed_books += cur.fetchall()
+        except Exception:
+            pass
+
+        # Compute overdue flags & counts
+        today = date.today()
+        overdue_count = 0
+        active_count = 0
+        for b in borrowed_books:
+            is_returned = bool(b.get("returned"))
+            if not is_returned:
+                active_count += 1
+
+            if not is_returned and b.get("date_due"):
+                due_val = b["date_due"]
+                if isinstance(due_val, datetime):
+                    due_date = due_val.date()
+                elif isinstance(due_val, date):
+                    due_date = due_val
+                else:
+                    try:
+                        due_date = datetime.strptime(str(due_val).split(" ")[0], "%Y-%m-%d").date()
+                    except Exception:
+                        due_date = None
+                b["overdue"] = bool(due_date and today > due_date)
+            else:
+                b["overdue"] = False
+
+            if b["overdue"]:
+                overdue_count += 1
+
+            b["_issued_hijri"] = _to_hijri_str(b.get("date_issued"))
+            b["_due_hijri"] = _to_hijri_str(b.get("date_due"))
+            
+            biblionumber = b.get("biblionumber")
+            if biblionumber:
+                b["opac_url"] = get_opac_book_url(biblionumber)
+            else:
+                b["opac_url"] = "#"
+
+        # AY issues (statistics)
+        cur.execute(
+            """
+            SELECT COUNT(*) AS cnt
+            FROM statistics
+            WHERE borrowernumber=%s AND type='issue'
+              AND DATE(`datetime`) BETWEEN %s AND %s
+            """,
+            (borrowernumber, start_ay, end_ay),
+        )
+        row = cur.fetchone()
+        ay_issues = int(row["cnt"]) if row and row.get("cnt") is not None else 0
+
+        # Last issue date
+        cur.execute(
+            """
+            SELECT
+              MAX(CASE WHEN s.type='issue' THEN DATE(s.`datetime`) END) AS last_issue
+            FROM statistics s
+            WHERE s.borrowernumber=%s
+            """,
+            (borrowernumber,),
+        )
+        row = cur.fetchone() or {}
+        last_issue_date = _to_hijri_str(row.get("last_issue"))
+
+        # Last return date
+        cur.execute(
+            """
+            SELECT MAX(returndate) AS last_return
+            FROM (
+              SELECT returndate FROM issues WHERE borrowernumber=%s
+              UNION ALL
+              SELECT returndate FROM old_issues WHERE borrowernumber=%s
+            ) t
+            """,
+            (borrowernumber, borrowernumber),
+        )
+        row = cur.fetchone() or {}
+        last_return_date = _to_hijri_str(row.get("last_return"))
+
+        # Reservations count
+        reservations = 0
+        try:
+            cur.execute("SELECT COUNT(*) AS cnt FROM reserves WHERE borrowernumber=%s", (borrowernumber,))
+            rr = cur.fetchone()
+            reservations = int(rr["cnt"]) if rr and rr.get("cnt") is not None else 0
+        except Exception:
+            reservations = 0
+
+        # Outstanding balance
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(amountoutstanding),0) AS outstanding
+            FROM accountlines
+            WHERE borrowernumber=%s
+            """,
+            (borrowernumber,),
+        )
+        row = cur.fetchone() or {}
+        outstanding_balance = float(row.get("outstanding") or 0)
+
+        # Fees paid totals
+        cur.execute(
+            """
+            SELECT
+              COALESCE(SUM(CASE WHEN credit_type_code='PAYMENT' AND (status IS NULL OR status<>'VOID') THEN -amount END),0) AS TotalFeesPaid,
+              MAX(CASE WHEN credit_type_code='PAYMENT' AND (status IS NULL OR status<>'VOID') THEN date END) AS LastPaymentDate
+            FROM accountlines
+            WHERE borrowernumber=%s
+            """,
+            (borrowernumber,),
+        )
+        fees_row = cur.fetchone() or {}
+        total_fees_paid = float(fees_row.get("TotalFeesPaid") or 0)
+        last_payment_date = _to_hijri_str(fees_row.get("LastPaymentDate"))
+
+        # Fees paid in AY
+        cur.execute(
+            """
+            SELECT COALESCE(SUM(-amount),0) AS paid
+            FROM accountlines
+            WHERE borrowernumber=%s
+              AND credit_type_code='PAYMENT'
+              AND (status IS NULL OR status<>'VOID')
+              AND DATE(`date`) BETWEEN %s AND %s
+            """,
+            (borrowernumber, start_ay, end_ay),
+        )
+        ay_row = cur.fetchone() or {}
+        fees_paid_ay = float(ay_row.get("paid") or 0)
+
+        # Top authors
+        fav_authors = []
+        try:
+            cur.execute(
+                """
+                SELECT bi.author AS author, COUNT(*) AS cnt
+                FROM (
+                  SELECT itemnumber, issuedate FROM issues WHERE borrowernumber=%s
+                  UNION ALL
+                  SELECT itemnumber, issuedate FROM old_issues WHERE borrowernumber=%s
+                ) u
+                JOIN items it USING (itemnumber)
+                JOIN biblio bi USING (biblionumber)
+                WHERE u.issuedate >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+                GROUP BY bi.author
+                ORDER BY cnt DESC
+                LIMIT 50
+                """,
+                (borrowernumber, borrowernumber),
+            )
+            fav_rows = cur.fetchall() or []
+
+            for r in fav_rows:
+                a = (r.get("author") or "").strip()
+                if not a:
+                    continue
+                if a.lower() in ("unknown", "unk", "n/a", "na", "-", "none"):
+                    continue
+                
+                opac_url = get_opac_author_url(a)
+                fav_authors.append({
+                    "name": a,
+                    "count": int(r['cnt']),
+                    "opac_url": opac_url,
+                    "display": f"{a} ({int(r['cnt'])})"
+                })
+
+            fav_authors = fav_authors[:10]
+        except Exception:
+            pass
+
+        # Group by Hijri month-year
+        months_map = {}
+        for b in borrowed_books:
+            di = b.get("date_issued")
+            if isinstance(di, datetime):
+                d = di.date()
+            elif isinstance(di, date):
+                d = di
+            elif di:
+                try:
+                    d = datetime.strptime(str(di).split(" ")[0], "%Y-%m-%d").date()
+                except Exception:
+                    d = None
+
+            if not d or not (start_ay <= d <= end_ay):
+                continue
+
+            label, key = _hijri_month_label_and_key(d)
+            entry = months_map.get(key)
+            if not entry:
+                entry = {"label": label, "books": []}
+                months_map[key] = entry
+            entry["books"].append(b)
+
+        grouped_items = []
+        for key, entry in months_map.items():
+            grouped_items.append((key, entry["label"], entry["books"]))
+        grouped_items.sort(key=lambda x: x[0], reverse=True)
+        grouped_sorted = [(label, books) for (_, label, books) in grouped_items]
+
+        # Fees list
+        cur.execute(
+            """
+            SELECT date, amount, description, note
+            FROM accountlines
+            WHERE borrowernumber = %s
+              AND DATE(`date`) BETWEEN %s AND %s
+            ORDER BY date DESC
+            LIMIT 50
+            """,
+            (borrowernumber, start_ay, end_ay),
+        )
+        fees_list = cur.fetchall() or []
+        for f in fees_list:
+            f["date"] = _to_hijri_str(f.get("date"))
+
+        # Per-month stats
+        darajah_label = student.get("Darajah")
+        max_books_allowed = _max_books_for_darajah(darajah_label)
+        month_stats = {}
+        for month_label, books in grouped_sorted:
+            count = len(books)
+
+            if max_books_allowed:
+                status = "above" if count >= max_books_allowed else "below"
+            else:
+                status = "na"
+
+            target = max_books_allowed
+
+            if target:
+                if count >= target:
+                    reco_status = "meets"
+                    reco_text = (f"Excellent – you met or exceeded the recommended reading level "
+                                f"of {target} books this month.")
+                elif count == 0:
+                    reco_status = "none"
+                    reco_text = (f"No books issued this month. Please plan to borrow and read at least "
+                                f"{target} books next month.")
+                else:
+                    reco_status = "below"
+                    reco_text = (f"Below the recommended level of {target} books. Try to borrow and read "
+                                "a bit more next month.")
+            else:
+                reco_status = "na"
+                reco_text = f"This month you issued {count} book(s)."
+
+            month_stats[month_label] = {
+                "count": count,
+                "max_books": max_books_allowed,
+                "status": status,
+                "target": target,
+                "reco_status": reco_status,
+                "reco_text": reco_text,
+                "review_count": 0,
+                "review_marks": 0
+            }
+
+    finally:
+        cur.close()
         conn.close()
-        return None
 
-    borrowernumber = student["borrowernumber"]
-    darajah_name = student.get("Darajah", "")
-    student_username = student.get("ITS ID") or student.get("cardnumber")
-
+    # ===== NOW GET DATA FROM APP DATABASE (separate connections) =====
+    
     # Get campus branch from mapping
     campus_branch = "Global"
+    app_conn = None
+    app_cur = None
     try:
         app_conn = get_app_conn()
         app_cur = app_conn.cursor()
@@ -495,9 +761,13 @@ def get_student_info(identifier):
         row = app_cur.fetchone()
         if row:
             campus_branch = row[0]
-        app_conn.close()
     except Exception as e:
         current_app.logger.error(f"Error fetching campus_branch for student {student_username}: {e}")
+    finally:
+        if app_cur:
+            app_cur.close()
+        if app_conn:
+            app_conn.close()
     student["campus_branch"] = campus_branch
 
     # Get teachers for this darajah
@@ -505,362 +775,19 @@ def get_student_info(identifier):
     if darajah_name:
         teachers = _get_teachers_for_darajah(darajah_name)
 
-    # AY bounds + label (aligned with dashboards)
-    start_ay, end_ay = KQ.get_ay_bounds()
-    ay_period_label = _ay_period_label()
-
-    # ===== Library engagement metrics =====
-    # Currently issued (unreturned) + basic history from issues
-    cur.execute(
-        """
-        SELECT
-            bi.biblionumber,
-            bi.title,
-            it.ccode AS collection,
-            ExtractValue(
-                bmd.metadata,
-                '//datafield[@tag="041"]/subfield[@code="a"]'
-            ) AS language,
-            iss.issuedate AS date_issued,
-            iss.date_due,
-            iss.returndate,
-            (iss.returndate IS NOT NULL) AS returned
-        FROM issues iss
-        JOIN items it USING (itemnumber)
-        JOIN biblio bi USING (biblionumber)
-        LEFT JOIN biblio_metadata bmd USING (biblionumber)
-        WHERE iss.borrowernumber = %s
-        ORDER BY iss.issuedate DESC
-        LIMIT 200
-        """,
-        (borrowernumber,),
-    )
-    borrowed_books = cur.fetchall()
-
-    # Old issues (history)
-    try:
-        cur.execute(
-            """
-            SELECT
-                bi.biblionumber,
-                bi.title,
-                it.ccode AS collection,
-                ExtractValue(
-                    bmd.metadata,
-                    '//datafield[@tag="041"]/subfield[@code="a"]'
-                ) AS language,
-                oi.issuedate AS date_issued,
-                oi.returndate,
-                oi.returndate AS date_due,
-                1 AS returned
-            FROM old_issues oi
-            JOIN items it USING (itemnumber)
-            JOIN biblio bi USING (biblionumber)
-            LEFT JOIN biblio_metadata bmd USING (biblionumber)
-            WHERE oi.borrowernumber = %s
-            ORDER BY oi.issuedate DESC
-            LIMIT 300
-            """,
-            (borrowernumber,),
-        )
-        borrowed_books += cur.fetchall()
-    except Exception:
-        pass
-
-    # Compute overdue flags & counts, and Hijri date strings
-    today = date.today()
-    overdue_count = 0
-    active_count = 0
-    for b in borrowed_books:
-        is_returned = bool(b.get("returned"))
-        if not is_returned:
-            active_count += 1
-
-        # overdue flag
-        if not is_returned and b.get("date_due"):
-            due_val = b["date_due"]
-            if isinstance(due_val, datetime):
-                due_date = due_val.date()
-            elif isinstance(due_val, date):
-                due_date = due_val
-            else:
-                try:
-                    due_date = datetime.strptime(str(due_val).split(" ")[0], "%Y-%m-%d").date()
-                except Exception:
-                    due_date = None
-            b["overdue"] = bool(due_date and today > due_date)
-        else:
-            b["overdue"] = False
-
-        if b["overdue"]:
-            overdue_count += 1
-
-        # Hijri display strings
-        b["_issued_hijri"] = _to_hijri_str(b.get("date_issued"))
-        b["_due_hijri"] = _to_hijri_str(b.get("date_due"))
-        
-        # Add OPAC URL for book title
-        biblionumber = b.get("biblionumber")
-        if biblionumber:
-            b["opac_url"] = get_opac_book_url(biblionumber)
-        else:
-            b["opac_url"] = "#"
-
-    # AY issues (statistics)
-    cur.execute(
-        """
-        SELECT COUNT(*) AS cnt
-        FROM statistics
-        WHERE borrowernumber=%s AND type='issue'
-          AND DATE(`datetime`) BETWEEN %s AND %s
-        """,
-        (borrowernumber, start_ay, end_ay),
-    )
-    row = cur.fetchone()
-    ay_issues = int(row["cnt"]) if row and row.get("cnt") is not None else 0
-
-    # Last issue date
-    cur.execute(
-        """
-        SELECT
-          MAX(CASE WHEN s.type='issue' THEN DATE(s.`datetime`) END) AS last_issue
-        FROM statistics s
-        WHERE s.borrowernumber=%s
-        """,
-        (borrowernumber,),
-    )
-    row = cur.fetchone() or {}
-    last_issue_date_raw = row.get("last_issue")
-    last_issue_date = _to_hijri_str(last_issue_date_raw)
-
-    # Last return date (issues/old_issues)
-    cur.execute(
-        """
-        SELECT MAX(returndate) AS last_return
-        FROM (
-          SELECT returndate FROM issues WHERE borrowernumber=%s
-          UNION ALL
-          SELECT returndate FROM old_issues WHERE borrowernumber=%s
-        ) t
-        """,
-        (borrowernumber, borrowernumber),
-    )
-    row = cur.fetchone() or {}
-    last_return_date_raw = row.get("last_return")
-    last_return_date = _to_hijri_str(last_return_date_raw)
-
-    # Reservations (holds) count (if table exists)
-    reservations = 0
-    try:
-        cur.execute("SELECT COUNT(*) AS cnt FROM reserves WHERE borrowernumber=%s", (borrowernumber,))
-        rr = cur.fetchone()
-        reservations = int(rr["cnt"]) if rr and rr.get("cnt") is not None else 0
-    except Exception:
-        reservations = 0
-
-    # Outstanding balance now
-    cur.execute(
-        """
-        SELECT COALESCE(SUM(amountoutstanding),0) AS outstanding
-        FROM accountlines
-        WHERE borrowernumber=%s
-        """,
-        (borrowernumber,),
-    )
-    row = cur.fetchone() or {}
-    outstanding_balance = float(row.get("outstanding") or 0)
-
-    # Fees paid totals + last payment date (exclude VOID) – lifetime
-    cur.execute(
-        """
-        SELECT
-          COALESCE(SUM(CASE WHEN credit_type_code='PAYMENT' AND (status IS NULL OR status<>'VOID') THEN -amount END),0) AS TotalFeesPaid,
-          MAX(CASE WHEN credit_type_code='PAYMENT' AND (status IS NULL OR status<>'VOID') THEN date END) AS LastPaymentDate
-        FROM accountlines
-        WHERE borrowernumber=%s
-        """,
-        (borrowernumber,),
-    )
-    fees_row = cur.fetchone() or {}
-    total_fees_paid = float(fees_row.get("TotalFeesPaid") or 0)
-    last_payment_date = _to_hijri_str(fees_row.get("LastPaymentDate"))
-
-    # Fees paid in AY (current academic year window ONLY)
-    cur.execute(
-        """
-        SELECT COALESCE(SUM(-amount),0) AS paid
-        FROM accountlines
-        WHERE borrowernumber=%s
-          AND credit_type_code='PAYMENT'
-          AND (status IS NULL OR status<>'VOID')
-          AND DATE(`date`) BETWEEN %s AND %s
-        """,
-        (borrowernumber, start_ay, end_ay),
-    )
-    ay_row = cur.fetchone() or {}
-    fees_paid_ay = float(ay_row.get("paid") or 0)
-
-    # Top authors (last 12 months) – REAL NAMES ONLY with OPAC URLs
-    try:
-        cur.execute(
-            """
-            SELECT bi.author AS author, COUNT(*) AS cnt
-            FROM (
-              SELECT itemnumber, issuedate FROM issues WHERE borrowernumber=%s
-              UNION ALL
-              SELECT itemnumber, issuedate FROM old_issues WHERE borrowernumber=%s
-            ) u
-            JOIN items it USING (itemnumber)
-            JOIN biblio bi USING (biblionumber)
-            WHERE u.issuedate >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-            GROUP BY bi.author
-            ORDER BY cnt DESC
-            LIMIT 50
-            """,
-            (borrowernumber, borrowernumber),
-        )
-        fav_rows = cur.fetchall() or []
-
-        fav_authors = []
-        for r in fav_rows:
-            a = (r.get("author") or "").strip()
-            # Skip blanks / placeholders / "Unknown"
-            if not a:
-                continue
-            if a.lower() in ("unknown", "unk", "n/a", "na", "-", "none"):
-                continue
-            
-            # Get OPAC URL for author search
-            opac_url = get_opac_author_url(a)
-            fav_authors.append({
-                "name": a,
-                "count": int(r['cnt']),
-                "opac_url": opac_url,
-                "display": f"{a} ({int(r['cnt'])})"
-            })
-
-        # Keep only top 10 *real* authors
-        fav_authors = fav_authors[:10]
-    except Exception:
-        fav_authors = []
-
-    # --- Group by Hijri month-year for display (AY ONLY) ---
-    # use Hijri month labels but still filter by AY window on Gregorian dates
-    months_map = {}
-    for b in borrowed_books:
-        di = b.get("date_issued")
-        # filter to AY range for grouped display
-        if isinstance(di, datetime):
-            d = di.date()
-        elif isinstance(di, date):
-            d = di
-        elif di:
-            try:
-                d = datetime.strptime(str(di).split(" ")[0], "%Y-%m-%d").date()
-            except Exception:
-                d = None
-
-        if not d or not (start_ay <= d <= end_ay):
-            continue
-
-        label, key = _hijri_month_label_and_key(d)
-        entry = months_map.get(key)
-        if not entry:
-            entry = {"label": label, "books": []}
-            months_map[key] = entry
-        entry["books"].append(b)
-
-    # turn into sorted list (latest Hijri month first)
-    grouped_items = []
-    for key, entry in months_map.items():
-        grouped_items.append((key, entry["label"], entry["books"]))
-    grouped_items.sort(key=lambda x: x[0], reverse=True)
-    grouped_sorted = [(label, books) for (_, label, books) in grouped_items]
-
-    # --- Get book reviews for each month ---
+    # Get book reviews for each month
     book_reviews_by_month = {}
     if student_username:
         for month_label, _ in grouped_sorted:
             reviews = _get_book_reviews_for_month(student_username, month_label)
             if reviews:
                 book_reviews_by_month[month_label] = reviews
+                # Update month stats with review data
+                if month_label in month_stats:
+                    month_stats[month_label]["review_count"] = len(reviews)
+                    month_stats[month_label]["review_marks"] = sum(float(r.get('marks', 0)) for r in reviews)
 
-    # --- Per-month stats vs darajah-based Mustawā --- 
-    darajah_label = student.get("Darajah")
-    max_books_allowed = _max_books_for_darajah(darajah_label)
-    month_stats = {}
-    for month_label, books in grouped_sorted:
-        count = len(books)
-        
-        # Get review marks for this month
-        month_reviews = book_reviews_by_month.get(month_label, [])
-        review_count = len(month_reviews)
-        review_marks = sum(float(r.get('marks', 0)) for r in month_reviews)
-
-        # status relative to max allowed (for backwards compatibility)
-        if max_books_allowed:
-            status = "above" if count >= max_books_allowed else "below"
-        else:
-            status = "na"
-
-        # Use darajah config as Mustawā al-Maṭlūb (recommended per month)
-        target = max_books_allowed
-
-        if target:
-            if count >= target:
-                reco_status = "meets"
-                reco_text = (
-                    "Excellent – you met or exceeded the recommended reading level "
-                    f"of {target} books this month."
-                )
-            elif count == 0:
-                reco_status = "none"
-                reco_text = (
-                    "No books issued this month. Please plan to borrow and read at least "
-                    f"{target} books next month."
-                )
-            else:
-                reco_status = "below"
-                reco_text = (
-                    f"Below the recommended level of {target} books. Try to borrow and read "
-                    "a bit more next month."
-                )
-        else:
-            # No configured target; still give a neutral message
-            reco_status = "na"
-            reco_text = f"This month you issued {count} book(s)."
-
-        month_stats[month_label] = {
-            "count": count,
-            "max_books": max_books_allowed,
-            "status": status,
-            "target": target,
-            "reco_status": reco_status,
-            "reco_text": reco_text,
-            "review_count": review_count,
-            "review_marks": review_marks
-        }
-
-    # --- Detailed fees list (AY only, current academic year) ---
-    cur.execute(
-        """
-        SELECT date, amount, description, note
-        FROM accountlines
-        WHERE borrowernumber = %s
-          AND DATE(`date`) BETWEEN %s AND %s
-        ORDER BY date DESC
-        LIMIT 50
-        """,
-        (borrowernumber, start_ay, end_ay),
-    )
-    fees_list = cur.fetchall() or []
-    for f in fees_list:
-        f["date"] = _to_hijri_str(f.get("date"))
-
-    cur.close()
-    conn.close()
-
-    # --- Photo lookup ---
+    # Photo lookup
     photos_dir = os.path.join(current_app.root_path, "static", "photos")
     avatar_fallback = "images/avatar.png"
 
@@ -874,57 +801,48 @@ def get_student_info(identifier):
     if not photo_filename:
         photo_filename = avatar_fallback
 
-    # --- Taqeem (Marks) Data - CORRECTED FIX ---
+    # Taqeem data
     student_identifier = student.get("ITS ID") or student.get("cardnumber") or student.get("TRNumber")
     student["Taqeem"] = None
 
     if student_identifier:
         try:
-            # Get current academic year
-            current_ay = Config.CURRENT_ACADEMIC_YEAR.replace('H', '')
+            current_ay = Config.CURRENT_ACADEMIC_YEAR().replace('H', '')
             
-            # AUTOMATIC UPDATE: Trigger update_student_taqeem to refresh marks from Koha
             try:
                 from services.marks_service import update_student_taqeem
                 update_student_taqeem(student_identifier, current_ay)
             except Exception as update_e:
                 current_app.logger.error(f"Error during automatic Taqeem update: {update_e}")
 
-            # Now fetch the updated data from DB
             taqeem_from_db = _get_student_taqeem_from_db(student_identifier, current_ay)
             
             if taqeem_from_db:
                 student["Taqeem"] = taqeem_from_db
-                # Fetch detailed program participation for the profile page
                 from services.marks_service import get_student_program_participation
                 student["ProgramParticipation"] = get_student_program_participation(student_identifier, current_ay)
             else:
-                # Fallback to simple calculation if update failed to produce a DB record
                 student["Taqeem"] = _calculate_simple_taqeem(student)
                     
         except Exception as e:
             current_app.logger.error(f"Error loading Taqeem for {student_identifier}: {e}")
-            # Fallback to simple calculation
             student["Taqeem"] = _calculate_simple_taqeem(student)
     else:
         student["Taqeem"] = _calculate_simple_taqeem(student)
 
-    # --- Build info dict (names used by template) ---
+    # Build info dict
     student["Photo"] = photo_filename
     student["BorrowedBooks"] = borrowed_books
     student["BorrowedBooksGrouped"] = grouped_sorted
     student["MonthStats"] = month_stats
-    student["Teachers"] = teachers  # Add teacher information
+    student["Teachers"] = teachers
     student["PrimaryTeacher"] = teachers[0] if teachers else None
-    student["FavoriteAuthors"] = fav_authors  # Now with OPAC URLs
-    student["BookReviewsByMonth"] = book_reviews_by_month  # Book reviews by month
+    student["FavoriteAuthors"] = fav_authors
+    student["BookReviewsByMonth"] = book_reviews_by_month
+    student["ProgramParticipation"] = student.get("ProgramParticipation", [])
 
-    # prioritized fields for template
-    student["Total Issues"] = ay_issues
-    student["Overdue Count"] = overdue_count
-    student["Total Fees Paid"] = total_fees_paid
-
-    # new metrics bundle
+    # Metrics bundle
+    ay_period_label = _ay_period_label()
     student["Metrics"] = {
         "CurrentlyIssued": active_count,
         "OverdueNow": overdue_count,
@@ -936,7 +854,7 @@ def get_student_info(identifier):
         "LastPaymentDate": last_payment_date,
         "LastIssueDate": last_issue_date,
         "LastReturnDate": last_return_date,
-        "FavoriteAuthors": [fa["display"] for fa in fav_authors],  # Keep simple list for compatibility
+        "FavoriteAuthors": [fa["display"] for fa in fav_authors],
         "MaxBooksAllowed": max_books_allowed,
         "AYPeriodLabel": ay_period_label,
         "Darajah": darajah_name,
@@ -944,14 +862,13 @@ def get_student_info(identifier):
         "TeacherCount": len(teachers)
     }
 
-    # expose fees list if you show it in the template
     student["FeesList"] = fees_list
 
     return student
 
 
 # ============================================================================
-# ROUTES - UPDATED WITH COMPREHENSIVE EXPORT SUPPORT
+# ROUTES
 # ============================================================================
 
 @bp.route("/<identifier>")
@@ -966,14 +883,11 @@ def student(identifier):
             hide_nav=True,
         )
 
-    # Force Taqeem data for testing if none exists
     if not info.get("Taqeem"):
         info["Taqeem"] = _calculate_simple_taqeem(info)
 
-    # Get OPAC base URL from Flask config
     opac_base = get_opac_base_url()
     
-    # AI Recommendations logic
     from services.recommendation_service import RecommendationService
     metrics = info.get("Metrics", {})
     marhala = metrics.get("Marhala") or "Darajah 1-4"
@@ -1005,12 +919,10 @@ def lookup_student():
 @bp.route("/<identifier>/json")
 @require_login
 def student_json(identifier):
-    """API endpoint to get student data as JSON."""
     info = get_student_info(identifier)
     if not info:
         return jsonify({"success": False, "message": "Student not found"}), 404
     
-    # Clean up data for JSON serialization
     def clean_data(data):
         if isinstance(data, datetime):
             return data.isoformat()
@@ -1028,22 +940,17 @@ def student_json(identifier):
 
 
 # ============================================================================
-# PDF EXPORT ROUTES WITH LANDSCAPE SUPPORT
+# PDF EXPORT ROUTES
 # ============================================================================
 
 @bp.route("/<identifier>/pdf")
 @bp.route("/<identifier>/pdf/<orientation>")
 @require_login
 def export_student_pdf(identifier, orientation='portrait'):
-    """
-    Export student profile to PDF with optional orientation.
-    Default: portrait for detailed profiles
-    """
     info = get_student_info(identifier)
     if not info:
         return "Student not found", 404
 
-    # Prepare student summary data
     summary_data = {
         'Full Name': info.get('FullName', ''),
         'ITS ID': info.get('ITS ID', ''),
@@ -1053,7 +960,6 @@ def export_student_pdf(identifier, orientation='portrait'):
         'Email': info.get('EduEmail', '')
     }
 
-    # Prepare borrowed books data
     all_books = []
     for month, books in info.get("BorrowedBooksGrouped", []):
         for book in books:
@@ -1067,42 +973,25 @@ def export_student_pdf(identifier, orientation='portrait'):
                 'Status': 'Overdue' if book.get('overdue') else 'Returned' if book.get('returned') else 'Active'
             })
 
-    # Create DataFrame
     if all_books:
         df = pd.DataFrame(all_books)
     else:
         df = pd.DataFrame({'Message': ['No borrowed books in Academic Year']})
 
-    # Generate PDF based on orientation
     title = f"Student Profile: {info.get('FullName', 'Student')}"
     subtitle = f"Academic Year: {info.get('Metrics', {}).get('AYPeriodLabel', '')}"
     
     try:
         if orientation.lower() == 'landscape':
-            pdf_bytes = export_to_pdf_landscape(
-                df=df,
-                title=title,
-                subtitle=subtitle,
-                summary_stats=summary_data
-            )
+            pdf_bytes = export_to_pdf_landscape(df=df, title=title, subtitle=subtitle, summary_stats=summary_data)
         else:
-            pdf_bytes = export_to_pdf_portrait(
-                df=df,
-                title=title,
-                subtitle=subtitle,
-                summary_stats=summary_data
-            )
+            pdf_bytes = export_to_pdf_portrait(df=df, title=title, subtitle=subtitle, summary_stats=summary_data)
         
         buffer = BytesIO(pdf_bytes)
         student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
         filename = f"student_profile_{student_name_clean}_{orientation}.pdf"
         
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="application/pdf",
-        )
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
     
     except Exception as e:
         current_app.logger.error(f"Error generating PDF: {e}")
@@ -1112,16 +1001,11 @@ def export_student_pdf(identifier, orientation='portrait'):
 @bp.route("/<identifier>/report/landscape")
 @require_login
 def export_student_landscape_report(identifier):
-    """
-    Export comprehensive student reading report in LANDSCAPE format.
-    Optimized for wide tables and detailed data.
-    """
     info = get_student_info(identifier)
     if not info:
         return "Student not found", 404
 
     try:
-        # Use the enhanced landscape report function
         pdf_bytes = create_student_landscape_report(
             student_info=info,
             borrowed_books=info.get("BorrowedBooks", []),
@@ -1133,230 +1017,20 @@ def export_student_landscape_report(identifier):
         student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
         filename = f"student_reading_report_{student_name_clean}_landscape.pdf"
         
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="application/pdf",
-        )
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
     
     except Exception as e:
         current_app.logger.error(f"Error generating landscape report: {e}")
         return f"Error generating report: {str(e)}", 500
 
 
-@bp.route("/<identifier>/export/month/<month_label>/excel")
-@require_login
-def export_month_excel(identifier, month_label):
-    """Export borrowed books for a specific month as Excel."""
-    info = get_student_info(identifier)
-    if not info:
-        return "Student not found", 404
-    
-    # Find books for this month
-    month_books = []
-    for month, books in info.get("BorrowedBooksGrouped", []):
-        if month == month_label:
-            month_books = books
-            break
-    
-    if not month_books:
-        return "No books found for this month", 404
-    
-    # Prepare monthly data
-    monthly_data = []
-    for book in month_books:
-        monthly_data.append({
-            'Title': clean_html_for_pdf(book.get('title', '')),
-            'Collection': book.get('collection', ''),
-            'Language': book.get('language', ''),
-            'Issued': book.get('_issued_hijri', ''),
-            'Due': book.get('_due_hijri', ''),
-            'Status': 'Overdue' if book.get('overdue') else 'Returned' if book.get('returned') else 'Active',
-            'OPAC_URL': book.get('opac_url', '')
-        })
-    
-    # Create DataFrame
-    df = pd.DataFrame(monthly_data)
-    
-    # Get monthly stats
-    month_stats = info.get("MonthStats", {}).get(month_label, {})
-    
-    # Create summary sheet
-    summary_data = {
-        'Student Name': [info.get('FullName', '')],
-        'TR Number': [info.get('TRNumber', '')],
-        'Month': [month_label],
-        'Total Books': [month_stats.get('count', 0)],
-        'Target': [month_stats.get('target', 0)],
-        'Status': [month_stats.get('reco_status', 'N/A')],
-        'Book Reviews': [month_stats.get('review_count', 0)],
-        'Review Marks': [month_stats.get('review_marks', 0)]
-    }
-    summary_df = pd.DataFrame(summary_data)
-    
-    try:
-        # Create Excel with multiple sheets
-        additional_sheets = {
-            'Summary': summary_df
-        }
-        
-        excel_bytes = dataframe_to_excel_bytes(
-            df,
-            sheet_name='Borrowed Books',
-            additional_sheets=additional_sheets
-        )
-        
-        buffer = BytesIO(excel_bytes)
-        student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
-        month_clean = re.sub(r'[^\w\s-]', '', month_label).replace(' ', '_')
-        filename = f"monthly_report_{student_name_clean}_{month_clean}.xlsx"
-        
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-    
-    except Exception as e:
-        current_app.logger.error(f"Error generating Excel: {e}")
-        return f"Error generating Excel: {str(e)}", 500
-
-
-# ============================================================================
-# CSV EXPORT ROUTES (RENAMED TO AVOID DUPLICATE ENDPOINTS)
-# ============================================================================
-
-@bp.route("/<identifier>/export/csv")
-@require_login
-def export_student_csv(identifier):
-    """Export ALL borrowed books as CSV."""
-    info = get_student_info(identifier)
-    if not info:
-        return "Student not found", 404
-    
-    # Create CSV in memory
-    output = StringIO()
-    writer = csv.writer(output)
-    
-    # Write header
-    writer.writerow([
-        'Student Name', 'ITS ID', 'TR Number', 'Darajah', 'Marhala',
-        'Book Title', 'Collection', 'Language', 'Date Issued (Hijri)', 
-        'Due Date (Hijri)', 'Returned', 'Overdue', 'Status'
-    ])
-    
-    # Write data
-    for b in info.get("BorrowedBooks", []):
-        writer.writerow([
-            info.get('FullName', ''),
-            info.get('ITS ID', ''),
-            info.get('TRNumber', ''),
-            info.get('Darajah', ''),
-            info.get('Marhala', ''),
-            b.get('title', ''),
-            b.get('collection', ''),
-            b.get('language', ''),
-            b.get('_issued_hijri', ''),
-            b.get('_due_hijri', ''),
-            'Yes' if b.get('returned') else 'No',
-            'Yes' if b.get('overdue') else 'No',
-            'Returned' if b.get('returned') else 'Overdue' if b.get('overdue') else 'Active'
-        ])
-    
-    output.seek(0)
-    
-    student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
-    filename = f"borrowed_books_{student_name_clean}.csv"
-    
-    return Response(
-        output,
-        mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment;filename={filename}"}
-    )
-
-
-@bp.route("/<identifier>/export/monthly-csv/<month_label>")
-@require_login
-def export_monthly_csv(identifier, month_label):
-    """Export borrowed books for a specific month as CSV."""
-    info = get_student_info(identifier)
-    if not info:
-        return "Student not found", 404
-    
-    # Find books for this month
-    month_books = []
-    for month, books in info.get("BorrowedBooksGrouped", []):
-        if month == month_label:
-            month_books = books
-            break
-    
-    if not month_books:
-        return "No books found for this month", 404
-    
-    # Create CSV in memory
-    output = StringIO()
-    writer = csv.writer(output)
-    
-    # Get monthly stats
-    month_stats = info.get("MonthStats", {}).get(month_label, {})
-    
-    # Write header
-    writer.writerow([
-        'Student Name', 'ITS ID', 'TR Number', 'Darajah', 'Marhala', 
-        'Month', 'Monthly Target', 'Monthly Issued', 'Monthly Reviews', 'Review Marks',
-        'Book Title', 'Collection', 'Language', 'Date Issued (Hijri)', 
-        'Due Date (Hijri)', 'Returned', 'Overdue', 'Status'
-    ])
-    
-    # Write data
-    for b in month_books:
-        writer.writerow([
-            info.get('FullName', ''),
-            info.get('ITS ID', ''),
-            info.get('TRNumber', ''),
-            info.get('Darajah', ''),
-            info.get('Marhala', ''),
-            month_label,
-            month_stats.get('target', 0),
-            month_stats.get('count', 0),
-            month_stats.get('review_count', 0),
-            month_stats.get('review_marks', 0),
-            b.get('title', ''),
-            b.get('collection', ''),
-            b.get('language', ''),
-            b.get('_issued_hijri', ''),
-            b.get('_due_hijri', ''),
-            'Yes' if b.get('returned') else 'No',
-            'Yes' if b.get('overdue') else 'No',
-            'Returned' if b.get('returned') else 'Overdue' if b.get('overdue') else 'Active'
-        ])
-    
-    output.seek(0)
-    
-    student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
-    month_clean = re.sub(r'[^\w\s-]', '', month_label).replace(' ', '_')
-    filename = f"borrowed_books_{student_name_clean}_{month_clean}.csv"
-    
-    return Response(
-        output,
-        mimetype="text/csv",
-        headers={"Content-Disposition": f"attachment;filename={filename}"}
-    )
-
-
-@bp.route("/<identifier>/report/monthly/<month_label>/landscape")
+@bp.route("/<identifier>/export/monthly-landscape/<month_label>")
 @require_login
 def export_monthly_landscape_report(identifier, month_label):
-    """
-    Export monthly student report in LANDSCAPE format.
-    """
     info = get_student_info(identifier)
     if not info:
         return "Student not found", 404
 
-    # Find books for this month
     month_books = []
     for month, books in info.get("BorrowedBooksGrouped", []):
         if month == month_label:
@@ -1366,7 +1040,6 @@ def export_monthly_landscape_report(identifier, month_label):
     if not month_books:
         return "No books found for this month", 404
 
-    # Prepare monthly data
     monthly_data = []
     for book in month_books:
         monthly_data.append({
@@ -1378,7 +1051,6 @@ def export_monthly_landscape_report(identifier, month_label):
             'Status': 'Overdue' if book.get('overdue') else 'Returned' if book.get('returned') else 'Active'
         })
 
-    # Get monthly stats
     month_stats = info.get("MonthStats", {}).get(month_label, {})
     summary_stats = {
         'Books Issued': month_stats.get('count', 0),
@@ -1402,32 +1074,177 @@ def export_monthly_landscape_report(identifier, month_label):
         month_clean = re.sub(r'[^\w\s-]', '', month_label).replace(' ', '_')
         filename = f"monthly_report_{student_name_clean}_{month_clean}_landscape.pdf"
         
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="application/pdf",
-        )
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
     
     except Exception as e:
         current_app.logger.error(f"Error generating monthly landscape report: {e}")
         return f"Error generating report: {str(e)}", 500
 
 
-# ============================================================================
-# EXCEL EXPORT ROUTES
-# ============================================================================
+@bp.route("/<identifier>/export/month/<month_label>/excel")
+@require_login
+def export_month_excel(identifier, month_label):
+    info = get_student_info(identifier)
+    if not info:
+        return "Student not found", 404
+    
+    month_books = []
+    for month, books in info.get("BorrowedBooksGrouped", []):
+        if month == month_label:
+            month_books = books
+            break
+    
+    if not month_books:
+        return "No books found for this month", 404
+    
+    monthly_data = []
+    for book in month_books:
+        monthly_data.append({
+            'Title': clean_html_for_pdf(book.get('title', '')),
+            'Collection': book.get('collection', ''),
+            'Language': book.get('language', ''),
+            'Issued': book.get('_issued_hijri', ''),
+            'Due': book.get('_due_hijri', ''),
+            'Status': 'Overdue' if book.get('overdue') else 'Returned' if book.get('returned') else 'Active',
+            'OPAC_URL': book.get('opac_url', '')
+        })
+    
+    df = pd.DataFrame(monthly_data)
+    month_stats = info.get("MonthStats", {}).get(month_label, {})
+    
+    summary_data = {
+        'Student Name': [info.get('FullName', '')],
+        'TR Number': [info.get('TRNumber', '')],
+        'Month': [month_label],
+        'Total Books': [month_stats.get('count', 0)],
+        'Target': [month_stats.get('target', 0)],
+        'Status': [month_stats.get('reco_status', 'N/A')],
+        'Book Reviews': [month_stats.get('review_count', 0)],
+        'Review Marks': [month_stats.get('review_marks', 0)]
+    }
+    summary_df = pd.DataFrame(summary_data)
+    
+    try:
+        additional_sheets = {'Summary': summary_df}
+        excel_bytes = dataframe_to_excel_bytes(df, sheet_name='Borrowed Books', additional_sheets=additional_sheets)
+        
+        buffer = BytesIO(excel_bytes)
+        student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
+        month_clean = re.sub(r'[^\w\s-]', '', month_label).replace(' ', '_')
+        filename = f"monthly_report_{student_name_clean}_{month_clean}.xlsx"
+        
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    
+    except Exception as e:
+        current_app.logger.error(f"Error generating Excel: {e}")
+        return f"Error generating Excel: {str(e)}", 500
+
+
+@bp.route("/<identifier>/export/csv")
+@require_login
+def export_student_csv(identifier):
+    info = get_student_info(identifier)
+    if not info:
+        return "Student not found", 404
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    
+    writer.writerow([
+        'Student Name', 'ITS ID', 'TR Number', 'Darajah', 'Marhala',
+        'Book Title', 'Collection', 'Language', 'Date Issued (Hijri)', 
+        'Due Date (Hijri)', 'Returned', 'Overdue', 'Status'
+    ])
+    
+    for b in info.get("BorrowedBooks", []):
+        writer.writerow([
+            info.get('FullName', ''),
+            info.get('ITS ID', ''),
+            info.get('TRNumber', ''),
+            info.get('Darajah', ''),
+            info.get('Marhala', ''),
+            b.get('title', ''),
+            b.get('collection', ''),
+            b.get('language', ''),
+            b.get('_issued_hijri', ''),
+            b.get('_due_hijri', ''),
+            'Yes' if b.get('returned') else 'No',
+            'Yes' if b.get('overdue') else 'No',
+            'Returned' if b.get('returned') else 'Overdue' if b.get('overdue') else 'Active'
+        ])
+    
+    output.seek(0)
+    student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
+    filename = f"borrowed_books_{student_name_clean}.csv"
+    
+    return Response(output, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename={filename}"})
+
+
+@bp.route("/<identifier>/export/monthly-csv/<month_label>")
+@require_login
+def export_monthly_csv(identifier, month_label):
+    info = get_student_info(identifier)
+    if not info:
+        return "Student not found", 404
+    
+    month_books = []
+    for month, books in info.get("BorrowedBooksGrouped", []):
+        if month == month_label:
+            month_books = books
+            break
+    
+    if not month_books:
+        return "No books found for this month", 404
+    
+    output = StringIO()
+    writer = csv.writer(output)
+    month_stats = info.get("MonthStats", {}).get(month_label, {})
+    
+    writer.writerow([
+        'Student Name', 'ITS ID', 'TR Number', 'Darajah', 'Marhala', 
+        'Month', 'Monthly Target', 'Monthly Issued', 'Monthly Reviews', 'Review Marks',
+        'Book Title', 'Collection', 'Language', 'Date Issued (Hijri)', 
+        'Due Date (Hijri)', 'Returned', 'Overdue', 'Status'
+    ])
+    
+    for b in month_books:
+        writer.writerow([
+            info.get('FullName', ''),
+            info.get('ITS ID', ''),
+            info.get('TRNumber', ''),
+            info.get('Darajah', ''),
+            info.get('Marhala', ''),
+            month_label,
+            month_stats.get('target', 0),
+            month_stats.get('count', 0),
+            month_stats.get('review_count', 0),
+            month_stats.get('review_marks', 0),
+            b.get('title', ''),
+            b.get('collection', ''),
+            b.get('language', ''),
+            b.get('_issued_hijri', ''),
+            b.get('_due_hijri', ''),
+            'Yes' if b.get('returned') else 'No',
+            'Yes' if b.get('overdue') else 'No',
+            'Returned' if b.get('returned') else 'Overdue' if b.get('overdue') else 'Active'
+        ])
+    
+    output.seek(0)
+    student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
+    month_clean = re.sub(r'[^\w\s-]', '', month_label).replace(' ', '_')
+    filename = f"borrowed_books_{student_name_clean}_{month_clean}.csv"
+    
+    return Response(output, mimetype="text/csv", headers={"Content-Disposition": f"attachment;filename={filename}"})
+
 
 @bp.route("/<identifier>/export/excel")
 @require_login
 def export_student_excel(identifier):
-    """Export student data to Excel with multiple sheets."""
     info = get_student_info(identifier)
     if not info:
         return "Student not found", 404
 
     try:
-        # Prepare main data sheet
         main_data = []
         for month, books in info.get("BorrowedBooksGrouped", []):
             for book in books:
@@ -1443,7 +1260,6 @@ def export_student_excel(identifier):
         
         main_df = pd.DataFrame(main_data) if main_data else pd.DataFrame({'Message': ['No data']})
         
-        # Prepare summary sheet
         metrics = info.get('Metrics', {})
         summary_data = {
             'Field': ['Full Name', 'ITS ID', 'TR Number', 'Darajah', 'Marhala', 
@@ -1457,7 +1273,6 @@ def export_student_excel(identifier):
         }
         summary_df = pd.DataFrame(summary_data)
         
-        # Prepare monthly stats sheet
         monthly_stats = []
         for month, stats in info.get('MonthStats', {}).items():
             monthly_stats.append({
@@ -1470,28 +1285,14 @@ def export_student_excel(identifier):
             })
         monthly_df = pd.DataFrame(monthly_stats) if monthly_stats else pd.DataFrame({'Message': ['No monthly stats']})
         
-        # Create Excel with multiple sheets
-        additional_sheets = {
-            'Summary': summary_df,
-            'Monthly Stats': monthly_df
-        }
-        
-        excel_bytes = dataframe_to_excel_bytes(
-            main_df,
-            sheet_name='Borrowed Books',
-            additional_sheets=additional_sheets
-        )
+        additional_sheets = {'Summary': summary_df, 'Monthly Stats': monthly_df}
+        excel_bytes = dataframe_to_excel_bytes(main_df, sheet_name='Borrowed Books', additional_sheets=additional_sheets)
         
         buffer = BytesIO(excel_bytes)
         student_name_clean = re.sub(r'[^\w\s-]', '', info.get('FullName', '')).replace(' ', '_')
         filename = f"student_data_{student_name_clean}.xlsx"
         
-        return send_file(
-            buffer,
-            as_attachment=True,
-            download_name=filename,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     
     except Exception as e:
         current_app.logger.error(f"Error generating Excel: {e}")
@@ -1505,16 +1306,18 @@ def export_student_excel(identifier):
 @bp.route("/api/search", methods=["GET"])
 @require_login
 def search_students():
-    """Search for students by name, TR number, or ITS ID."""
     query = request.args.get('q', '').strip()
     if not query or len(query) < 2:
         return jsonify({"success": False, "message": "Query too short"}), 400
     
     conn = get_koha_conn()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
     
     try:
-        sql = """
+        darajah_codes_ph = ",".join(["%s"] * len(DARAJAH_CODES))
+        tr_codes_ph = ",".join(["%s"] * len(TR_ATTR_CODES))
+        
+        sql = f"""
             SELECT 
                 b.borrowernumber,
                 b.cardnumber,
@@ -1528,10 +1331,10 @@ def search_students():
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN (%s, %s, %s, %s)
+                AND std.code IN ({darajah_codes_ph})
             LEFT JOIN borrower_attributes tr
                 ON tr.borrowernumber = b.borrowernumber
-                AND tr.code IN (%s, %s, %s, %s)
+                AND tr.code IN ({tr_codes_ph})
             WHERE 
                 b.firstname LIKE %s OR
                 b.surname LIKE %s OR
@@ -1543,15 +1346,11 @@ def search_students():
         """
         
         like_pattern = f"%{query}%"
-        params = (
-            *DARAJAH_CODES, *TR_ATTR_CODES,
-            like_pattern, like_pattern, like_pattern, like_pattern, like_pattern
-        )
+        params = (*DARAJAH_CODES, *TR_ATTR_CODES, like_pattern, like_pattern, like_pattern, like_pattern, like_pattern)
         
         cur.execute(sql, params)
         results = cur.fetchall()
         
-        # Add teacher information for each student
         for student in results:
             darajah = student.get('Darajah')
             if darajah:
@@ -1572,9 +1371,8 @@ def search_students():
 @bp.route("/api/darajah/<darajah_name>")
 @require_login
 def get_darajah_students(darajah_name):
-    """Get all students in a specific darajah."""
     conn = get_koha_conn()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
     
     try:
         darajah_codes_ph = ",".join(["%s"] * len(DARAJAH_CODES))
@@ -1606,7 +1404,6 @@ def get_darajah_students(darajah_name):
         cur.execute(sql, params)
         students = cur.fetchall()
         
-        # Get teachers for this darajah
         teachers = _get_teachers_for_darajah(darajah_name)
         
         return jsonify({
@@ -1631,11 +1428,10 @@ def get_darajah_students(darajah_name):
 @bp.route("/api/marks/<student_username>")
 @require_login
 def get_student_marks(student_username):
-    """Get comprehensive Taqeem (marks) for a student."""
     try:
         from services.marks_service import calculate_total_taqeem
         
-        current_ay = Config.CURRENT_ACADEMIC_YEAR.replace('H', '')
+        current_ay = Config.CURRENT_ACADEMIC_YEAR().replace('H', '')
         academic_year = request.args.get('year', current_ay)
         marks_data = calculate_total_taqeem(student_username, academic_year)
         
@@ -1656,21 +1452,17 @@ def get_student_marks(student_username):
 @bp.route("/api/marks/update/<student_username>", methods=["POST"])
 @require_login
 def update_student_marks_api(student_username):
-    """Recalculate and update student marks in the database."""
     try:
-        current_ay = Config.CURRENT_ACADEMIC_YEAR.replace('H', '')
+        current_ay = Config.CURRENT_ACADEMIC_YEAR().replace('H', '')
         academic_year = request.json.get('year', current_ay) if request.json else current_ay
         
-        # Get student info
         info = get_student_info(student_username)
         if not info:
             return jsonify({"success": False, "message": "Student not found"}), 404
         
-        # Try to calculate fresh Taqeem
         taqeem_data = None
         try:
             from services.marks_service import calculate_total_taqeem
-            # FIXED: Remove student_trno parameter
             taqeem_data = calculate_total_taqeem(
                 student_username=student_username, 
                 academic_year=academic_year
@@ -1693,15 +1485,15 @@ def update_student_marks_api(student_username):
 @bp.route("/api/marks/class/<darajah_name>")
 @require_login
 def get_class_marks(darajah_name):
-    """Get marks summary for all students in a class."""
+    conn = None
+    cur = None
     try:
         conn = get_app_conn()
         cur = conn.cursor()
         
-        current_ay = Config.CURRENT_ACADEMIC_YEAR.replace('H', '')
+        current_ay = Config.CURRENT_ACADEMIC_YEAR().replace('H', '')
         academic_year = request.args.get('year', current_ay)
         
-        # Get all students' marks for this class
         cur.execute("""
             SELECT 
                 student_username,
@@ -1728,9 +1520,6 @@ def get_class_marks(darajah_name):
                 "last_updated": row[6]
             })
         
-        cur.close()
-        conn.close()
-        
         return jsonify({
             "success": True,
             "darajah": darajah_name,
@@ -1742,6 +1531,11 @@ def get_class_marks(darajah_name):
     except Exception as e:
         current_app.logger.error(f"Error fetching class marks for {darajah_name}: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # ============================================================================
@@ -1751,28 +1545,21 @@ def get_class_marks(darajah_name):
 @bp.route("/batch/export/pdf", methods=["POST"])
 @require_login
 def batch_export_pdf():
-    """
-    Batch export multiple student reports to PDF.
-    Accepts JSON with list of student identifiers.
-    """
     try:
         data = request.get_json()
         if not data or 'students' not in data:
             return jsonify({"success": False, "message": "No students provided"}), 400
         
         student_identifiers = data['students']
-        orientation = data.get('orientation', 'landscape')
-        report_type = data.get('report_type', 'detailed')
         
         if not student_identifiers or not isinstance(student_identifiers, list):
             return jsonify({"success": False, "message": "Invalid students list"}), 400
         
-        # Limit batch size for performance
         if len(student_identifiers) > 50:
             return jsonify({"success": False, "message": "Batch size limited to 50 students"}), 400
         
         reports = []
-        for identifier in student_identifiers[:20]:  # Further limit for PDF generation
+        for identifier in student_identifiers[:20]:
             info = get_student_info(identifier)
             if info:
                 reports.append({
@@ -1788,22 +1575,14 @@ def batch_export_pdf():
         if not reports:
             return jsonify({"success": False, "message": "No valid students found"}), 404
         
-        # Generate batch reports
         from services.exports import create_batch_reports
         results = create_batch_reports(reports)
         
-        # For now, return the first report (in production, you might zip them)
         if results:
             first_key = list(results.keys())[0]
             buffer = BytesIO(results[first_key])
-            
             filename = f"batch_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-            return send_file(
-                buffer,
-                as_attachment=True,
-                download_name=filename,
-                mimetype="application/pdf"
-            )
+            return send_file(buffer, as_attachment=True, download_name=filename, mimetype="application/pdf")
         else:
             return jsonify({"success": False, "message": "No reports generated"}), 500
             
@@ -1817,11 +1596,9 @@ def batch_export_pdf():
 # ============================================================================
 
 def _prepare_student_data_for_export(info):
-    """Prepare student data for export in a standardized format."""
     if not info:
         return None
     
-    # Basic student info
     export_data = {
         'student_id': info.get('ITS ID', ''),
         'full_name': info.get('FullName', ''),
@@ -1837,7 +1614,6 @@ def _prepare_student_data_for_export(info):
         'fees_list': info.get('FeesList', [])
     }
     
-    # Borrowed books by month
     borrowed_by_month = []
     for month, books in info.get("BorrowedBooksGrouped", []):
         month_data = {
@@ -1862,7 +1638,6 @@ def _prepare_student_data_for_export(info):
     
     export_data['borrowed_by_month'] = borrowed_by_month
     
-    # Book reviews by month
     reviews_by_month = []
     for month, reviews in info.get("BookReviewsByMonth", {}).items():
         reviews_by_month.append({

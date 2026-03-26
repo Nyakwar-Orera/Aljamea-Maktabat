@@ -1,4 +1,5 @@
-# routes/teacher_dashboard.py - COMPLETE UPDATED VERSION WITH FIXED STUDENT LISTING
+# routes/teacher_dashboard.py - COMPLETE UPDATED VERSION WITH FIXED CONNECTIONS AND STUDENT DISPLAY
+# Updated to use service functions for Hijri date conversion
 
 from flask import (
     Blueprint, render_template, session, redirect, url_for,
@@ -90,47 +91,52 @@ def _clean_title(title):
 
 
 # --------------------------------------------------
-# HIJRI DATE HELPERS
+# HIJRI DATE HELPERS - UPDATED TO USE SERVICE FUNCTIONS
 # --------------------------------------------------
 def _hijri_date_label(d: date) -> str:
-    """Get full Hijri date label"""
-    try:
-        from hijri_converter import convert
-        h = convert.Gregorian(d.year, d.month, d.day).to_hijri()
-        hijri_months = [
-            "Muḥarram al-Harām", "Safar al-Muzaffar", "Rabi al-Awwal", "Rabī al-Aakhar",
-            "Jamādil Awwal", "Jamādā al-ʾŪkhrā", "Rajab al-Asab", "Shabān al-Karim",
-            "Shehrullah al-Moazzam", "Shawwāl al-Mukarram", "Zilqādah al-Harām", "Zilhijjatil Harām",
-        ]
-        return f"{h.day} {hijri_months[h.month - 1]} {h.year} H"
-    except Exception as e:
-        current_app.logger.warning(f"Hijri conversion error: {e}")
-        return d.strftime("%d %B %Y")
-
+    """Get full Hijri date label using service function."""
+    return KQ.get_hijri_date_label(d)
 
 def _hijri_date_label_short(d: date) -> str:
-    """
-    Short Hijri date for table columns – compact so it fits in narrow cells.
-    Example: 05-01-47 H (for 5 Muharram 1447 H)
-    """
+    """Short Hijri date for table columns."""
     try:
-        from hijri_converter import convert
-        h = convert.Gregorian(d.year, d.month, d.day).to_hijri()
-        return f"{h.day:02d}-{h.month:02d}-{str(h.year)[-2:]} H"
-    except Exception as e:
-        current_app.logger.warning(f"Hijri conversion error: {e}")
+        full_label = KQ.get_hijri_date_label(d)
+        # Extract short version (e.g., "15 Shawwāl 1447 H" -> "15-10-47 H")
+        parts = full_label.split()
+        if len(parts) >= 3:
+            # Find the month number from the month name
+            month_names = [
+                "Muḥarram al-Harām", "Safar al-Muzaffar", "Rabi al-Awwal", "Rabī al-Akhar",
+                "Jamādil Awwal", "Jamādā al-ʾŪkhrā", "Rajab al-Asab", "Shabān al-Karim",
+                "Shehrullah al-Moazzam", "Shawwāl al-Mukarram", "Zilqādah al-Harām", "Zilhijjatil Harām",
+            ]
+            # The month name could be "Shawwāl" or "Shawwāl al-Mukarram"
+            month_name = parts[1]
+            if len(parts) > 3 and parts[2] in ["al-Mukarram", "al-Muzaffar", "al-Akhar", "al-Harām", "al-Moazzam", "al-Asab", "al-Karim"]:
+                month_name = f"{parts[1]} {parts[2]}"
+            
+            month_num = 0
+            for i, name in enumerate(month_names):
+                if name == month_name or name.startswith(parts[1]):
+                    month_num = i + 1
+                    break
+            
+            # Extract year (last part before "H")
+            year_part = parts[-2] if len(parts) > 2 and parts[-1] == "H" else parts[-1]
+            # Remove any non-digit characters from year
+            year = ''.join(filter(str.isdigit, str(year_part)))
+            
+            return f"{int(parts[0]):02d}-{month_num:02d}-{str(year)[-2:]} H"
+        return full_label
+    except Exception:
         return d.strftime("%d-%m-%y")
 
-
 def _hijri_month_year_label(d: date) -> str:
-    """Get Hijri month-year label"""
+    """Get Hijri month-year label using service function."""
     return KQ.get_hijri_month_year_label(d)
 
-
 def _hijri_from_any(value) -> str:
-    """
-    Convert a value (date/datetime/ISO string) to a short Hijri date label.
-    """
+    """Convert a value to a Hijri date label using service function."""
     if not value:
         return "-"
     try:
@@ -154,34 +160,14 @@ def get_academic_year_period():
     if not start or not end:
         return "Academic Year not started yet"
     
-    try:
-        from hijri_converter import convert
-        h_start = convert.Gregorian(start.year, start.month, start.day).to_hijri()
-        month_start = [
-            "Muḥarram al-Harām", "Safar al-Muzaffar", "Rabi al-Awwal", "Rabī al-Akhar",
-            "Jamādil Awwal", "Jamādā al-ʾŪkhrā", "Rajab al-Asab", "Shabān al-Karim",
-            "Shehrullah al-Moazzam", "Shawwāl al-Mukarram", "Zilqādah al-Harām", "Zilhijjatil Harām",
-        ][h_start.month - 1]
-        
-        h_end = convert.Gregorian(end.year, end.month, end.day).to_hijri()
-        month_end = [
-            "Muḥarram al-Harām", "Safar al-Muzaffar", "Rabi al-Awwal", "Rabī al-Akhar",
-            "Jamādil Awwal", "Jamādā al-ʾŪkhrā", "Rajab al-Asab", "Shabān al-Karim",
-            "Shehrullah al-Moazzam", "Shawwāl al-Mukarram", "Zilqādah al-Harām", "Zilhijjatil Harām",
-        ][h_end.month - 1]
-        
-        return f"{h_start.day} {month_start} {h_start.year} H to {h_end.day} {month_end} {h_end.year} H"
-    except Exception:
-        return f"{start.strftime('%d %b %Y')} to {end.strftime('%d %b %Y')}"
+    return f"{KQ.get_hijri_date_label(start)} to {KQ.get_hijri_date_label(end)}"
 
 
 # --------------------------------------------------
 # TEACHER ACCESS HELPERS
 # --------------------------------------------------
 def _teacher_allowed_darajah(username: str, darajah_name: str) -> bool:
-    """
-    Validate that the teacher is mapped to the given darajah.
-    """
+    """Validate that the teacher is mapped to the given darajah."""
     if not username or not darajah_name:
         current_app.logger.warning(f"Invalid parameters: username={username}, darajah={darajah_name}")
         return False
@@ -215,10 +201,7 @@ def _teacher_allowed_darajah(username: str, darajah_name: str) -> bool:
 
 
 def get_teacher_darajah(username: str):
-    """
-    Get the darajah that a teacher is mapped to.
-    Returns the first darajah found for the teacher.
-    """
+    """Get the darajah that a teacher is mapped to."""
     if not username:
         return None
     
@@ -267,22 +250,20 @@ def _darajah_ay_trend(darajah_name: str):
 
 
 # --------------------------------------------------
-# FIXED: GET AY STUDENT STATISTICS - ONLY STUDENTS WITH BOOKS
+# GET AY STUDENT STATISTICS - ONLY STUDENTS WITH BOOKS
 # --------------------------------------------------
 def _get_ay_student_stats(darajah_name: str):
-    """
-    Get per-student AY statistics - ONLY STUDENTS WITH BOOKS ISSUED.
-    This uses INNER JOIN with statistics to ensure only students with issues are returned.
-    """
+    """Get per-student AY statistics - ONLY STUDENTS WITH BOOKS ISSUED."""
     start, end = KQ.get_ay_bounds()
     if not start:
         return []
     
+    conn = None
+    cur = None
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
-        # FIXED: INNER JOIN with statistics to only get students with issues
         cur.execute(
             """
             SELECT 
@@ -333,7 +314,6 @@ def _get_ay_student_stats(darajah_name: str):
         rows = cur.fetchall()
         current_app.logger.info(f"Found {len(rows)} students with books issued for darajah {darajah_name}")
         
-        # Process the results
         processed_list = []
         for student in rows:
             tr_no = student.get("TRNumber", "")
@@ -342,7 +322,6 @@ def _get_ay_student_stats(darajah_name: str):
                 
             full_name = student.get("FullName", "").strip()
             if not full_name or full_name.lower() in ['none', 'null']:
-                # Try to get student info for better name
                 try:
                     student_info = get_student_info(tr_no)
                     if student_info and student_info.get("FullName"):
@@ -366,30 +345,31 @@ def _get_ay_student_stats(darajah_name: str):
                     "display_name": _format_student_display(tr_no, full_name)
                 })
         
-        cur.close()
-        conn.close()
-        
         return processed_list
         
     except Exception as e:
         current_app.logger.error(f"Error getting AY student stats for {darajah_name}: {str(e)}")
         current_app.logger.error(traceback.format_exc())
         return []
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # --------------------------------------------------
-# NEW: GET ALL STUDENTS IN DARAJAH (including zero issues)
+# GET ALL STUDENTS IN DARAJAH (including zero issues)
 # --------------------------------------------------
 def _get_all_students_in_darajah(darajah_name: str):
-    """
-    Get ALL students in a darajah, including those with zero books issued.
-    Used for accurate student count.
-    """
+    """Get ALL students in a darajah, including those with zero books issued."""
     start, end = KQ.get_ay_bounds()
     
+    conn = None
+    cur = None
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
         cur.execute(
             """
@@ -443,8 +423,6 @@ def _get_all_students_in_darajah(darajah_name: str):
         )
         
         rows = cur.fetchall()
-        cur.close()
-        conn.close()
         
         students_list = []
         for row in rows:
@@ -475,110 +453,115 @@ def _get_all_students_in_darajah(darajah_name: str):
     except Exception as e:
         current_app.logger.error(f"Error getting all students for darajah {darajah_name}: {str(e)}")
         return []
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # --------------------------------------------------
-# FIXED: CURRENT MONTH SUMMARY
+# CURRENT MONTH SUMMARY
 # --------------------------------------------------
 def _darajah_current_month_summary(darajah_name: str):
-    """
-    Get summary of books issued to students in the current month.
-    Returns a tuple of (summary_dict, collections_summary)
-    """
+    """Get summary of books issued to students in the current month."""
     try:
         today = date.today()
         month_start = date(today.year, today.month, 1)
         month_end = today
 
-        conn = get_koha_conn()
-        cur = conn.cursor()
+        conn = None
+        cur = None
+        try:
+            conn = get_koha_conn()
+            cur = conn.cursor(dictionary=True)
 
-        cur.execute("""
-            SELECT
-                trno.attribute AS TRNo,
-                TRIM(CONCAT(
-                    COALESCE(b.surname, ''),
-                    CASE WHEN b.surname IS NOT NULL AND b.firstname IS NOT NULL 
-                         THEN ' ' ELSE '' END,
-                    COALESCE(b.firstname, '')
-                )) AS FullName,
-                COUNT(DISTINCT s.itemnumber) AS BooksMonth,
-                GROUP_CONCAT(DISTINCT bib.title ORDER BY bib.title SEPARATOR ' • ') AS TitlesMonth,
-                GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS CollectionsMonth,
-                GROUP_CONCAT(DISTINCT bib.biblionumber) AS BiblioIDs
-            FROM statistics s
-            INNER JOIN borrowers b ON b.borrowernumber = s.borrowernumber
-            LEFT JOIN borrower_attributes std ON 
-                std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
-            LEFT JOIN borrower_attributes trno ON 
-                trno.borrowernumber = b.borrowernumber
-                AND trno.code = 'TRNO'
-            INNER JOIN items it ON s.itemnumber = it.itemnumber
-            INNER JOIN biblio bib ON it.biblionumber = bib.biblionumber
-            WHERE s.type = 'issue'
-              AND DATE(s.datetime) BETWEEN %s AND %s
-              AND (std.attribute = %s OR b.branchcode = %s)
-              AND trno.attribute IS NOT NULL
-              AND trno.attribute != ''
-            GROUP BY trno.attribute, b.borrowernumber, b.surname, b.firstname
-            HAVING BooksMonth > 0
-            ORDER BY BooksMonth DESC
-        """, (month_start, month_end, darajah_name, darajah_name))
-        
-        rows = cur.fetchall()
-        
-        summary_by_trno = {}
-        collections_all = set()
+            cur.execute("""
+                SELECT
+                    trno.attribute AS TRNo,
+                    TRIM(CONCAT(
+                        COALESCE(b.surname, ''),
+                        CASE WHEN b.surname IS NOT NULL AND b.firstname IS NOT NULL 
+                             THEN ' ' ELSE '' END,
+                        COALESCE(b.firstname, '')
+                    )) AS FullName,
+                    COUNT(DISTINCT s.itemnumber) AS BooksMonth,
+                    GROUP_CONCAT(DISTINCT bib.title ORDER BY bib.title SEPARATOR ' • ') AS TitlesMonth,
+                    GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS CollectionsMonth,
+                    GROUP_CONCAT(DISTINCT bib.biblionumber) AS BiblioIDs
+                FROM statistics s
+                INNER JOIN borrowers b ON b.borrowernumber = s.borrowernumber
+                LEFT JOIN borrower_attributes std ON 
+                    std.borrowernumber = b.borrowernumber
+                    AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+                LEFT JOIN borrower_attributes trno ON 
+                    trno.borrowernumber = b.borrowernumber
+                    AND trno.code = 'TRNO'
+                INNER JOIN items it ON s.itemnumber = it.itemnumber
+                INNER JOIN biblio bib ON it.biblionumber = bib.biblionumber
+                WHERE s.type = 'issue'
+                  AND DATE(s.datetime) BETWEEN %s AND %s
+                  AND (std.attribute = %s OR b.branchcode = %s)
+                  AND trno.attribute IS NOT NULL
+                  AND trno.attribute != ''
+                GROUP BY trno.attribute, b.borrowernumber, b.surname, b.firstname
+                HAVING BooksMonth > 0
+                ORDER BY BooksMonth DESC
+            """, (month_start, month_end, darajah_name, darajah_name))
+            
+            rows = cur.fetchall()
+            
+            summary_by_trno = {}
+            collections_all = set()
 
-        for r in rows:
-            tr = str(r.get("TRNo") or "").strip()
-            if not tr:
-                continue
-                
-            books_month = int(r.get("BooksMonth") or 0)
-            titles_month = r.get("TitlesMonth") or ""
-            collections_month = r.get("CollectionsMonth") or ""
-            full_name = r.get("FullName") or ""
-            biblio_ids = r.get("BiblioIDs") or ""
+            for r in rows:
+                tr = str(r.get("TRNo") or "").strip()
+                if not tr:
+                    continue
+                    
+                books_month = int(r.get("BooksMonth") or 0)
+                titles_month = r.get("TitlesMonth") or ""
+                collections_month = r.get("CollectionsMonth") or ""
+                full_name = r.get("FullName") or ""
+                biblio_ids = r.get("BiblioIDs") or ""
 
-            # Clean the name
-            full_name = _clean_student_name(full_name)
-            if not full_name or full_name == "Name not available":
-                full_name = f"Student (TR: {tr})"
-            else:
-                full_name = full_name.strip()
+                full_name = _clean_student_name(full_name)
+                if not full_name or full_name == "Name not available":
+                    full_name = f"Student (TR: {tr})"
+                else:
+                    full_name = full_name.strip()
 
-            # Clean titles
-            cleaned_titles = []
-            if titles_month:
-                title_list = titles_month.split(' • ')
-                for title in title_list:
-                    cleaned_titles.append(_clean_title(title))
-                titles_month = ' • '.join(cleaned_titles)
+                cleaned_titles = []
+                if titles_month:
+                    title_list = titles_month.split(' • ')
+                    for title in title_list:
+                        cleaned_titles.append(_clean_title(title))
+                    titles_month = ' • '.join(cleaned_titles)
 
-            summary_by_trno[tr] = {
-                "full_name": full_name,
-                "books_month": books_month,
-                "titles_month": titles_month,
-                "collections_month": collections_month,
-                "biblio_ids": biblio_ids,
-                "display_name": _format_student_display(tr, full_name)
-            }
+                summary_by_trno[tr] = {
+                    "full_name": full_name,
+                    "books_month": books_month,
+                    "titles_month": titles_month,
+                    "collections_month": collections_month,
+                    "biblio_ids": biblio_ids,
+                    "display_name": _format_student_display(tr, full_name)
+                }
 
-            # Track all unique collections
-            if collections_month:
-                for cc in collections_month.split(","):
-                    c = cc.strip()
-                    if c:
-                        collections_all.add(c)
+                if collections_month:
+                    for cc in collections_month.split(","):
+                        c = cc.strip()
+                        if c:
+                            collections_all.add(c)
 
-        collections_summary = ", ".join(sorted(collections_all)) if collections_all else ""
-        
-        cur.close()
-        conn.close()
-        
-        return summary_by_trno, collections_summary
+            collections_summary = ", ".join(sorted(collections_all)) if collections_all else ""
+            
+            return summary_by_trno, collections_summary
+            
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
         
     except Exception as e:
         current_app.logger.error(f"Error in _darajah_current_month_summary: {str(e)}")
@@ -593,46 +576,54 @@ def _darajah_current_overdues(darajah_name: str):
     """Get current overdue books for a darajah"""
     try:
         today = date.today()
+        conn = None
+        cur = None
+        
+        try:
+            conn = get_koha_conn()
+            cur = conn.cursor(dictionary=True)
 
-        conn = get_koha_conn()
-        cur = conn.cursor()
+            cur.execute(
+                """
+                SELECT
+                  trno.attribute AS TRNo,
+                  COUNT(*) AS OverdueNow
+                FROM issues iss
+                JOIN borrowers b
+                     ON b.borrowernumber = iss.borrowernumber
+                LEFT JOIN borrower_attributes std
+                     ON std.borrowernumber = b.borrowernumber
+                    AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+                LEFT JOIN borrower_attributes trno
+                     ON trno.borrowernumber = b.borrowernumber
+                    AND trno.code = 'TRNO'
+                WHERE (std.attribute = %s OR b.branchcode = %s)
+                  AND trno.attribute IS NOT NULL
+                  AND trno.attribute != ''
+                  AND iss.returndate IS NULL
+                  AND iss.date_due < %s
+                GROUP BY trno.attribute, b.borrowernumber;
+                """,
+                (darajah_name, darajah_name, today),
+            )
 
-        cur.execute(
-            """
-            SELECT
-              trno.attribute AS TRNo,
-              COUNT(*) AS OverdueNow
-            FROM issues iss
-            JOIN borrowers b
-                 ON b.borrowernumber = iss.borrowernumber
-            LEFT JOIN borrower_attributes std
-                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
-            LEFT JOIN borrower_attributes trno
-                 ON trno.borrowernumber = b.borrowernumber
-                AND trno.code = 'TRNO'
-            WHERE (std.attribute = %s OR b.branchcode = %s)
-              AND trno.attribute IS NOT NULL
-              AND trno.attribute != ''
-              AND iss.returndate IS NULL
-              AND iss.date_due < %s
-            GROUP BY trno.attribute, b.borrowernumber;
-            """,
-            (darajah_name, darajah_name, today),
-        )
+            rows = cur.fetchall()
+            
+            overdue_by_trno = {}
+            for r in rows:
+                tr = str(r.get("TRNo") or "").strip()
+                if not tr:
+                    continue
+                overdue_by_trno[tr] = int(r.get("OverdueNow") or 0)
 
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
-
-        overdue_by_trno = {}
-        for r in rows:
-            tr = str(r.get("TRNo") or "").strip()
-            if not tr:
-                continue
-            overdue_by_trno[tr] = int(r.get("OverdueNow") or 0)
-
-        return overdue_by_trno
+            return overdue_by_trno
+            
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+                
     except Exception as e:
         current_app.logger.error(f"Error getting current overdues: {e}")
         return {}
@@ -653,9 +644,11 @@ def _get_darajah_ay_stats(darajah_name: str):
             "total_students": 0
         }
 
+    conn = None
+    cur = None
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
         # Get AY books issued
         cur.execute(
@@ -732,7 +725,7 @@ def _get_darajah_ay_stats(darajah_name: str):
         overdues_row = cur.fetchone()
         overdues = overdues_row["overdues"] if overdues_row else 0
         
-        # Get active students with TR numbers (students who issued at least 1 book)
+        # Get active students with TR numbers
         cur.execute(
             """
             SELECT COUNT(DISTINCT trno.attribute) as active_students
@@ -781,9 +774,6 @@ def _get_darajah_ay_stats(darajah_name: str):
         total_row = cur.fetchone()
         total_students = total_row["total_students"] if total_row else 0
         
-        cur.close()
-        conn.close()
-        
         return {
             "books_issued": books_issued,
             "overdues": overdues,
@@ -801,6 +791,11 @@ def _get_darajah_ay_stats(darajah_name: str):
             "active_students": 0,
             "total_students": 0
         }
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # --------------------------------------------------
@@ -810,60 +805,69 @@ def _darajah_top_titles_by_lang(darajah_name: str, lang_pattern: str, limit: int
     """Get top titles by language for a darajah"""
     try:
         start, end = KQ.get_ay_bounds()
-        conn = get_koha_conn()
-        cur = conn.cursor()
-
-        cur.execute(
-            """
-            SELECT
-                bib.biblionumber AS Biblio_ID,
-                bib.title AS Title,
-                ExtractValue(
-                    bmd.metadata,
-                    '//datafield[@tag="041"]/subfield[@code="a"]'
-                ) AS Language,
-                GROUP_CONCAT(DISTINCT it.ccode SEPARATOR ', ') AS Collections,
-                COUNT(*) AS Times_Issued,
-                MAX(all_iss.issuedate) AS LastIssued
-            FROM (
-                SELECT borrowernumber, itemnumber, issuedate
-                FROM issues
-                UNION ALL
-                SELECT borrowernumber, itemnumber, issuedate
-                FROM old_issues
-            ) all_iss
-            JOIN borrowers b
-                 ON b.borrowernumber = all_iss.borrowernumber
-            LEFT JOIN borrower_attributes std
-                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
-            JOIN items it
-                 ON all_iss.itemnumber = it.itemnumber
-            JOIN biblio bib
-                 ON it.biblionumber = bib.biblionumber
-            JOIN biblio_metadata bmd
-                 ON bib.biblionumber = bmd.biblionumber
-            WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
-              AND (std.attribute = %s OR b.branchcode = %s)
-              AND ExtractValue(
-                    bmd.metadata,
-                    '//datafield[@tag="041"]/subfield[@code="a"]'
-                  ) LIKE %s
-            GROUP BY bib.biblionumber, bib.title, Language
-            ORDER BY Times_Issued DESC
-            LIMIT %s;
-            """,
-            (start, end, darajah_name, darajah_name, lang_pattern, int(limit)),
-        )
-
-        rows = cur.fetchall()
-        cur.close()
-        conn.close()
+        conn = None
+        cur = None
         
-        for row in rows:
-            if 'Title' in row:
-                row['Title'] = _clean_title(row['Title'])
-        return rows or []
+        try:
+            conn = get_koha_conn()
+            cur = conn.cursor(dictionary=True)
+
+            cur.execute(
+                """
+                SELECT
+                    bib.biblionumber AS Biblio_ID,
+                    bib.title AS Title,
+                    ExtractValue(
+                        bmd.metadata,
+                        '//datafield[@tag="041"]/subfield[@code="a"]'
+                    ) AS Language,
+                    GROUP_CONCAT(DISTINCT it.ccode SEPARATOR ', ') AS Collections,
+                    COUNT(*) AS Times_Issued,
+                    MAX(all_iss.issuedate) AS LastIssued
+                FROM (
+                    SELECT borrowernumber, itemnumber, issuedate
+                    FROM issues
+                    UNION ALL
+                    SELECT borrowernumber, itemnumber, issuedate
+                    FROM old_issues
+                ) all_iss
+                JOIN borrowers b
+                     ON b.borrowernumber = all_iss.borrowernumber
+                LEFT JOIN borrower_attributes std
+                     ON std.borrowernumber = b.borrowernumber
+                    AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+                JOIN items it
+                     ON all_iss.itemnumber = it.itemnumber
+                JOIN biblio bib
+                     ON it.biblionumber = bib.biblionumber
+                JOIN biblio_metadata bmd
+                     ON bib.biblionumber = bmd.biblionumber
+                WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
+                  AND (std.attribute = %s OR b.branchcode = %s)
+                  AND ExtractValue(
+                        bmd.metadata,
+                        '//datafield[@tag="041"]/subfield[@code="a"]'
+                      ) LIKE %s
+                GROUP BY bib.biblionumber, bib.title, Language
+                ORDER BY Times_Issued DESC
+                LIMIT %s;
+                """,
+                (start, end, darajah_name, darajah_name, lang_pattern, int(limit)),
+            )
+
+            rows = cur.fetchall()
+            
+            for row in rows:
+                if 'Title' in row:
+                    row['Title'] = _clean_title(row['Title'])
+            return rows or []
+            
+        finally:
+            if cur:
+                cur.close()
+            if conn:
+                conn.close()
+                
     except Exception as e:
         current_app.logger.error(f"Error getting top titles: {e}")
         return []
@@ -878,9 +882,11 @@ def _get_top_students_for_darajah(darajah_name: str, limit: int = 10):
     if not start:
         return []
     
+    conn = None
+    cur = None
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
         cur.execute("""
             SELECT 
@@ -925,8 +931,6 @@ def _get_top_students_for_darajah(darajah_name: str, limit: int = 10):
         """, (start, end, darajah_name, darajah_name, limit))
         
         rows = cur.fetchall()
-        cur.close()
-        conn.close()
         
         for row in rows:
             if row["FullName"] is None or str(row["FullName"]).strip() == "" or str(row["FullName"]).lower() == "none":
@@ -941,16 +945,18 @@ def _get_top_students_for_darajah(darajah_name: str, limit: int = 10):
         current_app.logger.error(f"Error getting top students for darajah {darajah_name}: {str(e)}")
         current_app.logger.error(traceback.format_exc())
         return []
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # --------------------------------------------------
 # PARSE DARAJAH NAME FOR DISPLAY
 # --------------------------------------------------
 def _parse_darajah_name(darajah_name: str):
-    """
-    Parse darajah names like '5 B M', '5 B F', '7A', '7AF', etc.
-    Returns a dict with parsed components.
-    """
+    """Parse darajah names like '5 B M', '5 B F', '7A', '7AF', etc."""
     if not darajah_name:
         return {
             "original": "", 
@@ -963,7 +969,6 @@ def _parse_darajah_name(darajah_name: str):
         }
     
     original = darajah_name.strip()
-    
     normalized = original.upper().replace(" ", "")
     
     year_match = re.match(r'^(\d+)', normalized)
@@ -1137,9 +1142,11 @@ def get_all_darajahs():
     if teacher_mapping_darajahs:
         return teacher_mapping_darajahs
     
+    conn = None
+    cur = None
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
         cur.execute("""
             WITH recent_activity AS (
@@ -1182,22 +1189,31 @@ def get_all_darajahs():
                 COALESCE(ra.active_count, 0) as recent_activity,
                 COALESCE(asd.student_count, 0) as active_students
             FROM recent_activity ra
-            FULL JOIN active_students asd ON ra.darajah_name = asd.darajah_name
+            LEFT JOIN active_students asd ON ra.darajah_name = asd.darajah_name
+            
+            UNION
+            
+            SELECT 
+                COALESCE(ra.darajah_name, asd.darajah_name) AS darajah_name,
+                COALESCE(ra.active_count, 0) as recent_activity,
+                COALESCE(asd.student_count, 0) as active_students
+            FROM active_students asd
+            LEFT JOIN recent_activity ra ON ra.darajah_name = asd.darajah_name
+            WHERE ra.darajah_name IS NULL
+            
             ORDER BY 
                 CASE 
-                    WHEN COALESCE(ra.darajah_name, asd.darajah_name) REGEXP '^[0-9]+' 
-                    THEN CAST(SUBSTRING_INDEX(COALESCE(ra.darajah_name, asd.darajah_name), ' ', 1) AS UNSIGNED)
+                    WHEN darajah_name REGEXP '^[0-9]+' 
+                    THEN CAST(SUBSTRING_INDEX(darajah_name, ' ', 1) AS UNSIGNED)
                     ELSE 999 
                 END
         """)
         
         rows = cur.fetchall()
-        cur.close()
-        conn.close()
         
         darajahs = []
         for row in rows:
-            darajah_name = row[0]
+            darajah_name = row.get("darajah_name")
             if not darajah_name:
                 continue
                 
@@ -1214,8 +1230,8 @@ def get_all_darajahs():
                 "gender": parsed["gender"],
                 "gender_code": parsed["gender_code"],
                 "is_arabic": parsed["is_arabic"],
-                "active_students": row[2] if len(row) > 2 else 0,
-                "recent_activity": row[1] if len(row) > 1 else 0
+                "active_students": row.get("active_students", 0),
+                "recent_activity": row.get("recent_activity", 0)
             })
         
         darajahs.sort(key=lambda x: (
@@ -1228,7 +1244,14 @@ def get_all_darajahs():
         return darajahs
     except Exception as e:
         current_app.logger.error(f"Error getting all darajahs: {e}")
+        import traceback
+        traceback.print_exc()
         return []
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # --------------------------------------------------
@@ -1321,7 +1344,7 @@ def dashboard():
             top_students=[],
             top_arabic=[],
             top_english=[],
-            students=[],  # This will be empty
+            students=[],
             month_students=[],
             collections_summary="",
             all_darajahs=all_darajahs,
@@ -1447,7 +1470,7 @@ def dashboard():
             top_students=top_students,
             top_arabic=top_arabic,
             top_english=top_english,
-            students=students_with_books,  # This is the key - only students with books
+            students=students_with_books,
             month_students=month_students_list,
             collections_summary=collections_summary,
             all_darajahs=all_darajahs,
@@ -1463,7 +1486,7 @@ def dashboard():
 
 
 # --------------------------------------------------
-# OTHER ROUTES (unchanged from original)
+# DARAJAH EXPLORER ROUTE - UPDATED TO USE SERVICE FUNCTIONS
 # --------------------------------------------------
 @bp.route("/darajah-explorer")
 def darajah_explorer():
@@ -1476,19 +1499,7 @@ def darajah_explorer():
         flash("Admin access required for darajah explorer.", "danger")
         return redirect(url_for("dashboard_bp.dashboard"))
     
-    try:
-        from hijri_converter import convert
-        
-        today = date.today()
-        h = convert.Gregorian(today.year, today.month, today.day).to_hijri()
-        hijri_months = [
-            "Muḥarram al-Harām", "Safar al-Muzaffar", "Rabi al-Awwal", "Rabī al-Akhar",
-            "Jamādil Awwal", "Jamādā al-ʾŪkhrā", "Rajab al-Asab", "Shabān al-Karim",
-            "Shehrullah al-Moazzam", "Shawwāl al-Mukarram", "Zilqādah al-Harām", "Zilhijjatil Harām",
-        ]
-        hijri_today = f"{h.day} {hijri_months[h.month - 1]} {h.year} H"
-    except Exception:
-        hijri_today = today.strftime("%d %B %Y")
+    hijri_today = KQ.get_hijri_date_label(date.today())
     
     all_darajahs = [d for d in get_all_darajahs() if d.get("gender") != "Mixed"]
     
@@ -1575,6 +1586,9 @@ def darajah_explorer():
     )
 
 
+# --------------------------------------------------
+# OTHER ROUTES
+# --------------------------------------------------
 @bp.route("/quick-select")
 def quick_select():
     """Quick darajah selection endpoint for admin"""

@@ -1,4 +1,4 @@
-# routes/hod_dashboard.py - FIXED VERSION WITH NO INDIVIDUAL FUNCTION IMPORTS
+# routes/hod_dashboard.py - COMPLETE UPDATED VERSION WITH HIJRI SERVICE FUNCTIONS
 
 from flask import (
     Blueprint,
@@ -203,22 +203,8 @@ def _get_marhala_type_icon(marhala_name, marhala_code=None):
         return "building", "Other"
 
 def _get_time_period_label():
-    """Get current time period label for reports."""
-    from hijri_converter import convert
-    today = date.today()
-    
-    try:
-        hijri = convert.Gregorian(today.year, today.month, today.day).to_hijri()
-        months = [
-            "Muḥarram", "Safar", "Rabi al-Awwal", "Rabī al-Aakhar",
-            "Jamādil Awwal", "Jamādā al-ʾŪkhrā", "Rajab", "Shabān",
-            "Shehrullah", "Shawwāl", "Zilqādah", "Zilhijjatil Harām",
-        ]
-        hijri_month = months[hijri.month - 1]
-        return f"{hijri.day} {hijri_month} {hijri.year} H"
-    except:
-        return today.strftime("%d %B %Y")
-
+    """Get current time period label for reports using service function."""
+    return KQ.get_hijri_date_label(date.today())
 
 def _classify_darajah_info(darajah_name):
     """
@@ -273,41 +259,21 @@ def _classify_darajah_info(darajah_name):
     }
 
 # --------------------------------------------------
-# HIJRI HELPERS
+# HIJRI HELPERS - UPDATED TO USE SERVICE FUNCTIONS
 # --------------------------------------------------
 def _hijri_date_label(d: date) -> str:
-    """Convert Gregorian date to Hijri date label."""
-    try:
-        from hijri_converter import convert
-        h = convert.Gregorian(d.year, d.month, d.day).to_hijri()
-        hijri_months = [
-            "Muḥarram al-Harām",
-            "Safar al-Muzaffar",
-            "Rabi al-Awwal",
-            "Rabī al-Aakhar",
-            "Jamādil Awwal",
-            "Jamādā al-ʾŪkhrā",
-            "Rajab al-Asab",
-            "Shabān al-Karim",
-            "Shehrullah al-Moazzam",
-            "Shawwāl al-Mukarram",
-            "Zilqādah al-Harām",
-            "Zilhijjatil Harām",
-        ]
-        return f"{h.day} {hijri_months[h.month - 1]} {h.year} H"
-    except Exception:
-        return d.strftime("%d %B %Y")
+    """Convert Gregorian date to Hijri date label using service function."""
+    return KQ.get_hijri_date_label(d)
 
 def _hijri_month_year_label(d: date) -> str:
-    """Get Hijri month and year label for charts."""
+    """Get Hijri month and year label for charts using service function."""
     return KQ.get_hijri_month_year_label(d)
 
 # --------------------------------------------------
 # ACADEMIC YEAR HELPER
 # --------------------------------------------------
-
 def get_academic_year_period():
-    """Get formatted Academic Year period in Hijri."""
+    """Get formatted Academic Year period in Hijri using service function."""
     start, end = KQ.get_ay_bounds()
     
     if not start or not end:
@@ -321,7 +287,7 @@ def get_academic_year_period():
 def get_all_marhalas_for_hod():
     """Get all distinct marhalas from Koha categories for HOD selection - FIXED VERSION."""
     conn = get_koha_conn()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)  # Add dictionary=True
     
     try:
         # First, get all categories
@@ -547,7 +513,7 @@ def _get_accurate_marhala_stats(marhala_code):
     try:
         start, end = KQ.get_ay_bounds()
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
         # Get accurate borrower counts
         cur.execute(
@@ -671,7 +637,7 @@ def get_marhala_top_titles(marhala_code: str, lang_code: str, limit: int = 10):
     
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         lang_like = f"{lang_code}%"
         
         # Try to get category description
@@ -760,12 +726,6 @@ def get_marhala_ay_trend(marhala_code: str):
     except Exception as e:
         current_app.logger.error(f"Error getting marhala trend for {marhala_code}: {e}")
         return [], [], ""
-    finally:
-        try:
-            cur.close()
-            conn.close()
-        except:
-            pass
 
 # --------------------------------------------------
 # FIXED: GET DARAJAH BREAKDOWN
@@ -779,7 +739,7 @@ def get_darajah_breakdown(marhala_code: str):
     
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
         sql = """
             SELECT 
@@ -802,7 +762,7 @@ def get_darajah_breakdown(marhala_code: str):
         rows = cur.fetchall()
         
         # Filter out None or empty darajah names
-        filtered_rows = [(r[0], r[1]) for r in rows if r[0] and r[0] != 'Unknown' and r[0] != '']
+        filtered_rows = [(r["darajah_name"], r["cnt"]) for r in rows if r["darajah_name"] and r["darajah_name"] != 'Unknown' and r["darajah_name"] != '']
         
         labels = [r[0] for r in filtered_rows] or ["—"]
         values = [int(r[1]) for r in filtered_rows] or [0]
@@ -829,12 +789,12 @@ def get_top_students_in_marhala(marhala_code: str, limit: int = 10):
 
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
 
         cur.execute("""
             SELECT 
                 b.borrowernumber,
-                b.cardnumber AS TRNumber,
+                trno.attribute AS TRNumber,
                 CASE 
                     WHEN (b.surname IS NULL OR b.surname = '' OR b.surname = 'None') 
                          AND (b.firstname IS NULL OR b.firstname = '' OR b.firstname = 'None')
@@ -857,6 +817,9 @@ def get_top_students_in_marhala(marhala_code: str, limit: int = 10):
             LEFT JOIN borrower_attributes std
                  ON std.borrowernumber = b.borrowernumber
                 AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+            LEFT JOIN borrower_attributes trno
+                 ON trno.borrowernumber = b.borrowernumber
+                AND trno.code = 'TRNO'
             JOIN items it ON s.itemnumber = it.itemnumber
             WHERE s.type = 'issue'
               AND DATE(s.`datetime`) BETWEEN %s AND %s
@@ -868,7 +831,7 @@ def get_top_students_in_marhala(marhala_code: str, limit: int = 10):
                 b.borrowernumber,
                 b.surname,
                 b.firstname,
-                b.cardnumber,
+                trno.attribute,
                 std.attribute,
                 b.branchcode
             ORDER BY Issues_AY DESC
@@ -918,7 +881,6 @@ def get_top_students_in_marhala(marhala_code: str, limit: int = 10):
             conn.close()
         except:
             pass
-
 
 # --------------------------------------------------
 # FIXED: GET NON-ACADEMIC MARHALA DISPLAY NAME
@@ -1455,11 +1417,7 @@ def marhala_explorer():
         flash("Admin access required for marhala explorer.", "danger")
         return redirect(url_for("dashboard_bp.dashboard"))
     
-    try:
-        today = date.today()
-        hijri_today = _hijri_date_label(today)
-    except Exception:
-        hijri_today = today.strftime("%d %B %Y")
+    hijri_today = KQ.get_hijri_date_label(date.today())
     
     # Get current academic year
     start, end = KQ.get_ay_bounds()
@@ -1573,7 +1531,7 @@ def debug_marhala(marhala_code):
     
     try:
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
         output.append("<h2>1. Koha Categories</h2>")
         cur.execute("SELECT categorycode, description FROM categories WHERE categorycode = %s", (marhala_code,))
@@ -1581,8 +1539,8 @@ def debug_marhala(marhala_code):
         
         if categories:
             output.append("<table border='1'><tr><th>Code</th><th>Description</th></tr>")
-            for code, desc in categories:
-                output.append(f"<tr><td>{code}</td><td>{desc}</td></tr>")
+            for row in categories:
+                output.append(f"<tr><td>{row['categorycode']}</td><td>{row['description']}</td></tr>")
             output.append("</table>")
         else:
             output.append("<p>Category not found.</p>")
@@ -1592,8 +1550,8 @@ def debug_marhala(marhala_code):
             if similar:
                 output.append("<h3>Similar categories found:</h3>")
                 output.append("<table border='1'><tr><th>Code</th><th>Description</th></tr>")
-                for code, desc in similar:
-                    output.append(f"<tr><td>{code}</td><td>{desc}</td></tr>")
+                for row in similar:
+                    output.append(f"<tr><td>{row['categorycode']}</td><td>{row['description']}</td></tr>")
                 output.append("</table>")
         
         # Check borrowers
@@ -1608,7 +1566,7 @@ def debug_marhala(marhala_code):
         """, (marhala_code,))
         
         count_row = cur.fetchone()
-        borrower_count = count_row[0] if count_row else 0
+        borrower_count = count_row["count"] if count_row else 0
         output.append(f"<p>Active borrowers: {borrower_count}</p>")
         
         cur.close()

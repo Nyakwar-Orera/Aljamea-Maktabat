@@ -1,9 +1,6 @@
 # 📚 Maktabat al-Jamea: Institutional Library Intelligence Portal
 
-[![Status](https://img.shields.io/badge/Status-Production--Ready-success.svg)](#)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](#)
-[![Framework](https://img.shields.io/badge/Framework-Flask-black.svg)](#)
-[![PWA](https://img.shields.io/badge/PWA-Enabled-orange.svg)](#)
+A professional, role-based dashboard built with **Flask** and seamlessly integrated with **Koha ILS**. It provides real-time analytics, automated scheduled reports, and secure dashboards for administrators, heads of departments (HODs), and class teachers—enabling data-driven decisions and streamlined library management.
 
 A state-of-the-art, role-based library ecosystem designed for **Aljamea-tus-Saifiyah**. This portal seamlessly bridges the gap between the **Koha ILS** backend and a premium, student-facing frontend, offering AI-powered insights, secure digital reading, and comprehensive academic assessment (Taqeem).
 

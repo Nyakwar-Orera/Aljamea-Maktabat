@@ -1,4 +1,4 @@
-# routes/dashboard.py - FULLY UPDATED with correct Marhala names and student links
+# routes/dashboard.py - FULLY UPDATED with fixes for cursor issues and URL building
 from datetime import date, datetime
 from flask import Blueprint, render_template, session, redirect, url_for, flash, request, jsonify, current_app
 from db_koha import get_koha_conn
@@ -28,16 +28,51 @@ def get_academic_year_period():
     if not start or not end:
         return "Academic Year not started yet"
     
-    return f"{KQ.get_hijri_date_label(start)} to {KQ.get_hijri_date_label(end)}"
+    try:
+        from hijri_converter import convert
+        
+        # Convert start and end dates to Hijri
+        h_start = convert.Gregorian(start.year, start.month, start.day).to_hijri()
+        h_end = convert.Gregorian(end.year, end.month, end.day).to_hijri()
+        
+        hijri_months = [
+            "Muḥarram al-Harām", "Safar al-Muzaffar", "Rabi al-Awwal", "Rabī al-Akhar",
+            "Jamādil Awwal", "Jamādā al-ʾŪkhrā", "Rajab al-Asab", "Shabān al-Karim",
+            "Shehrullah al-Moazzam", "Shawwāl al-Mukarram", "Zilqādah al-Harām", "Zilhijjatil Harām",
+        ]
+        
+        start_month = hijri_months[h_start.month - 1]
+        end_month = hijri_months[h_end.month - 1]
+        
+        return f"{h_start.day} {start_month} {h_start.year} H to {h_end.day} {end_month} {h_end.year} H"
+        
+    except Exception:
+        # Fallback to KQ's Hijri conversion
+        return f"{KQ.get_hijri_date_label(start)} to {KQ.get_hijri_date_label(end)}"
 
 def get_current_ay_year():
-    """Get current Academic Year for display."""
-    today = date.today()
-    
-    if 4 <= today.month <= 12:
-        return today.year
-    else:
-        return today.year - 1
+    """Get current Academic Year for display using Hijri year."""
+    try:
+        from hijri_converter import convert
+        today = date.today()
+        h_today = convert.Gregorian(today.year, today.month, today.day).to_hijri()
+        
+        # Get the Hijri year
+        hijri_year = h_today.year
+        
+        # Check if we're before Shawwal (academic year start)
+        # If current month is before Shawwal (month 10), we're in previous academic year
+        if h_today.month < 10:
+            return hijri_year - 1
+        else:
+            return hijri_year
+    except Exception:
+        # Fallback to Gregorian year calculation
+        today = date.today()
+        if 4 <= today.month <= 12:
+            return today.year
+        else:
+            return today.year - 1
 
 def get_hijri_today() -> str:
     """Get today's date in Hijri format (Full religious name)."""
@@ -89,7 +124,7 @@ def calculate_current_fees_in_kes(selected_marhala=None):
     start, end = KQ.get_ay_bounds()
     conn = get_koha_conn()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)  # Use dictionary cursor
         query = """
             SELECT COALESCE(SUM(
                 CASE 
@@ -112,7 +147,7 @@ def calculate_current_fees_in_kes(selected_marhala=None):
             
         cur.execute(query, params)
         result = cur.fetchone()
-        total_fees_kes = float(result[0] if result else 0.0)
+        total_fees_kes = float(result.get("total_fees_kes", 0) if result else 0.0)
         cur.close()
         return total_fees_kes
     except Exception as e:
@@ -173,7 +208,7 @@ def get_academic_marhalas_list():
     
     conn = get_koha_conn()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)  # Use dictionary cursor
         placeholders = ', '.join(['%s'] * len(academic_marhalas))
         cur.execute(
             f"SELECT DISTINCT description FROM categories WHERE categorycode IN ({placeholders}) ORDER BY description", 
@@ -181,7 +216,7 @@ def get_academic_marhalas_list():
         )
         rows = cur.fetchall()
         cur.close()
-        return [row[0] for row in rows if row[0]]
+        return [row['description'] for row in rows if row.get('description')]
     except Exception as e:
         current_app.logger.error(f"Error getting academic marhalas: {e}")
         return []
@@ -196,7 +231,7 @@ def get_non_academic_marhalas_list():
     
     conn = get_koha_conn()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)  # Use dictionary cursor
         placeholders = ', '.join(['%s'] * len(non_academic_marhalas))
         cur.execute(
             f"SELECT DISTINCT description FROM categories WHERE categorycode IN ({placeholders}) ORDER BY description", 
@@ -204,7 +239,7 @@ def get_non_academic_marhalas_list():
         )
         rows = cur.fetchall()
         cur.close()
-        return [row[0] for row in rows if row[0]]
+        return [row['description'] for row in rows if row.get('description')]
     except Exception as e:
         current_app.logger.error(f"Error getting non-academic marhalas: {e}")
         return []
@@ -271,7 +306,7 @@ def format_marhala_display_name(marhala_name):
         "Collegiate II & Higher Studies (Std 8-11)": "Collegiate II & Higher Studies (Std 8-11)",
         "Collegiate II and Higher Studies": "Collegiate II & Higher Studies (Std 8-11)",
         "Dars Burhani": "Dars Burhani",
-        "Staff": "Library Staffs"
+        "Staff": "Library Staff"
     }
     
     return display_map.get(marhala_name, marhala_name)
@@ -282,7 +317,7 @@ def get_academic_marhalas_performance():
     try:
         start, end = KQ.get_ay_bounds()
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)  # Use dictionary cursor
 
         academic_codes = ['S-CO', 'S-CGB', 'S-CGA', 'S-CT', 'S-DARS']
         if not academic_codes:
@@ -373,6 +408,8 @@ def get_academic_marhalas_performance():
 
     except Exception as e:
         current_app.logger.error(f"Error getting academic marhalas performance: {e}")
+        import traceback
+        traceback.print_exc()
         return []
     finally:
         if 'conn' in locals():
@@ -383,7 +420,7 @@ def get_non_academic_marhalas_performance():
     try:
         start, end = KQ.get_ay_bounds()
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)  # Use dictionary cursor
 
         non_academic_codes = ['T-KG', 'L', 'T', 'S', 'HO', 'M-KG']
         if not non_academic_codes:
@@ -432,29 +469,38 @@ def get_non_academic_marhalas_performance():
         rows = cur.fetchall()
         cur.close()
 
-        formatted_rows = []
+        aggregated = {}
         for row in rows:
             marhala_name = row.get("Marhala", "")
             if not marhala_name:
                 continue
 
+            display_name = format_marhala_display_name(marhala_name)
             active_patrons = int(row.get("ActivePatrons", 0) or 0)
             issues = int(row.get("Issues", 0) or 0)
-            issues_per_patron = round(issues / active_patrons, 2) if active_patrons > 0 else 0.0
 
-            formatted_rows.append({
-                "MARHALA": format_marhala_display_name(marhala_name),
-                "ISSUES": issues,
-                "PATRONS": active_patrons,
-                "ISSUES/PATRON": issues_per_patron,
-                "TYPE": "Non-Academic"
-            })
+            if display_name not in aggregated:
+                aggregated[display_name] = {
+                    "MARHALA": display_name,
+                    "ISSUES": 0,
+                    "PATRONS": 0,
+                    "TYPE": "Non-Academic"
+                }
+            
+            aggregated[display_name]["ISSUES"] += issues
+            aggregated[display_name]["PATRONS"] += active_patrons
+
+        formatted_rows = []
+        for name, data in aggregated.items():
+            issues = data["ISSUES"]
+            patrons = data["PATRONS"]
+            data["ISSUES/PATRON"] = round(issues / patrons, 2) if patrons > 0 else 0.0
+            formatted_rows.append(data)
 
         expected_marhalas = [
             "Asateza Kiram",
             "Library Staff",
             "Teaching Staff",
-            "Library Staffs",
             "Sighat ul Jamea",
             "Mukhayyam Khidmat Guzar"
         ]
@@ -475,6 +521,8 @@ def get_non_academic_marhalas_performance():
 
     except Exception as e:
         current_app.logger.error(f"Error getting non-academic marhalas performance: {e}")
+        import traceback
+        traceback.print_exc()
         return []
     finally:
         if 'conn' in locals():
@@ -489,7 +537,7 @@ def get_all_darajahs_detailed():
 
     conn = get_koha_conn()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)  # Use dictionary cursor
         
         current_app.logger.info(f"Academic Year Dates: {start} to {end}")
         
@@ -515,7 +563,7 @@ def get_all_darajahs_detailed():
             FROM borrowers b
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+                AND std.code IN ('Class','STD','CLASS','DAR','CLASS_STD')
             LEFT JOIN borrower_attributes trno
                 ON trno.borrowernumber = b.borrowernumber
                 AND trno.code = 'TRNO'
@@ -538,7 +586,7 @@ def get_all_darajahs_detailed():
         
         for row in rows:
             row["Marhala"] = format_marhala_display_name(row.get("Marhala", ""))
-            avg_issues = row["AvgIssuesPerStudent"] or 0
+            avg_issues = row.get("AvgIssuesPerStudent") or 0
             if avg_issues >= 5:
                 row["Efficiency"] = "Excellent"
                 row["EfficiencyColor"] = "success"
@@ -557,6 +605,8 @@ def get_all_darajahs_detailed():
         
     except Exception as e:
         current_app.logger.error(f"Error getting all darajahs detailed: {e}")
+        import traceback
+        traceback.print_exc()
         return []
     finally:
         conn.close()
@@ -573,7 +623,7 @@ def get_currently_issued_by_marhala(marhala_name=None):
         try:
             start, end = KQ.get_ay_bounds()
             conn = get_koha_conn()
-            cur = conn.cursor()
+            cur = conn.cursor(dictionary=True)  # Use dictionary cursor
             
             query = """
                 SELECT 
@@ -600,18 +650,25 @@ def get_currently_issued_by_marhala(marhala_name=None):
             cur.execute(query, params)
             rows = cur.fetchall()
             
-            total_issued = sum(row['CurrentlyIssued'] for row in rows)
+            total_issued = sum(row.get('CurrentlyIssued', 0) for row in rows) if rows else 0
             
+            processed_rows = []
             for row in rows:
-                row["Marhala"] = format_marhala_display_name(row["Marhala"])
+                processed_rows.append({
+                    "Marhala": format_marhala_display_name(row.get("Marhala", "Unknown")),
+                    "CurrentlyIssued": row.get("CurrentlyIssued", 0),
+                    "Overdue": row.get("Overdue", 0)
+                })
             
             cur.close()
             return {
-                "marhalas": rows,
+                "marhalas": processed_rows,
                 "total_currently_issued": total_issued
             }
         except Exception as e2:
             current_app.logger.error(f"Fallback error in currently issued: {e2}")
+            import traceback
+            traceback.print_exc()
             return {"marhalas": [], "total_currently_issued": 0}
         finally:
             if 'conn' in locals():
@@ -704,10 +761,9 @@ def get_top_students(limit=10, selected_marhala=None):
             student_id = row.get("borrowernumber")
             marhala = row.get("Department") or row.get("Marhala", "Unknown")
             
-            # Use hod_dashboard_bp.student_details for consistent UX
+            # FIXED: Use 'identifier' parameter instead of 'borrowernumber' and 'marhala'
             student_link = url_for('hod_dashboard_bp.student_details', 
-                                   borrowernumber=student_id, 
-                                   marhala=marhala)
+                                   identifier=student_id)
             
             results.append({
                 "StudentName": row.get("StudentName", "Unknown"),
@@ -720,6 +776,8 @@ def get_top_students(limit=10, selected_marhala=None):
         return results
     except Exception as e:
         current_app.logger.error(f"Error getting top students: {e}")
+        import traceback
+        traceback.print_exc()
         return []
     finally:
         pass
@@ -749,14 +807,14 @@ def get_darajah_students_breakdown(darajah_name, page=1, per_page=20):
     
     conn = get_koha_conn()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)  # Use dictionary cursor
         
         cur.execute("""
             SELECT COUNT(DISTINCT b.borrowernumber) as total_students
             FROM borrowers b
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+                AND std.code IN ('Class','STD','CLASS','DAR','CLASS_STD')
             LEFT JOIN borrower_attributes trno
                 ON trno.borrowernumber = b.borrowernumber
                 AND trno.code = 'TRNO'
@@ -769,7 +827,7 @@ def get_darajah_students_breakdown(darajah_name, page=1, per_page=20):
         """, (darajah_name, darajah_name))
         
         count_result = cur.fetchone()
-        total_students = count_result['total_students'] if count_result else 0
+        total_students = count_result.get('total_students', 0) if count_result else 0
 
         cur.execute("""
             SELECT 
@@ -828,7 +886,7 @@ def get_darajah_students_breakdown(darajah_name, page=1, per_page=20):
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+                AND std.code IN ('Class','STD','CLASS','DAR','CLASS_STD')
             LEFT JOIN borrower_attributes trno
                 ON trno.borrowernumber = b.borrowernumber
                 AND trno.code = 'TRNO'
@@ -850,7 +908,7 @@ def get_darajah_students_breakdown(darajah_name, page=1, per_page=20):
             current_fees = float(student.get("CurrentFeesKES", 0) or 0)
             student["CurrentFeesDisplay"] = f"KSh {current_fees:,.2f}"
             
-            identifier = student["cardnumber"] or str(student["borrowernumber"])
+            identifier = student.get("cardnumber") or str(student.get("borrowernumber"))
             student["StudentLink"] = f"/students/{identifier}"
         
         total_pages = (total_students // per_page) + (1 if total_students % per_page else 0)
@@ -859,6 +917,8 @@ def get_darajah_students_breakdown(darajah_name, page=1, per_page=20):
         return students, total_students, total_pages
     except Exception as e:
         current_app.logger.error(f"Error getting darajah students breakdown: {e}")
+        import traceback
+        traceback.print_exc()
         return [], 0, 0
     finally:
         conn.close()
@@ -883,14 +943,12 @@ def dashboard():
 
     if request.method == "POST":
         selected_marhala = (request.form.get("marhalaFilter") or "").strip()
-        if selected_marhala:
-            session["selected_marhala"] = selected_marhala
+        session["selected_marhala"] = selected_marhala
+    else:
+        selected_marhala = (session.get("selected_marhala") or "").strip()
 
-    selected_marhala = (
-        (request.form.get("marhalaFilter") or "").strip()
-        or (session.get("selected_marhala") or "").strip()
-        or None
-    )
+    if not selected_marhala:
+        selected_marhala = None
 
     ay_period = get_academic_year_period()
 
@@ -1125,7 +1183,7 @@ def darajah_detail(darajah_name):
     start, end = KQ.get_ay_bounds()
     conn = get_koha_conn()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)  # Use dictionary cursor
         
         cur.execute("""
             SELECT 
@@ -1137,7 +1195,7 @@ def darajah_detail(darajah_name):
             JOIN borrowers b ON b.borrowernumber = s.borrowernumber
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+                AND std.code IN ('Class','STD','CLASS','DAR','CLASS_STD')
             JOIN items it ON s.itemnumber = it.itemnumber
             JOIN biblio bib ON it.biblionumber = bib.biblionumber
             WHERE s.type = 'issue'

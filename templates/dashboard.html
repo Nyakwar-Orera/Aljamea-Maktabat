@@ -19,25 +19,28 @@
     </div>
     <div class="d-flex align-items-center gap-3 flex-wrap">
       <!-- Marhala Filter Dropdown -->
-      <form action="{{ url_for('dashboard_bp.dashboard') }}" method="POST" class="d-flex align-items-center gap-2" id="marhalaForm">
+      <form action="{{ url_for('dashboard_bp.dashboard') }}" method="POST" class="d-flex align-items-center gap-2"
+        id="marhalaForm">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="input-group shadow-sm">
           <span class="input-group-text bg-white border-end-0">
             <i class="fas fa-filter text-primary"></i>
           </span>
-          <select name="marhalaFilter" class="form-select border-start-0" onchange="this.form.submit()" style="min-width: 200px; border-radius: 0 8px 8px 0;">
+          <select name="marhalaFilter" class="form-select border-start-0" onchange="this.form.submit()"
+            style="min-width: 200px; border-radius: 0 8px 8px 0;">
             <option value="">All Marhalas</option>
             {% for m in all_marhalas %}
-            <option value="{{ m }}" {% if selected_marhala == m %}selected{% endif %}>{{ m }}</option>
+            <option value="{{ m }}" {% if selected_marhala==m %}selected{% endif %}>{{ m }}</option>
             {% endfor %}
           </select>
         </div>
-        
+
         {% if selected_marhala %}
-        <div class="badge bg-primary-subtle text-primary border border-primary p-2 d-flex align-items-center animate__animated animate__fadeIn">
+        <div class="badge bg-primary-subtle text-primary border border-primary p-2 d-flex align-items-center">
           <i class="fas fa-search me-2"></i>
           <span>Viewing: <strong>{{ selected_marhala }}</strong></span>
-          <a href="{{ url_for('dashboard_bp.dashboard') }}" class="ms-2 text-primary hover-opacity" title="Clear Filter">
+          <a href="{{ url_for('dashboard_bp.dashboard') }}" class="ms-2 text-primary hover-opacity"
+            title="Clear Filter">
             <i class="fas fa-times-circle"></i>
           </a>
         </div>
@@ -60,8 +63,7 @@
     {% for card in kpi_cards %}
     <div class="col-xl-3 col-md-6">
       <div class="kpi-card-wrapper">
-        <div class="kpi-card kpi-{{ card.color }} animate__animated animate__fadeInUp"
-          style="animation-delay: {{ loop.index * 0.1 }}s">
+        <div class="kpi-card kpi-{{ card.color }}">
           <div class="kpi-icon">
             <i class="fas {{ card.icon }} fa-2x"></i>
           </div>
@@ -79,7 +81,7 @@
     {% endfor %}
   </div>
 
-  <!-- Borrowing Trends Chart - FIXED -->
+  <!-- Borrowing Trends Chart -->
   <div class="row g-4 mb-5">
     <div class="col-12">
       <div class="modern-card trend-card">
@@ -89,7 +91,7 @@
             <span>Borrowing Trends By Academic Year</span>
           </div>
           <div class="header-actions">
-            <span class="badge bg-white text-primary me-2 shadow-sm">Monthly Analysis</span>
+            <span class="badge bg-white text-primary me-2 shadow-sm">Analysis</span>
             <div class="dropdown d-inline-block">
               <button class="btn btn-sm btn-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
                 <i class="fas fa-info-circle me-1"></i> Insights
@@ -106,23 +108,13 @@
                 <div class="insight-item">
                   <span class="insight-badge avg"></span>
                   <span class="insight-text">Average monthly borrowing:
-                    <strong>
-                      {% if trend_values and trend_values|length > 0 %}
-                      {{ (trend_values|sum / trend_values|length)|round|int }}
-                      {% else %}0{% endif %}
-                    </strong>
+                    <strong id="insightAvg">0</strong>
                   </span>
                 </div>
                 <div class="insight-item">
                   <span class="insight-badge growth"></span>
                   <span class="insight-text">Peak vs Average:
-                    <strong>
-                      {% if trend_values and trend_values|length > 0 %}
-                      {% set max_val = trend_values|max %}
-                      {% set avg_val = trend_values|sum / trend_values|length %}
-                      {{ ((max_val - avg_val) / avg_val * 100)|round|int if avg_val > 0 else 0 }}%
-                      {% else %}0%{% endif %} higher
-                    </strong>
+                    <strong id="insightPeakDiff">0%</strong> higher
                   </span>
                 </div>
               </div>
@@ -131,199 +123,189 @@
         </div>
         <div class="card-body">
           <div class="chart-wrapper" id="trendChartContainer">
-            <canvas id="trendChart" style="width: 100%; height: 100%; min-height: 250px;"></canvas>
+            <canvas id="trendChart" style="width: 100%; height: 400px;"></canvas>
           </div>
           <div class="trend-stats row g-3 mt-4">
             <div class="col-md-4">
               <div class="stat-card">
                 <div class="stat-label">Total Books This AY</div>
-                <div class="stat-value text-primary">{{ "{:,}".format(trend_values|sum) if trend_values else '0' }}
-                </div>
+                <div class="stat-value text-primary" id="totalBooksValue">0</div>
               </div>
             </div>
             <div class="col-md-4">
               <div class="stat-card">
                 <div class="stat-label">Peak Month</div>
-                <div class="stat-value text-warning">
-                  {% if trend_labels and trend_values and trend_values|length > 0 %}
-                  {% set max_val = trend_values|max %}
-                  {% set max_index = trend_values.index(max_val) %}
-                  {{ trend_labels[max_index] if max_index < trend_labels|length else 'N/A' }}: {{ max_val }} {% else
+                <div class="stat-value text-warning" id="peakMonthValue">N/A: 0</div>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="stat-card">
+                <div class="stat-label">Monthly Average</div>
+                <div class="stat-value text-success" id="avgMonthlyValue">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Darajah Distribution & Key Insights Row -->
+  <div class="row g-4 mb-5">
+    <!-- Darajah Distribution Chart -->
+    <div class="col-xl-8">
+      <div class="modern-card darajah-card">
+        <div class="card-header-gradient">
+          <i class="fas fa-chart-bar me-2"></i>
+          <span>Darajah Distribution by Gender</span>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="darajahChart" style="width: 100%; height: 400px;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Key Insights Panel -->
+    <div class="col-xl-4">
+      <div class="modern-card insights-card h-100">
+        <div class="card-header-gradient d-flex justify-content-between align-items-center">
+          <div>
+            <i class="fas fa-lightbulb me-2"></i>
+            <span>Key Insights</span>
+          </div>
+          <span class="insights-count">{{ insights|length }}</span>
+        </div>
+        <div class="card-body">
+          {% if insights %}
+          <div class="insights-list">
+            {% for insight in insights %}
+            <div class="insight-message mb-3">
+              <div class="insight-icon-wrapper insight-{{ loop.index % 3 + 1 }}">
+                <i
+                  class="fas fa-{% if loop.index <= 3 %}trophy{% elif loop.index <= 6 %}chart-line{% else %}check-circle{% endif %}"></i>
+              </div>
+              <div class="insight-content">{{ insight }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state">
+            <i class="fas fa-chart-pie fa-3x mb-3"></i>
+            <p>Insights will appear as data becomes available</p>
+          </div>
+          {% endif %}
+
+          <div class="quick-stats mt-4">
+            <div class="row g-3">
+              <div class="col-6">
+                <div class="quick-stat-card">
+                  <div class="stat-number">{{ all_darajahs_detailed|length }}</div>
+                  <div class="stat-label">Total Darajahs</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="quick-stat-card">
+                  <div class="stat-number">
+                    {% if top_darajah_performance and top_darajah_performance|length > 0 %}
+                    {{ top_darajah_performance[0].Darajah }}
+                    {% else %}N/A{% endif %}
+                  </div>
+                  <div class="stat-label">Top Performing</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Marhala Distribution & Currently Issued Row -->
+  <div class="row g-4 mb-5">
+    <!-- Marhala Distribution Chart -->
+    <div class="col-xl-6">
+      <div class="modern-card marhala-card">
+        <div class="card-header-gradient d-flex justify-content-between align-items-center">
+          <div>
+            <i class="fas fa-pie-chart me-2"></i>
+            <span>Marhala Distribution</span>
+          </div>
+          <div class="view-controls">
+            <span class="badge bg-white text-info me-2">{{ marhala_labels|length }} Marhalas</span>
+            <div class="btn-group btn-group-sm">
+              <button class="btn btn-light" onclick="changeMarhalaChartType('pie')" title="Pie Chart">
+                <i class="fas fa-chart-pie"></i>
+              </button>
+              <button class="btn btn-light" onclick="changeMarhalaChartType('bar')" title="Bar Chart">
+                <i class="fas fa-chart-bar"></i>
+              </button>
+              <button class="btn btn-light" onclick="changeMarhalaChartType('doughnut')" title="Doughnut Chart">
+                <i class="fas fa-chart-doughnut"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-container-sm">
+            <canvas id="marhalaChart" style="width: 100%; height: 300px;"></canvas>
+          </div>
+          <div class="marhala-stats row mt-4">
+            <div class="col-6">
+              <div class="mini-stat-card">
+                <div class="stat-value text-info">{{ "{:,}".format(marhala_values|sum) if marhala_values else '0' }}
+                </div>
+                <div class="stat-label">Total Issues</div>
+              </div>
+            </div>
+            <div class="col-6">
+              <div class="mini-stat-card">
+                <div class="stat-value text-primary">
+                  {% if marhala_labels and marhala_values and marhala_values|length > 0 %}
+                  {% set max_val = marhala_values|max %}
+                  {% set max_index = marhala_values.index(max_val) %}
+                  {{ marhala_labels[max_index] if max_index < marhala_labels|length else 'N/A' }}: {{ max_val }} {% else
                     %}N/A: 0{% endif %} </div>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <div class="stat-card">
-                  <div class="stat-label">Monthly Average</div>
-                  <div class="stat-value text-success">
-                    {{ (trend_values|sum / trend_values|length)|round|int if trend_values and trend_values|length > 0
-                    else 0 }}
-                  </div>
+                    <div class="stat-label">Leading Marhala</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Darajah Distribution & Key Insights Row -->
-    <div class="row g-4 mb-5">
-      <!-- Darajah Distribution Chart -->
-      <div class="col-xl-8">
-        <div class="modern-card darajah-card">
-          <div class="card-header-gradient">
-            <i class="fas fa-chart-bar me-2"></i>
-            <span>Darajah Distribution by Gender</span>
-          </div>
-          <div class="card-body">
-            <div class="chart-container">
-              <canvas id="darajahChart" style="width: 100%; height: 100%; min-height: 250px;"></canvas>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Key Insights Panel -->
-      <div class="col-xl-4">
-        <div class="modern-card insights-card h-100">
-          <div class="card-header-gradient d-flex justify-content-between align-items-center">
-            <div>
-              <i class="fas fa-lightbulb me-2"></i>
-              <span>Key Insights</span>
-            </div>
-            <span class="insights-count">{{ insights|length }}</span>
-          </div>
-          <div class="card-body">
-            {% if insights %}
-            <div class="insights-list">
-              {% for insight in insights %}
-              <div class="insight-message mb-3 animate__animated animate__fadeInRight"
-                style="animation-delay: {{ loop.index * 0.1 }}s">
-                <div class="insight-icon-wrapper insight-{{ loop.index % 3 + 1 }}">
-                  <i
-                    class="fas fa-{% if loop.index <= 3 %}trophy{% elif loop.index <= 6 %}chart-line{% else %}check-circle{% endif %}"></i>
-                </div>
-                <div class="insight-content">{{ insight }}</div>
-              </div>
-              {% endfor %}
-            </div>
-            {% else %}
-            <div class="empty-state">
-              <i class="fas fa-chart-pie fa-3x mb-3"></i>
-              <p>Insights will appear as data becomes available</p>
-            </div>
-            {% endif %}
-
-            <div class="quick-stats mt-4">
-              <div class="row g-3">
-                <div class="col-6">
-                  <div class="quick-stat-card">
-                    <div class="stat-number">{{ all_darajahs_detailed|length }}</div>
-                    <div class="stat-label">Total Darajahs</div>
-                  </div>
-                </div>
-                <div class="col-6">
-                  <div class="quick-stat-card">
-                    <div class="stat-number">
-                      {% if top_darajah_performance and top_darajah_performance|length > 0 %}
-                      {{ top_darajah_performance[0].Darajah }}
-                      {% else %}N/A{% endif %}
-                    </div>
-                    <div class="stat-label">Top Performing</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Marhala Distribution & Currently Issued Row -->
-    <div class="row g-4 mb-5">
-      <!-- Marhala Distribution Chart -->
+      <!-- Currently Issued Books -->
       <div class="col-xl-6">
-        <div class="modern-card marhala-card">
+        <div class="modern-card current-books-card">
           <div class="card-header-gradient d-flex justify-content-between align-items-center">
             <div>
-              <i class="fas fa-pie-chart me-2"></i>
-              <span>Marhala Distribution</span>
+              <i class="fas fa-book me-2"></i>
+              <span>Currently Issued Books</span>
             </div>
-            <div class="view-controls">
-              <span class="badge bg-white text-info me-2">{{ marhala_labels|length }} Marhalas</span>
-              <div class="btn-group btn-group-sm">
-                <button class="btn btn-light" onclick="changeMarhalaChartType('pie')" title="Pie Chart">
-                  <i class="fas fa-chart-pie"></i>
-                </button>
-                <button class="btn btn-light" onclick="changeMarhalaChartType('bar')" title="Bar Chart">
-                  <i class="fas fa-chart-bar"></i>
-                </button>
-                <button class="btn btn-light" onclick="changeMarhalaChartType('doughnut')" title="Doughnut Chart">
-                  <i class="fas fa-chart-doughnut"></i>
-                </button>
-              </div>
+            <div class="badge-group">
+              <span class="badge bg-warning text-dark me-2">{{ currently_issued_data.total_currently_issued }}</span>
+              <span class="badge bg-danger">{{ overdue_count }} overdue</span>
             </div>
           </div>
-          <div class="card-body">
-            <div class="chart-container-sm">
-              <canvas id="marhalaChart" style="width: 100%; height: 100%; min-height: 250px;"></canvas>
-            </div>
-            <div class="marhala-stats row mt-4">
-              <div class="col-6">
-                <div class="mini-stat-card">
-                  <div class="stat-value text-info">{{ "{:,}".format(marhala_values|sum) if marhala_values else '0' }}
-                  </div>
-                  <div class="stat-label">Total Issues</div>
-                </div>
-              </div>
-              <div class="col-6">
-                <div class="mini-stat-card">
-                  <div class="stat-value text-primary">
-                    {% if marhala_labels and marhala_values and marhala_values|length > 0 %}
-                    {% set max_val = marhala_values|max %}
-                    {% set max_index = marhala_values.index(max_val) %}
-                    {{ marhala_labels[max_index] if max_index < marhala_labels|length else 'N/A' }}: {{ max_val }} {%
-                      else %}N/A: 0{% endif %} </div>
-                      <div class="stat-label">Leading Marhala</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Currently Issued Books -->
-        <div class="col-xl-6">
-          <div class="modern-card current-books-card">
-            <div class="card-header-gradient d-flex justify-content-between align-items-center">
-              <div>
-                <i class="fas fa-book me-2"></i>
-                <span>Currently Issued Books</span>
-              </div>
-              <div class="badge-group">
-                <span class="badge bg-warning text-dark me-2">{{ currently_issued_data.total_currently_issued }}</span>
-                <span class="badge bg-danger">{{ overdue_count }} overdue</span>
-              </div>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="modern-table">
-                  <thead>
-                    <tr>
-                      <th>Marhala</th>
-                      <th class="text-center">Issued</th>
-                      <th class="text-center">Overdue</th>
-                      <th class="text-center">% of Total</th>
-                      <th class="text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in currently_issued_data.marhalas %}
-                    <tr>
-                      <td>
-                        <div class="marhala-indicator">
-                          <span class="color-dot" style="background-color: 
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="modern-table">
+                <thead>
+                  <tr>
+                    <th>Marhala</th>
+                    <th class="text-center">Issued</th>
+                    <th class="text-center">Overdue</th>
+                    <th class="text-center">% of Total</th>
+                    <th class="text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in currently_issued_data.marhalas %}
+                  <tr>
+                    <td>
+                      <div class="marhala-indicator">
+                        <span class="color-dot" style="background-color: 
                     {%- if loop.index == 1 -%}#4361ee
                     {%- elif loop.index == 2 -%}#06d6a0
                     {%- elif loop.index == 3 -%}#ffb703
@@ -331,607 +313,55 @@
                     {%- elif loop.index == 5 -%}#8338ec
                     {%- else -%}#adb5bd
                     {%- endif -%};"></span>
-                          <span class="fw-semibold">{{ row.Marhala }}</span>
+                        <span class="fw-semibold">{{ row.Marhala }}</span>
+                      </div>
+                    </td>
+                    <td class="text-center fw-bold">{{ row.CurrentlyIssued }}</td>
+                    <td class="text-center">
+                      <span class="overdue-badge {% if row.Overdue|default(0) > 0 %}warning{% else %}safe{% endif %}">
+                        {{ row.Overdue|default(0) }}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <div class="progress-indicator">
+                        <div class="progress-bar"
+                          style="width: {{ (row.CurrentlyIssued / currently_issued_data.total_currently_issued * 100) if currently_issued_data.total_currently_issued > 0 else 0 }}%;">
                         </div>
-                      </td>
-                      <td class="text-center fw-bold">{{ row.CurrentlyIssued }}</td>
-                      <td class="text-center">
-                        <span class="overdue-badge {% if row.Overdue|default(0) > 0 %}warning{% else %}safe{% endif %}">
-                          {{ row.Overdue|default(0) }}
-                        </span>
-                      </td>
-                      <td class="text-center">
-                        <div class="progress-indicator">
-                          <div class="progress-bar"
-                            style="width: {{ (row.CurrentlyIssued / currently_issued_data.total_currently_issued * 100) if currently_issued_data.total_currently_issued > 0 else 0 }}%;">
-                          </div>
-                          <span class="percentage">{{ "%.1f"|format((row.CurrentlyIssued /
-                            currently_issued_data.total_currently_issued * 100) if
-                            currently_issued_data.total_currently_issued > 0 else 0) }}%</span>
-                        </div>
-                      </td>
-                      <td class="text-center">
-                        {% if row.Overdue and row.Overdue > 0 %}
-                        <i class="fas fa-exclamation-triangle text-warning"></i>
-                        {% else %}
-                        <i class="fas fa-check-circle text-success"></i>
-                        {% endif %}
-                      </td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card-footer bg-transparent">
-              <div class="footer-stats">
-                <div class="footer-stat-item">
-                  <span class="stat-label">Total Loans</span>
-                  <span class="stat-value">{{ kpi_data.currently_issued }}</span>
-                </div>
-                <div class="footer-stat-item">
-                  <span class="stat-label">Overdue Fees</span>
-                  <span class="stat-value text-danger">KSh {{ "{:,.0f}".format(current_fees_kes|default(0)) }}</span>
-                </div>
-                <div class="footer-stat-item">
-                  <span class="stat-label">Return Rate</span>
-                  <span class="stat-value text-success">
-                    {% set total_issued = kpi_data.currently_issued %}
-                    {% set overdue = kpi_data.overdue %}
-                    {{ (((total_issued - overdue) / total_issued * 100)|round(1)) if total_issued > 0 else 100 }}%
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Top Titles Row -->
-      <div class="row g-4 mb-5">
-        <!-- Top Arabic Titles -->
-        <div class="col-xl-6">
-          <div class="modern-card arabic-card">
-            <div class="card-header-gradient d-flex justify-content-between align-items-center">
-              <div>
-                <i class="fas fa-book-quran me-2"></i>
-                <span>Top Arabic Titles</span>
-              </div>
-              <div class="header-actions">
-                <span class="badge bg-danger me-2">{{ arabic_top_records|length }}</span>
-                <button class="btn-icon" onclick="exportTitles('arabic')" title="Export">
-                  <i class="fas fa-download"></i>
-                </button>
-              </div>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="modern-table compact">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th class="text-center">Issues</th>
-                      <th class="text-center">Collections</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in arabic_top_records %}
-                    <tr>
-                      <td class="arabic-text">
-                        {% if row.BiblioNumber %}
-                        <a href="{{ OPAC_BASE }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}"
-                          target="_blank" class="title-link">
-                          {{ row.Title|truncate(60) }}
-                        </a>
-                        {% else %}
-                        {{ row.Title|truncate(60) }}
-                        {% endif %}
-                      </td>
-                      <td class="text-center">
-                        <span class="issue-badge arabic">{{ row.Times_Issued }}</span>
-                      </td>
-                      <td class="text-center text-muted small">
-                        {{ row.Collections|default('—', true)|truncate(20) }}
-                      </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                      <td colspan="3" class="text-center empty-message">
-                        <i class="fas fa-book fa-2x mb-2"></i><br>
-                        No Arabic titles data available
-                      </td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card-footer bg-transparent">
-              <small class="text-muted">
-                <i class="fas fa-info-circle me-1"></i>
-                Showing top {{ arabic_top_records|length }} most borrowed Arabic titles
-              </small>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top English Titles -->
-        <div class="col-xl-6">
-          <div class="modern-card english-card">
-            <div class="card-header-gradient d-flex justify-content-between align-items-center">
-              <div>
-                <i class="fas fa-book-open me-2"></i>
-                <span>Top English Titles</span>
-              </div>
-              <div class="header-actions">
-                <span class="badge bg-primary me-2">{{ english_top_records|length }}</span>
-                <button class="btn-icon" onclick="exportTitles('english')" title="Export">
-                  <i class="fas fa-download"></i>
-                </button>
-              </div>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="modern-table compact">
-                  <thead>
-                    <tr>
-                      <th>Title</th>
-                      <th class="text-center">Issues</th>
-                      <th class="text-center">Collections</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in english_top_records %}
-                    <tr>
-                      <td>
-                        {% if row.BiblioNumber %}
-                        <a href="{{ OPAC_BASE }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}"
-                          target="_blank" class="title-link fw-semibold">
-                          {{ row.Title|truncate(60) }}
-                        </a>
-                        {% else %}
-                        {{ row.Title|truncate(60) }}
-                        {% endif %}
-                      </td>
-                      <td class="text-center">
-                        <span class="issue-badge english">{{ row.Times_Issued }}</span>
-                      </td>
-                      <td class="text-center text-muted small">
-                        {{ row.Collections|default('—', true)|truncate(20) }}
-                      </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                      <td colspan="3" class="text-center empty-message">
-                        <i class="fas fa-book fa-2x mb-2"></i><br>
-                        No English titles data available
-                      </td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="card-footer bg-transparent">
-              <small class="text-muted">
-                <i class="fas fa-info-circle me-1"></i>
-                Showing top {{ english_top_records|length }} most borrowed English titles
-              </small>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- NEW: Top Performance Section - Full Width with Scrollable Tables -->
-      <div class="row g-4 mb-5">
-        <div class="col-12">
-          <h4 class="section-title mb-3">
-            <i class="fas fa-trophy text-warning me-2"></i>
-            Top Performers
-          </h4>
-        </div>
-
-        <!-- Top 10 Darajah Performance -->
-        <div class="col-xl-6">
-          <div class="modern-card performance-card h-100">
-            <div class="card-header-gradient d-flex justify-content-between align-items-center">
-              <div>
-                <i class="fas fa-trophy me-2 text-warning"></i>
-                <span>Top 10 Darajah Performance (AY)</span>
-              </div>
-              <span class="badge bg-warning text-dark">{{ top_darajah_performance|length }} classes</span>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="modern-table">
-                  <thead class="sticky-top bg-white">
-                    <tr>
-                      <th class="text-center" style="width: 60px;">Rank</th>
-                      <th>Darajah</th>
-                      <th class="text-center" style="width: 80px;">Issues</th>
-                      <th class="text-center" style="width: 80px;">Patrons</th>
-                      <th class="text-center" style="width: 70px;">Avg</th>
-                      <th style="width: 120px;">Marhala</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in top_darajah_performance %}
-                    <tr>
-                      <td class="text-center">
-                        <div
-                          class="rank-badge {% if loop.index == 1 %}rank-top{% elif loop.index == 2 %}rank-high{% elif loop.index == 3 %}rank-high{% else %}rank-normal{% endif %}">
-                          {{ loop.index }}
-                        </div>
-                      </td>
-                      <td>
-                        <a href="{{ url_for('dashboard_bp.darajah_detail', darajah_name=row.Darajah.replace(' ', '_')) }}"
-                          class="darajah-link fw-semibold">
-                          {{ row.Darajah }}
-                        </a>
-                      </td>
-                      <td class="text-center fw-bold text-primary">{{ "{:,}".format(row.BooksIssued|default(0)) }}</td>
-                      <td class="text-center text-muted">{{ row.ActiveStudents|default(0) }}</td>
-                      <td class="text-center">
-                        <span
-                          class="badge {% if row.IssuesPerStudent|default(0) >= 5 %}bg-success{% elif row.IssuesPerStudent|default(0) >= 3 %}bg-info{% else %}bg-secondary{% endif %}">
-                          {{ "%.1f"|format(row.IssuesPerStudent|default(0)) }}
-                        </span>
-                      </td>
-                      <td class="text-muted small">{{ row.Marhala|default('—')|truncate(20) }}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Top 10 Individual Students -->
-        <div class="col-xl-6">
-          <div class="modern-card students-card h-100">
-            <div class="card-header-gradient d-flex justify-content-between align-items-center">
-              <div>
-                <i class="fas fa-user-graduate me-2 text-success"></i>
-                <span>Top 10 Individual Students</span>
-              </div>
-              <span class="badge bg-success">{{ top_students|length }} students</span>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="modern-table">
-                  <thead class="sticky-top bg-white">
-                    <tr>
-                      <th class="text-center" style="width: 60px;">Rank</th>
-                      <th>Student</th>
-                      <th class="text-center" style="width: 80px;">Darajah</th>
-                      <th class="text-center" style="width: 70px;">Issues</th>
-                      <th style="width: 120px;">Marhala</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for student in top_students %}
-                    <tr>
-                      <td class="text-center">
-                        <div class="rank-star">
-                          {% if loop.index == 1 %}
-                          <span class="badge bg-warning text-dark">🥇 1</span>
-                          {% elif loop.index == 2 %}
-                          <span class="badge bg-secondary">🥈 2</span>
-                          {% elif loop.index == 3 %}
-                          <span class="badge bg-danger">🥉 3</span>
-                          {% else %}
-                          <span class="text-muted">#{{ loop.index }}</span>
-                          {% endif %}
-                        </div>
-                      </td>
-                      <td>
-                        {% if student.StudentLink %}
-                        <a href="{{ student.StudentLink }}" class="student-link fw-semibold">
-                          {{ student.StudentName|truncate(25) }}
-                        </a>
-                        {% else %}
-                        <span class="fw-semibold">{{ student.StudentName|truncate(25) }}</span>
-                        {% endif %}
-                      </td>
-                      <td class="text-center text-muted small">{{ student.Class|default('—')|truncate(10) }}</td>
-                      <td class="text-center fw-bold text-success">{{ student.BooksIssued }}</td>
-                      <td class="text-muted small">{{ student.Marhala|default('—')|truncate(20) }}</td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Performance Sections -->
-      <div class="row g-4 mb-5">
-        <!-- Academic Marhalas Performance -->
-        <div class="col-xl-6">
-          <div class="modern-card academic-card">
-            <div class="card-header-gradient">
-              <i class="fas fa-graduation-cap me-2"></i>
-              <span>Academic Marhalas Performance</span>
-              {% if academic_marhalas|length > 0 %}
-              <span class="badge bg-primary ms-2">{{ academic_marhalas|length }}</span>
-              {% endif %}
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="modern-table compact">
-                  <thead>
-                    <tr>
-                      <th>Marhala</th>
-                      <th class="text-center">Issues</th>
-                      <th class="text-center">Patrons</th>
-                      <th class="text-center">Avg</th>
-                      <th class="text-center">Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in academic_marhalas %}
-                    <tr>
-                      <td class="fw-semibold">{{ row.MARHALA }}</td>
-                      <td class="text-center"><span class="badge bg-primary-subtle">{{ "{:,}".format(row.ISSUES)
-                          }}</span></td>
-                      <td class="text-center">{{ row.PATRONS }}</td>
-                      <td class="text-center"><span class="badge bg-info-subtle">{{ row['ISSUES/PATRON'] }}</span></td>
-                      <td class="text-center"><span class="badge bg-primary">{{ row.TYPE }}</span></td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                      <td colspan="5" class="text-center empty-message">
-                        <i class="fas fa-graduation-cap fa-2x mb-2"></i><br>
-                        <small>No academic marhala data available</small>
-                      </td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            {% if academic_marhalas|length > 0 %}
-            <div class="card-footer bg-transparent">
-              <div class="footer-stats compact">
-                <div class="footer-stat-item">
-                  <span class="stat-label">Total Marhalas</span>
-                  <span class="stat-value">{{ academic_marhalas|length }}</span>
-                </div>
-                <div class="footer-stat-item">
-                  <span class="stat-label">Total Patrons</span>
-                  <span class="stat-value text-primary">{{ academic_marhalas|sum(attribute='PATRONS') }}</span>
-                </div>
-                <div class="footer-stat-item">
-                  <span class="stat-label">Avg Issues/Patron</span>
-                  <span class="stat-value text-success">
-                    {% set total_issues = academic_marhalas|sum(attribute='ISSUES') %}
-                    {% set total_patrons = academic_marhalas|sum(attribute='PATRONS') %}
-                    {{ (total_issues / total_patrons)|round(2) if total_patrons > 0 else 0 }}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Departmental Marhala Performance (Fixed: Now shows "Departmental" not "Non-Academic") -->
-        <div class="col-xl-6">
-          <div class="modern-card departmental-card">
-            <div class="card-header-gradient">
-              <i class="fas fa-user-tie me-2"></i>
-              <span>Departmental Marhala Performance</span>
-              {% if non_academic_marhalas|length > 0 %}
-              <span class="badge bg-info ms-2">{{ non_academic_marhalas|length }}</span>
-              {% endif %}
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="modern-table compact">
-                  <thead>
-                    <tr>
-                      <th>Marhala</th>
-                      <th class="text-center">Issues</th>
-                      <th class="text-center">Patrons</th>
-                      <th class="text-center">Avg</th>
-                      <th class="text-center">Type</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in non_academic_marhalas %}
-                    <tr>
-                      <td class="fw-semibold">{{ row.MARHALA }}</td>
-                      <td class="text-center"><span class="badge bg-info">{{ "{:,}".format(row.ISSUES) }}</span></td>
-                      <td class="text-center">{{ row.PATRONS }}</td>
-                      <td class="text-center"><span class="badge bg-primary-subtle">{{ row['ISSUES/PATRON'] }}</span>
-                      </td>
-                      <td class="text-center">
-                        <span class="badge bg-secondary">
-                          Departmental
-                        </span>
-                      </td>
-                    </tr>
-                    {% else %}
-                    <tr>
-                      <td colspan="5" class="text-center empty-message">
-                        <i class="fas fa-user-tie fa-2x mb-2"></i><br>
-                        <small>No departmental marhala data available</small>
-                      </td>
-                    </tr>
-                    {% endfor %}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            {% if non_academic_marhalas|length > 0 %}
-            <div class="card-footer bg-transparent">
-              <div class="footer-stats compact">
-                <div class="footer-stat-item">
-                  <span class="stat-label">Total Marhalas</span>
-                  <span class="stat-value">{{ non_academic_marhalas|length }}</span>
-                </div>
-                <div class="footer-stat-item">
-                  <span class="stat-label">Total Patrons</span>
-                  <span class="stat-value text-info">{{ non_academic_marhalas|sum(attribute='PATRONS') }}</span>
-                </div>
-                <div class="footer-stat-item">
-                  <span class="stat-label">Avg Issues/Patron</span>
-                  <span class="stat-value text-success">
-                    {% set total_issues = non_academic_marhalas|sum(attribute='ISSUES') %}
-                    {% set total_patrons = non_academic_marhalas|sum(attribute='PATRONS') %}
-                    {{ (total_issues / total_patrons)|round(2) if total_patrons > 0 else 0 }}
-                  </span>
-                </div>
-              </div>
-            </div>
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      <!-- Complete Darajah Breakdown (with working filters) -->
-      <div class="row g-4">
-        <div class="col-12">
-          <div class="modern-card breakdown-card">
-            <div class="card-header-gradient">
-              <div class="row align-items-center">
-                <div class="col-md-6">
-                  <i class="fas fa-list-ol me-2"></i>
-                  <span>Complete Darajah Breakdown</span>
-                  <span class="badge bg-indigo ms-2" id="totalDarajahs">{{ all_darajahs_detailed|length }}
-                    Darajahs</span>
-                </div>
-                <div class="col-md-6">
-                  <div class="filter-controls">
-                    <input type="text" id="searchDarajah" class="filter-input"
-                      placeholder="Search Darajah or Marhala...">
-                    <select id="filterMarhala" class="filter-select">
-                      <option value="all">All Marhalas</option>
-                      <optgroup label="Academic Marhalas">
-                        {% for marhala in academic_marhalas_list %}
-                        <option value="{{ marhala }}">{{ marhala }}</option>
-                        {% endfor %}
-                      </optgroup>
-                      <optgroup label="Departmental Marhala">
-                        {% for marhala in non_academic_marhalas_list %}
-                        <option value="{{ marhala }}">{{ marhala }}</option>
-                        {% endfor %}
-                      </optgroup>
-                    </select>
-                    <button class="btn-icon" onclick="exportTableData()" title="Export to CSV">
-                      <i class="fas fa-download"></i>
-                    </button>
-                    <button class="btn-icon" onclick="resetFilters()" title="Reset Filters">
-                      <i class="fas fa-redo"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="card-body p-0">
-              <div class="table-responsive">
-                <table class="modern-table" id="darajahTable">
-                  <thead>
-                    <tr>
-                      <th class="text-center">Rank</th>
-                      <th>Darajah</th>
-                      <th>Marhala</th>
-                      <th class="text-center">Total Issues</th>
-                      <th class="text-center">Students</th>
-                      <th class="text-center">Unique Titles</th>
-                      <th class="text-center">Avg/Student</th>
-                      <th class="text-center">Efficiency</th>
-                      <th class="text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {% for row in all_darajahs_detailed %}
-                    <tr class="darajah-row" data-darajah="{{ row.Darajah|lower }}"
-                      data-marhala="{{ row.Marhala|lower }}">
-                      <td class="text-center">
-                        <div
-                          class="rank-badge {% if loop.index <= 3 %}rank-top{% elif loop.index <= 10 %}rank-high{% else %}rank-normal{% endif %}">
-                          {{ loop.index }}
-                        </div>
-                      </td>
-                      <td>
-                        <div class="darajah-name">
-                          <i class="fas fa-graduation-cap text-primary me-2"></i>
-                          <a href="{{ url_for('dashboard_bp.darajah_detail', darajah_name=row.Darajah.replace(' ', '_')) }}"
-                            class="darajah-link">
-                            {{ row.Darajah }}
-                          </a>
-                          {% if row.AvgIssuesPerStudent and row.AvgIssuesPerStudent >= 5 %}
-                          <i class="fas fa-bolt text-warning ms-1" title="High Performer"></i>
-                          {% endif %}
-                        </div>
-                      </td>
-                      <td><span class="marhala-badge">{{ row.Marhala }}</span></td>
-                      <td class="text-center"><span class="issue-count">{{ "{:,}".format(row.TotalIssues) }}</span></td>
-                      <td class="text-center">{{ row.ActiveStudents }}</td>
-                      <td class="text-center"><span class="badge bg-info-subtle">{{ row.UniqueTitles }}</span></td>
-                      <td class="text-center">
-                        <span class="avg-value">
-                          {% if row.AvgIssuesPerStudent is not none %}
-                          {{ "%.2f"|format(row.AvgIssuesPerStudent) }}
-                          {% else %}
-                          0.00
-                          {% endif %}
-                        </span>
-                      </td>
-                      <td class="text-center">
-                        <div class="efficiency-indicator">
-                          <span class="efficiency-badge efficiency-{{ row.EfficiencyColor|default('secondary') }}">
-                            {{ row.Efficiency|default('Low') }}
-                          </span>
-                          <div class="efficiency-bar">
-                            {# Safely handle None values for the width calculation #}
-                            {% set avg_value = row.AvgIssuesPerStudent %}
-                            {% if avg_value is none %}
-                            {% set avg_value = 0 %}
-                            {% endif %}
-                            {% set width_value = (avg_value * 20) if avg_value <= 5 else 100 %} <div
-                              class="efficiency-progress bg-{{ row.EfficiencyColor|default('secondary') }}"
-                              style="width: {{ width_value }}%;">
-                          </div>
-                        </div>
-              </div>
-              </td>
-              <td class="text-center">
-                <a href="{{ url_for('dashboard_bp.darajah_detail', darajah_name=row.Darajah.replace(' ', '_')) }}"
-                  class="btn-view" title="View Detailed Report">
-                  <i class="fas fa-eye"></i>
-                </a>
-              </td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="9" class="text-center empty-message">
-                  <i class="fas fa-chart-bar fa-3x mb-3"></i><br>
-                  <h5>No Darajah data available</h5>
-                  <p class="small">Please check your data source or filters</p>
-                </td>
-              </tr>
-              {% endfor %}
-              </tbody>
+                        <span class="percentage">{{ "%.1f"|format((row.CurrentlyIssued /
+                          currently_issued_data.total_currently_issued * 100) if
+                          currently_issued_data.total_currently_issued > 0 else 0) }}%</span>
+                      </div>
+                    </td>
+                    <td class="text-center">
+                      {% if row.Overdue and row.Overdue > 0 %}
+                      <i class="fas fa-exclamation-triangle text-warning"></i>
+                      {% else %}
+                      <i class="fas fa-check-circle text-success"></i>
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
               </table>
             </div>
           </div>
           <div class="card-footer bg-transparent">
-            <div class="table-footer">
-              <div class="showing-info">
-                <i class="fas fa-filter me-1"></i>
-                Showing <span id="visibleCount">{{ all_darajahs_detailed|length }}</span> of {{
-                all_darajahs_detailed|length }} Darajahs
+            <div class="footer-stats">
+              <div class="footer-stat-item">
+                <span class="stat-label">Total Loans</span>
+                <span class="stat-value">{{ kpi_data.currently_issued }}</span>
               </div>
-              <div class="efficiency-legend">
-                <span class="legend-item"><span class="legend-dot bg-success"></span> Excellent (≥5)</span>
-                <span class="legend-item"><span class="legend-dot bg-primary"></span> Good (3-4.9)</span>
-                <span class="legend-item"><span class="legend-dot bg-warning"></span> Average (1-2.9)</span>
-                <span class="legend-item"><span class="legend-dot bg-danger"></span> Low (<1)< /span>
+              <div class="footer-stat-item">
+                <span class="stat-label">Overdue Fees</span>
+                <span class="stat-value text-danger">KSh {{ "{:,.0f}".format(current_fees_kes|default(0)) }}</span>
+              </div>
+              <div class="footer-stat-item">
+                <span class="stat-label">Return Rate</span>
+                <span class="stat-value text-success">
+                  {% set total_issued = kpi_data.currently_issued %}
+                  {% set overdue = kpi_data.overdue %}
+                  {{ (((total_issued - overdue) / total_issued * 100)|round(1)) if total_issued > 0 else 100 }}%
+                </span>
               </div>
             </div>
           </div>
@@ -939,1098 +369,1501 @@
       </div>
     </div>
 
-    <!-- Modals -->
-    <div class="modal fade" id="quickViewModal" tabindex="-1">
-      <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content modern-modal">
-          <div class="modal-header">
-            <h5 class="modal-title" id="quickViewTitle">
-              <i class="fas fa-chart-bar me-2"></i>
-              Darajah Quick View
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- Top Titles Row -->
+    <div class="row g-4 mb-5">
+      <!-- Top Arabic Titles -->
+      <div class="col-xl-6">
+        <div class="modern-card arabic-card">
+          <div class="card-header-gradient d-flex justify-content-between align-items-center">
+            <div>
+              <i class="fas fa-book-quran me-2"></i>
+              <span>Top Arabic Titles</span>
+            </div>
+            <div class="header-actions">
+              <span class="badge bg-danger me-2">{{ arabic_top_records|length }}</span>
+              <button class="btn-icon" onclick="exportTitles('arabic')" title="Export">
+                <i class="fas fa-download"></i>
+              </button>
+            </div>
           </div>
-          <div class="modal-body" id="quickViewContent">
-            <div class="text-center py-5">
-              <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-              </div>
-              <p class="mt-3">Loading Darajah analytics...</p>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="modern-table compact">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th class="text-center">Issues</th>
+                    <th class="text-center">Collections</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in arabic_top_records %}
+                  <tr>
+                    <td class="arabic-text">
+                      {% if row.BiblioNumber %}
+                      <a href="{{ OPAC_BASE }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}"
+                        target="_blank" class="title-link">
+                        {{ row.Title|truncate(60) }}
+                      </a>
+                      {% else %}
+                      {{ row.Title|truncate(60) }}
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      <span class="issue-badge arabic">{{ row.Times_Issued }}</span>
+                    </td>
+                    <td class="text-center text-muted small">
+                      {{ row.Collections|default('—', true)|truncate(20) }}
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr>
+                    <td colspan="3" class="text-center empty-message">
+                      <i class="fas fa-book fa-2x mb-2"></i><br>
+                      No Arabic titles data available
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent">
+            <small class="text-muted">
+              <i class="fas fa-info-circle me-1"></i>
+              Showing top {{ arabic_top_records|length }} most borrowed Arabic titles
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top English Titles -->
+      <div class="col-xl-6">
+        <div class="modern-card english-card">
+          <div class="card-header-gradient d-flex justify-content-between align-items-center">
+            <div>
+              <i class="fas fa-book-open me-2"></i>
+              <span>Top English Titles</span>
+            </div>
+            <div class="header-actions">
+              <span class="badge bg-primary me-2">{{ english_top_records|length }}</span>
+              <button class="btn-icon" onclick="exportTitles('english')" title="Export">
+                <i class="fas fa-download"></i>
+              </button>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="modern-table compact">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th class="text-center">Issues</th>
+                    <th class="text-center">Collections</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in english_top_records %}
+                  <tr>
+                    <td>
+                      {% if row.BiblioNumber %}
+                      <a href="{{ OPAC_BASE }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}"
+                        target="_blank" class="title-link fw-semibold">
+                        {{ row.Title|truncate(60) }}
+                      </a>
+                      {% else %}
+                      {{ row.Title|truncate(60) }}
+                      {% endif %}
+                    </td>
+                    <td class="text-center">
+                      <span class="issue-badge english">{{ row.Times_Issued }}</span>
+                    </td>
+                    <td class="text-center text-muted small">
+                      {{ row.Collections|default('—', true)|truncate(20) }}
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr>
+                    <td colspan="3" class="text-center empty-message">
+                      <i class="fas fa-book fa-2x mb-2"></i><br>
+                      No English titles data available
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent">
+            <small class="text-muted">
+              <i class="fas fa-info-circle me-1"></i>
+              Showing top {{ english_top_records|length }} most borrowed English titles
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Performance Section -->
+    <div class="row g-4 mb-5">
+      <div class="col-12">
+        <h4 class="section-title mb-3">
+          <i class="fas fa-trophy text-warning me-2"></i>
+          Top Performers
+        </h4>
+      </div>
+
+      <!-- Top 10 Darajah Performance -->
+      <div class="col-xl-6">
+        <div class="modern-card performance-card h-100">
+          <div class="card-header-gradient d-flex justify-content-between align-items-center">
+            <div>
+              <i class="fas fa-trophy me-2 text-warning"></i>
+              <span>Top 10 Darajah Performance (AY)</span>
+            </div>
+            <span class="badge bg-warning text-dark">{{ top_darajah_performance|length }} classes</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="modern-table">
+                <thead class="sticky-top bg-white">
+                  <tr>
+                    <th class="text-center" style="width: 60px;">Rank</th>
+                    <th>Darajah</th>
+                    <th class="text-center" style="width: 80px;">Issues</th>
+                    <th class="text-center" style="width: 80px;">Patrons</th>
+                    <th class="text-center" style="width: 70px;">Avg</th>
+                    <th style="width: 120px;">Marhala</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in top_darajah_performance %}
+                  <tr>
+                    <td class="text-center">
+                      <div
+                        class="rank-badge {% if loop.index == 1 %}rank-top{% elif loop.index == 2 %}rank-high{% elif loop.index == 3 %}rank-high{% else %}rank-normal{% endif %}">
+                        {{ loop.index }}
+                      </div>
+                    </td>
+                    <td>
+                      <a href="{{ url_for('dashboard_bp.darajah_detail', darajah_name=row.Darajah.replace(' ', '_')) }}"
+                        class="darajah-link fw-semibold">
+                        {{ row.Darajah }}
+                      </a>
+                    </td>
+                    <td class="text-center fw-bold text-primary">{{ "{:,}".format(row.BooksIssued|default(0)) }}</td>
+                    <td class="text-center text-muted">{{ row.ActiveStudents|default(0) }}</td>
+                    <td class="text-center">
+                      <span
+                        class="badge {% if row.IssuesPerStudent|default(0) >= 5 %}bg-success{% elif row.IssuesPerStudent|default(0) >= 3 %}bg-info{% else %}bg-secondary{% endif %}">
+                        {{ "%.1f"|format(row.IssuesPerStudent|default(0)) }}
+                      </span>
+                    </td>
+                    <td class="text-muted small">{{ row.Marhala|default('—')|truncate(20) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top 10 Individual Students -->
+      <div class="col-xl-6">
+        <div class="modern-card students-card h-100">
+          <div class="card-header-gradient d-flex justify-content-between align-items-center">
+            <div>
+              <i class="fas fa-user-graduate me-2 text-success"></i>
+              <span>Top 10 Individual Students</span>
+            </div>
+            <span class="badge bg-success">{{ top_students|length }} students</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="modern-table">
+                <thead class="sticky-top bg-white">
+                  <tr>
+                    <th class="text-center" style="width: 60px;">Rank</th>
+                    <th>Student</th>
+                    <th class="text-center" style="width: 80px;">Darajah</th>
+                    <th class="text-center" style="width: 70px;">Issues</th>
+                    <th style="width: 120px;">Marhala</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for student in top_students %}
+                  <tr>
+                    <td class="text-center">
+                      <div class="rank-star">
+                        {% if loop.index == 1 %}
+                        <span class="badge bg-warning text-dark">🥇 1</span>
+                        {% elif loop.index == 2 %}
+                        <span class="badge bg-secondary">🥈 2</span>
+                        {% elif loop.index == 3 %}
+                        <span class="badge bg-danger">🥉 3</span>
+                        {% else %}
+                        <span class="text-muted">#{{ loop.index }}</span>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td>
+                      {% if student.StudentLink %}
+                      <a href="{{ student.StudentLink }}" class="student-link fw-semibold">
+                        {{ student.StudentName|truncate(25) }}
+                      </a>
+                      {% else %}
+                      <span class="fw-semibold">{{ student.StudentName|truncate(25) }}</span>
+                      {% endif %}
+                    </td>
+                    <td class="text-center text-muted small">{{ student.Class|default('—')|truncate(10) }}</td>
+                    <td class="text-center fw-bold text-success">{{ student.BooksIssued }}</td>
+                    <td class="text-muted small">{{ student.Marhala|default('—')|truncate(20) }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="modal fade" id="comparisonModal" tabindex="-1">
-      <div class="modal-dialog modal-xl modal-dialog-centered">
-        <div class="modal-content modern-modal">
-          <div class="modal-header">
-            <h5 class="modal-title">
-              <i class="fas fa-balance-scale me-2"></i>
-              Darajah Comparison
-            </h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- Performance Sections -->
+    <div class="row g-4 mb-5">
+      <!-- Academic Marhalas Performance -->
+      <div class="col-xl-6">
+        <div class="modern-card academic-card">
+          <div class="card-header-gradient">
+            <i class="fas fa-graduation-cap me-2"></i>
+            <span>Academic Marhalas Performance</span>
+            {% if academic_marhalas|length > 0 %}
+            <span class="badge bg-primary ms-2">{{ academic_marhalas|length }}</span>
+            {% endif %}
           </div>
-          <div class="modal-body" id="comparisonContent"></div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="modern-table compact">
+                <thead>
+                  <tr>
+                    <th>Marhala</th>
+                    <th class="text-center">Issues</th>
+                    <th class="text-center">Patrons</th>
+                    <th class="text-center">Avg</th>
+                    <th class="text-center">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in academic_marhalas %}
+                  <tr>
+                    <td class="fw-semibold">{{ row.MARHALA }}</td>
+                    <td class="text-center"><span class="badge bg-primary-subtle">{{ "{:,}".format(row.ISSUES) }}</span>
+                    </td>
+                    <td class="text-center">{{ row.PATRONS }}</td>
+                    <td class="text-center"><span class="badge bg-info-subtle">{{ row['ISSUES/PATRON'] }}</span></td>
+                    <td class="text-center"><span class="badge bg-primary">{{ row.TYPE }}</span></td>
+                  </tr>
+                  {% else %}
+                  <tr>
+                    <td colspan="5" class="text-center empty-message">
+                      <i class="fas fa-graduation-cap fa-2x mb-2"></i><br>
+                      <small>No academic marhala data available</small>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% if academic_marhalas|length > 0 %}
+          <div class="card-footer bg-transparent">
+            <div class="footer-stats compact">
+              <div class="footer-stat-item">
+                <span class="stat-label">Total Marhalas</span>
+                <span class="stat-value">{{ academic_marhalas|length }}</span>
+              </div>
+              <div class="footer-stat-item">
+                <span class="stat-label">Total Patrons</span>
+                <span class="stat-value text-primary">{{ academic_marhalas|sum(attribute='PATRONS') }}</span>
+              </div>
+              <div class="footer-stat-item">
+                <span class="stat-label">Avg Issues/Patron</span>
+                <span class="stat-value text-success">
+                  {% set total_issues = academic_marhalas|sum(attribute='ISSUES') %}
+                  {% set total_patrons = academic_marhalas|sum(attribute='PATRONS') %}
+                  {{ (total_issues / total_patrons)|round(2) if total_patrons > 0 else 0 }}
+                </span>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Departmental Marhala Performance -->
+      <div class="col-xl-6">
+        <div class="modern-card departmental-card">
+          <div class="card-header-gradient">
+            <i class="fas fa-user-tie me-2"></i>
+            <span>Departmental Marhala Performance</span>
+            {% if non_academic_marhalas|length > 0 %}
+            <span class="badge bg-info ms-2">{{ non_academic_marhalas|length }}</span>
+            {% endif %}
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="modern-table compact">
+                <thead>
+                  <tr>
+                    <th>Marhala</th>
+                    <th class="text-center">Issues</th>
+                    <th class="text-center">Patrons</th>
+                    <th class="text-center">Avg</th>
+                    <th class="text-center">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for row in non_academic_marhalas %}
+                  <tr>
+                    <td class="fw-semibold">{{ row.MARHALA }}</td>
+                    <td class="text-center"><span class="badge bg-info">{{ "{:,}".format(row.ISSUES) }}</span></td>
+                    <td class="text-center">{{ row.PATRONS }}</td>
+                    <td class="text-center"><span class="badge bg-primary-subtle">{{ row['ISSUES/PATRON'] }}</span></td>
+                    <td class="text-center">
+                      <span class="badge bg-secondary">Departmental</span>
+                    </td>
+                  </tr>
+                  {% else %}
+                  <tr>
+                    <td colspan="5" class="text-center empty-message">
+                      <i class="fas fa-user-tie fa-2x mb-2"></i><br>
+                      <small>No departmental marhala data available</small>
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% if non_academic_marhalas|length > 0 %}
+          <div class="card-footer bg-transparent">
+            <div class="footer-stats compact">
+              <div class="footer-stat-item">
+                <span class="stat-label">Total Marhalas</span>
+                <span class="stat-value">{{ non_academic_marhalas|length }}</span>
+              </div>
+              <div class="footer-stat-item">
+                <span class="stat-label">Total Patrons</span>
+                <span class="stat-value text-info">{{ non_academic_marhalas|sum(attribute='PATRONS') }}</span>
+              </div>
+              <div class="footer-stat-item">
+                <span class="stat-label">Avg Issues/Patron</span>
+                <span class="stat-value text-success">
+                  {% set total_issues = non_academic_marhalas|sum(attribute='ISSUES') %}
+                  {% set total_patrons = non_academic_marhalas|sum(attribute='PATRONS') %}
+                  {{ (total_issues / total_patrons)|round(2) if total_patrons > 0 else 0 }}
+                </span>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Complete Darajah Breakdown with Pagination -->
+    <div class="row g-4">
+      <div class="col-12">
+        <div class="modern-card breakdown-card">
+          <div class="card-header-gradient">
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <i class="fas fa-list-ol me-2"></i>
+                <span>Complete Darajah Breakdown</span>
+                <span class="badge bg-indigo ms-2" id="totalDarajahs">{{ all_darajahs_detailed|length }} Darajahs</span>
+              </div>
+              <div class="col-md-6">
+                <div class="filter-controls">
+                  <input type="text" id="searchDarajah" class="filter-input" placeholder="Search Darajah or Marhala...">
+                  <select id="filterMarhala" class="filter-select">
+                    <option value="all">All Marhalas</option>
+                    <optgroup label="Academic Marhalas">
+                      {% for marhala in academic_marhalas_list %}
+                      <option value="{{ marhala }}">{{ marhala }}</option>
+                      {% endfor %}
+                    </optgroup>
+                    <optgroup label="Departmental Marhala">
+                      {% for marhala in non_academic_marhalas_list %}
+                      <option value="{{ marhala }}">{{ marhala }}</option>
+                      {% endfor %}
+                    </optgroup>
+                  </select>
+                  <button class="btn-icon" onclick="exportTableData()" title="Export to CSV">
+                    <i class="fas fa-download"></i>
+                  </button>
+                  <button class="btn-icon" onclick="resetFilters()" title="Reset Filters">
+                    <i class="fas fa-redo"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="modern-table" id="darajahTable">
+                <thead>
+                  <tr>
+                    <th class="text-center">Rank</th>
+                    <th>Darajah</th>
+                    <th>Marhala</th>
+                    <th class="text-center">Total Issues</th>
+                    <th class="text-center">Students</th>
+                    <th class="text-center">Unique Titles</th>
+                    <th class="text-center">Avg/Student</th>
+                    <th class="text-center">Efficiency</th>
+                    <th class="text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="darajahTableBody">
+                  {% for row in all_darajahs_detailed %}
+                  <tr class="darajah-row" data-darajah="{{ row.Darajah|lower }}" data-marhala="{{ row.Marhala|lower }}">
+                    <td class="text-center">
+                      <div
+                        class="rank-badge {% if loop.index <= 3 %}rank-top{% elif loop.index <= 10 %}rank-high{% else %}rank-normal{% endif %}">
+                        {{ loop.index }}
+                      </div>
+                    </td>
+                    <td>
+                      <div class="darajah-name">
+                        <i class="fas fa-graduation-cap text-primary me-2"></i>
+                        <a href="{{ url_for('dashboard_bp.darajah_detail', darajah_name=row.Darajah.replace(' ', '_')) }}"
+                          class="darajah-link">
+                          {{ row.Darajah }}
+                        </a>
+                        {% if row.AvgIssuesPerStudent and row.AvgIssuesPerStudent >= 5 %}
+                        <i class="fas fa-bolt text-warning ms-1" title="High Performer"></i>
+                        {% endif %}
+                      </div>
+                    </td>
+                    <td><span class="marhala-badge">{{ row.Marhala }}</span></td>
+                    <td class="text-center"><span class="issue-count">{{ "{:,}".format(row.TotalIssues) }}</span></td>
+                    <td class="text-center">{{ row.ActiveStudents }}</td>
+                    <td class="text-center"><span class="badge bg-info-subtle">{{ row.UniqueTitles }}</span></td>
+                    <td class="text-center">
+                      <span class="avg-value">
+                        {% if row.AvgIssuesPerStudent is not none %}
+                        {{ "%.2f"|format(row.AvgIssuesPerStudent) }}
+                        {% else %}
+                        0.00
+                        {% endif %}
+                      </span>
+                    </td>
+                    <td class="text-center">
+                      <div class="efficiency-indicator">
+                        <span class="efficiency-badge efficiency-{{ row.EfficiencyColor|default('secondary') }}">
+                          {{ row.Efficiency|default('Low') }}
+                        </span>
+                        <div class="efficiency-bar">
+                          {% set avg_value = row.AvgIssuesPerStudent if row.AvgIssuesPerStudent is not none else 0 %}
+                          {% set width_value = (avg_value * 20) if avg_value <= 5 else 100 %} <div
+                            class="efficiency-progress bg-{{ row.EfficiencyColor|default('secondary') }}"
+                            style="width: {{ width_value }}%;">
+                        </div>
+                      </div>
+            </div>
+            </td>
+            <td class="text-center">
+              <a href="{{ url_for('dashboard_bp.darajah_detail', darajah_name=row.Darajah.replace(' ', '_')) }}"
+                class="btn-view" title="View Detailed Report">
+                <i class="fas fa-eye"></i>
+              </a>
+            </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="9" class="text-center empty-message">
+                <i class="fas fa-chart-bar fa-3x mb-3"></i><br>
+                <h5>No Darajah data available</h5>
+                <p class="small">Please check your data source or filters</p>
+              </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-footer bg-transparent">
+          <div class="table-footer">
+            <div class="showing-info">
+              <i class="fas fa-filter me-1"></i>
+              Showing <span id="visibleCount">{{ all_darajahs_detailed|length }}</span> of {{
+              all_darajahs_detailed|length }} Darajahs
+            </div>
+            <div class="efficiency-legend">
+              <span class="legend-item"><span class="legend-dot bg-success"></span> Excellent (≥5)</span>
+              <span class="legend-item"><span class="legend-dot bg-primary"></span> Good (3-4.9)</span>
+              <span class="legend-item"><span class="legend-dot bg-warning"></span> Average (1-2.9)</span>
+              <span class="legend-item"><span class="legend-dot bg-danger"></span> Low (<1)< /span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
-  {% endblock %}
+</div>
+</div>
 
-  {% block extra_css %}
-  <style>
-    /* Modern CSS Variables */
-    :root {
-      --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      --info-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-      --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      --danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-      --dark-gradient: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-      --card-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-      --hover-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-      --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
+<!-- Modals -->
+<div class="modal fade" id="quickViewModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content modern-modal">
+      <div class="modal-header">
+        <h5 class="modal-title" id="quickViewTitle">
+          <i class="fas fa-chart-bar me-2"></i>
+          Darajah Quick View
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="quickViewContent">
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-3">Loading Darajah analytics...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
-    /* Modern Card Design */
-    .modern-card {
-      background: white;
-      border-radius: 24px;
-      box-shadow: var(--card-shadow);
-      overflow: hidden;
-      transition: var(--transition);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      backdrop-filter: blur(10px);
-      height: 100%;
-    }
+<div class="modal fade" id="comparisonModal" tabindex="-1">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content modern-modal">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-balance-scale me-2"></i>
+          Darajah Comparison
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="comparisonContent"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
 
-    .modern-card:hover {
-      transform: translateY(-4px);
-      box-shadow: var(--hover-shadow);
-    }
+{% block extra_css %}
+<style>
+  /* Optimized CSS for Performance */
+  :root {
+    --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --info-gradient: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    --dark-gradient: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+    --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --hover-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    --transition: all 0.2s ease;
+  }
 
-    /* Gradient Card Headers */
-    .card-header-gradient {
-      background: var(--dark-gradient);
-      color: white;
-      padding: 1.25rem 1.5rem;
-      font-weight: 600;
-      font-size: 1.1rem;
-      border-bottom: none;
-    }
+  /* Modern Card Design - Optimized */
+  .modern-card {
+    background: white;
+    border-radius: 24px;
+    box-shadow: var(--card-shadow);
+    overflow: hidden;
+    transition: var(--transition);
+    will-change: transform;
+  }
 
-    /* KPI Cards */
-    .kpi-card-wrapper {
-      height: 100%;
-      perspective: 1000px;
-    }
+  .modern-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--hover-shadow);
+  }
 
-    .kpi-card {
-      position: relative;
-      border-radius: 20px;
-      color: white;
-      overflow: hidden;
-      transition: var(--transition);
-      height: 100%;
-      min-height: 160px;
-      display: flex;
-      align-items: center;
-      padding: 1.5rem;
-    }
+  /* Gradient Card Headers */
+  .card-header-gradient {
+    background: var(--dark-gradient);
+    color: white;
+    padding: 1.25rem 1.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+    border-bottom: none;
+  }
 
-    .kpi-primary {
-      background: var(--primary-gradient);
-    }
+  /* KPI Cards - Optimized */
+  .kpi-card {
+    position: relative;
+    border-radius: 20px;
+    color: white;
+    overflow: hidden;
+    height: 100%;
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    padding: 1.5rem;
+    will-change: transform;
+  }
 
-    .kpi-success {
-      background: var(--success-gradient);
-    }
+  .kpi-primary {
+    background: var(--primary-gradient);
+  }
 
-    .kpi-info {
-      background: var(--info-gradient);
-    }
+  .kpi-success {
+    background: var(--success-gradient);
+  }
 
-    .kpi-warning {
-      background: var(--warning-gradient);
-    }
+  .kpi-info {
+    background: var(--info-gradient);
+  }
 
-    .kpi-danger {
-      background: var(--danger-gradient);
-    }
+  .kpi-warning {
+    background: var(--warning-gradient);
+  }
 
-    .kpi-icon {
-      position: absolute;
-      right: 1.5rem;
-      top: 1.5rem;
-      opacity: 0.3;
-      font-size: 2.5rem;
-    }
+  .kpi-danger {
+    background: var(--danger-gradient);
+  }
 
-    .kpi-content {
-      position: relative;
-      z-index: 2;
-    }
+  .kpi-icon {
+    position: absolute;
+    right: 1.5rem;
+    top: 1.5rem;
+    opacity: 0.3;
+    font-size: 2.5rem;
+  }
 
-    .kpi-label {
-      font-size: 0.85rem;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      opacity: 0.9;
-      margin-bottom: 0.5rem;
-    }
+  .kpi-content {
+    position: relative;
+    z-index: 2;
+  }
 
+  .kpi-label {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9;
+    margin-bottom: 0.5rem;
+  }
+
+  .kpi-value {
+    font-size: 2.2rem;
+    font-weight: 700;
+    line-height: 1.1;
+    margin-bottom: 0.25rem;
+  }
+
+  .kpi-subtext {
+    font-size: 0.8rem;
+    opacity: 0.8;
+  }
+
+  /* Section Title */
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  /* Sticky Table Headers - Optimized */
+  .sticky-top {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: white;
+  }
+
+  /* Custom Scrollbar */
+  .table-responsive::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .table-responsive::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 10px;
+  }
+
+  .table-responsive::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 10px;
+  }
+
+  /* Modern Tables - Optimized */
+  .modern-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .modern-table thead th {
+    background: #f8fafc;
+    padding: 1rem 1.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #475569;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .modern-table tbody td {
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+  }
+
+  .modern-table tbody tr:hover td {
+    background-color: #f8fafc;
+  }
+
+  /* Title Links - Fix Underline Issue */
+  .title-link {
+    text-decoration: none;
+    color: #1e293b;
+    transition: color 0.2s ease;
+  }
+
+  .title-link:hover {
+    text-decoration: underline;
+    color: #3b82f6;
+  }
+
+  .arabic-text .title-link {
+    font-family: 'Amiri', 'Traditional Arabic', 'Times New Roman', serif;
+    text-decoration: none;
+  }
+
+  .arabic-text .title-link:hover {
+    text-decoration: underline;
+  }
+
+  /* Darajah Link */
+  .darajah-link {
+    color: #1e293b;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s ease;
+  }
+
+  .darajah-link:hover {
+    color: #3b82f6;
+  }
+
+  /* Badges and Indicators */
+  .rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .rank-top {
+    background: linear-gradient(135deg, #ffd700, #ffa500);
+    color: #000;
+    box-shadow: 0 2px 4px rgba(255, 165, 0, 0.3);
+  }
+
+  .rank-high {
+    background: linear-gradient(135deg, #94a3b8, #64748b);
+    color: white;
+  }
+
+  .rank-normal {
+    background: linear-gradient(135deg, #cbd5e1, #94a3b8);
+    color: white;
+  }
+
+  .issue-badge {
+    display: inline-block;
+    padding: 0.35rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.85rem;
+  }
+
+  .issue-badge.arabic {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+  }
+
+  .issue-badge.english {
+    background: rgba(59, 130, 246, 0.1);
+    color: #2563eb;
+  }
+
+  /* Efficiency Indicators */
+  .efficiency-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .efficiency-bar {
+    width: 60px;
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .efficiency-progress {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.2s ease;
+  }
+
+  /* Filter Controls */
+  .filter-controls {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .filter-input {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    background: white;
+    min-width: 200px;
+  }
+
+  .filter-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  }
+
+  .filter-select {
+    padding: 0.5rem 2rem 0.5rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+    min-width: 180px;
+  }
+
+  .btn-icon {
+    width: 38px;
+    height: 38px;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: white;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    cursor: pointer;
+  }
+
+  .btn-icon:hover {
+    background: #f8fafc;
+    color: #3b82f6;
+    border-color: #3b82f6;
+  }
+
+  /* Insights Panel - Optimized */
+  .insights-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .insight-message {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: #f8fafc;
+    border-radius: 16px;
+    transition: var(--transition);
+  }
+
+  .insight-message:hover {
+    transform: translateX(4px);
+    background: #f1f5f9;
+  }
+
+  .insight-icon-wrapper {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .insight-icon-wrapper.insight-1 {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+  }
+
+  .insight-icon-wrapper.insight-2 {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+  }
+
+  .insight-icon-wrapper.insight-3 {
+    background: linear-gradient(135deg, #10b981, #059669);
+  }
+
+  .insight-content {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #1e293b;
+    flex: 1;
+  }
+
+  /* Quick Stats */
+  .quick-stat-card {
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
+    padding: 1rem;
+    border-radius: 16px;
+    text-align: center;
+  }
+
+  .quick-stat-card .stat-number {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #0f172a;
+    margin-bottom: 0.25rem;
+  }
+
+  .quick-stat-card .stat-label {
+    font-size: 0.8rem;
+    color: #64748b;
+  }
+
+  /* Footer Stats */
+  .footer-stats {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .footer-stats.compact {
+    padding: 0.5rem;
+  }
+
+  .footer-stat-item {
+    text-align: center;
+  }
+
+  .footer-stat-item .stat-label {
+    font-size: 0.75rem;
+    color: #64748b;
+    margin-bottom: 0.25rem;
+  }
+
+  .footer-stat-item .stat-value {
+    font-size: 1.1rem;
+    font-weight: 600;
+  }
+
+  /* Progress Indicators */
+  .progress-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .progress-bar {
+    height: 6px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    border-radius: 3px;
+    transition: width 0.2s ease;
+  }
+
+  .percentage {
+    font-size: 0.8rem;
+    color: #64748b;
+    min-width: 45px;
+  }
+
+  /* Overdue Badge */
+  .overdue-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .overdue-badge.warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+  }
+
+  .overdue-badge.safe {
+    background: #e2e8f0;
+    color: #475569;
+  }
+
+  /* Chart Containers */
+  .chart-wrapper,
+  .chart-container,
+  .chart-container-sm {
+    position: relative;
+    width: 100%;
+  }
+
+  /* Empty States */
+  .empty-state,
+  .empty-message {
+    text-align: center;
+    color: #94a3b8;
+  }
+
+  .empty-state {
+    padding: 3rem 1rem;
+  }
+
+  .empty-message {
+    padding: 3rem !important;
+  }
+
+  .empty-state i,
+  .empty-message i {
+    opacity: 0.3;
+    margin-bottom: 1rem;
+  }
+
+  /* Gradient Text */
+  .gradient-text {
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Table Footer */
+  .table-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0.5rem 0;
+  }
+
+  .showing-info {
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  /* Efficiency Legend */
+  .efficiency-legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: #64748b;
+  }
+
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+
+  /* Color Dot */
+  .color-dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 8px;
+  }
+
+  .marhala-indicator {
+    display: flex;
+    align-items: center;
+  }
+
+  /* Badge Styles */
+  .efficiency-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+  }
+
+  .efficiency-success {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+  }
+
+  .efficiency-primary {
+    background: rgba(59, 130, 246, 0.1);
+    color: #2563eb;
+  }
+
+  .efficiency-warning {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+  }
+
+  .efficiency-danger {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+  }
+
+  .efficiency-secondary {
+    background: rgba(100, 116, 139, 0.1);
+    color: #475569;
+  }
+
+  .marhala-badge {
+    background: #f1f5f9;
+    color: #475569;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+  }
+
+  .issue-count {
+    font-weight: 600;
+    color: #2563eb;
+  }
+
+  .avg-value {
+    font-weight: 600;
+    color: #059669;
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
     .kpi-value {
-      font-size: 2.2rem;
-      font-weight: 700;
-      line-height: 1.1;
-      margin-bottom: 0.25rem;
-    }
-
-    .kpi-subtext {
-      font-size: 0.8rem;
-      opacity: 0.8;
-    }
-
-    .kpi-glow {
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
-      opacity: 0;
-      transition: var(--transition);
-    }
-
-    .kpi-card:hover .kpi-glow {
-      opacity: 1;
-    }
-
-    /* Section Title */
-    .section-title {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #1e293b;
-      padding-bottom: 0.5rem;
-      border-bottom: 2px solid #e2e8f0;
-    }
-
-    /* Sticky Table Headers */
-    .sticky-top {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: white;
-    }
-
-    /* Custom Scrollbar */
-    .table-responsive::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
-    }
-
-    .table-responsive::-webkit-scrollbar-track {
-      background: #f1f5f9;
-      border-radius: 10px;
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb {
-      background: #94a3b8;
-      border-radius: 10px;
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb:hover {
-      background: #64748b;
-    }
-
-    /* Modern Tables */
-    .modern-table {
-      width: 100%;
-      border-collapse: separate;
-      border-spacing: 0;
-    }
-
-    .modern-table thead th {
-      background: #f8fafc;
-      padding: 1rem 1.25rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      color: #475569;
-      border-bottom: 2px solid #e2e8f0;
-    }
-
-    .modern-table tbody td {
-      padding: 1rem 1.25rem;
-      border-bottom: 1px solid #f1f5f9;
-      vertical-align: middle;
-      transition: var(--transition);
-    }
-
-    .modern-table tbody tr:hover td {
-      background-color: #f8fafc;
-    }
-
-    .modern-table.compact td {
-      padding: 0.75rem 1rem;
-    }
-
-    /* Badges and Indicators */
-    .rank-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-
-    .rank-top {
-      background: linear-gradient(135deg, #ffd700, #ffa500);
-      color: #000;
-      box-shadow: 0 4px 10px rgba(255, 165, 0, 0.3);
-    }
-
-    .rank-high {
-      background: linear-gradient(135deg, #94a3b8, #64748b);
-      color: white;
-    }
-
-    .rank-normal {
-      background: linear-gradient(135deg, #cbd5e1, #94a3b8);
-      color: white;
-    }
-
-    .issue-badge {
-      display: inline-block;
-      padding: 0.35rem 1rem;
-      border-radius: 20px;
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-
-    .issue-badge.arabic {
-      background: rgba(239, 68, 68, 0.1);
-      color: #dc2626;
-    }
-
-    .issue-badge.english {
-      background: rgba(59, 130, 246, 0.1);
-      color: #2563eb;
-    }
-
-    /* Progress Indicators */
-    .progress-indicator {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .progress-bar {
-      height: 6px;
-      background: linear-gradient(90deg, #3b82f6, #8b5cf6);
-      border-radius: 3px;
-      transition: width 0.3s ease;
-    }
-
-    .percentage {
-      font-size: 0.8rem;
-      color: #64748b;
-      min-width: 45px;
-    }
-
-    /* Efficiency Indicators */
-    .efficiency-indicator {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.25rem;
-    }
-
-    .efficiency-bar {
-      width: 60px;
-      height: 4px;
-      background: #e2e8f0;
-      border-radius: 2px;
-      overflow: hidden;
-    }
-
-    .efficiency-progress {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.3s ease;
-    }
-
-    /* Filter Controls */
-    .filter-controls {
-      display: flex;
-      gap: 0.5rem;
-      justify-content: flex-end;
-      flex-wrap: wrap;
-    }
-
-    .filter-input {
-      padding: 0.5rem 1rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      transition: var(--transition);
-      background: white;
-      min-width: 200px;
-    }
-
-    .filter-input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-    }
-
-    .filter-select {
-      padding: 0.5rem 2rem 0.5rem 1rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      background: white;
-      cursor: pointer;
-      min-width: 180px;
-    }
-
-    .btn-icon {
-      width: 38px;
-      height: 38px;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      background: white;
-      color: #64748b;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      transition: var(--transition);
-      cursor: pointer;
-    }
-
-    .btn-icon:hover {
-      background: #f8fafc;
-      color: #3b82f6;
-      border-color: #3b82f6;
-    }
-
-    /* Insights Panel */
-    .insights-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .insight-message {
-      display: flex;
-      align-items: flex-start;
-      gap: 1rem;
-      padding: 1rem;
-      background: #f8fafc;
-      border-radius: 16px;
-      transition: var(--transition);
-    }
-
-    .insight-message:hover {
-      transform: translateX(4px);
-      background: #f1f5f9;
-    }
-
-    .insight-icon-wrapper {
-      width: 32px;
-      height: 32px;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      flex-shrink: 0;
-    }
-
-    .insight-icon-wrapper.insight-1 {
-      background: linear-gradient(135deg, #f59e0b, #d97706);
-    }
-
-    .insight-icon-wrapper.insight-2 {
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-    }
-
-    .insight-icon-wrapper.insight-3 {
-      background: linear-gradient(135deg, #10b981, #059669);
-    }
-
-    .insight-content {
-      font-size: 0.95rem;
-      line-height: 1.5;
-      color: #1e293b;
-      flex: 1;
-    }
-
-    /* Quick Stats */
-    .quick-stat-card {
-      background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-      padding: 1rem;
-      border-radius: 16px;
-      text-align: center;
-    }
-
-    .quick-stat-card .stat-number {
       font-size: 1.5rem;
-      font-weight: 700;
-      color: #0f172a;
-      margin-bottom: 0.25rem;
     }
 
-    .quick-stat-card .stat-label {
-      font-size: 0.8rem;
-      color: #64748b;
+    .filter-controls {
+      margin-top: 1rem;
+      justify-content: flex-start;
     }
 
-    /* Footer Stats */
-    .footer-stats {
-      display: flex;
-      justify-content: space-around;
-      align-items: center;
-      padding: 1rem;
-      flex-wrap: wrap;
-      gap: 1rem;
+    .filter-input,
+    .filter-select {
+      width: 100%;
+      min-width: 100%;
     }
 
-    .footer-stats.compact {
-      padding: 0.5rem;
-    }
-
-    .footer-stat-item {
-      text-align: center;
-    }
-
-    .footer-stat-item .stat-label {
-      font-size: 0.75rem;
-      color: #64748b;
-      margin-bottom: 0.25rem;
-    }
-
-    .footer-stat-item .stat-value {
-      font-size: 1.1rem;
-      font-weight: 600;
-    }
-
-    /* Efficiency Legend */
     .efficiency-legend {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
+      margin-top: 1rem;
       justify-content: center;
     }
 
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.85rem;
-      color: #64748b;
+    .table-responsive {
+      margin: 0 -1rem;
     }
+  }
+</style>
+{% endblock %}
 
-    .legend-dot {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-    }
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    /* Color Dot */
-    .color-dot {
-      display: inline-block;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-right: 8px;
-    }
+<script>
+  // Chart variables
+  let trendChart, darajahChart, marhalaChart;
+  const ROWS_PER_PAGE = 50;
+  let currentPage = 1;
+  let filteredRows = [];
 
-    .marhala-indicator {
-      display: flex;
-      align-items: center;
-    }
+  // Utility Functions
+  const sum = (arr) => arr?.reduce((a, b) => a + b, 0) || 0;
 
-    /* Responsive Design */
-    @media (max-width: 768px) {
-      .kpi-value {
-        font-size: 1.5rem;
-      }
-
-      .filter-controls {
-        margin-top: 1rem;
-        justify-content: flex-start;
-      }
-
-      .filter-input,
-      .filter-select {
-        width: 100%;
-        min-width: 100%;
-      }
-
-      .efficiency-legend {
-        margin-top: 1rem;
-        justify-content: center;
-      }
-
-      .table-responsive {
-        margin: 0 -1rem;
-      }
-    }
-
-    /* Animations */
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .animate__animated {
-      animation-duration: 0.5s;
-      animation-fill-mode: both;
-    }
-
-    .animate__fadeInUp {
-      animation-name: slideIn;
-    }
-
-    .animate__fadeInRight {
-      animation-name: fadeInRight;
-    }
-
-    @keyframes fadeInRight {
-      from {
-        opacity: 0;
-        transform: translateX(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
-    }
-
-    /* Chart Containers */
-    .chart-wrapper {
-      position: relative;
-      width: 100%;
-    }
-
-    .chart-container {
-      width: 100%;
-      position: relative;
-    }
-
-    .chart-container-sm {
-      width: 100%;
-      position: relative;
-    }
-
-    /* Empty States */
-    .empty-state {
-      text-align: center;
-      padding: 3rem 1rem;
-      color: #94a3b8;
-    }
-
-    .empty-state i {
-      opacity: 0.3;
-      margin-bottom: 1rem;
-    }
-
-    .empty-message {
-      padding: 3rem !important;
-      color: #94a3b8;
-      text-align: center;
-    }
-
-    /* Gradient Text */
-    .gradient-text {
-      background: var(--primary-gradient);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    /* Table Footer */
-    .table-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 1rem;
-      padding: 0.5rem 0;
-    }
-
-    .showing-info {
-      color: #64748b;
-      font-size: 0.9rem;
-    }
-
-    /* Overdue Badge */
-    .overdue-badge {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
-      font-size: 0.85rem;
-      font-weight: 500;
-    }
-
-    .overdue-badge.warning {
-      background: rgba(245, 158, 11, 0.1);
-      color: #d97706;
-    }
-
-    .overdue-badge.safe {
-      background: #e2e8f0;
-      color: #475569;
-    }
-
-    /* Darajah Link */
-    .darajah-link {
-      color: #1e293b;
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s ease;
-    }
-
-    .darajah-link:hover {
-      color: #3b82f6;
-    }
-
-    /* Issue Count */
-    .issue-count {
-      font-weight: 600;
-      color: #2563eb;
-    }
-
-    /* Avg Value */
-    .avg-value {
-      font-weight: 600;
-      color: #059669;
-    }
-
-    /* Marhala Badge */
-    .marhala-badge {
-      background: #f1f5f9;
-      color: #475569;
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
-      font-size: 0.85rem;
-    }
-
-    /* Efficiency Badge */
-    .efficiency-badge {
-      display: inline-block;
-      padding: 0.25rem 0.75rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 500;
-      margin-bottom: 0.25rem;
-    }
-
-    .efficiency-success {
-      background: rgba(16, 185, 129, 0.1);
-      color: #059669;
-    }
-
-    .efficiency-primary {
-      background: rgba(59, 130, 246, 0.1);
-      color: #2563eb;
-    }
-
-    .efficiency-warning {
-      background: rgba(245, 158, 11, 0.1);
-      color: #d97706;
-    }
-
-    .efficiency-danger {
-      background: rgba(239, 68, 68, 0.1);
-      color: #dc2626;
-    }
-
-    .efficiency-secondary {
-      background: rgba(100, 116, 139, 0.1);
-      color: #475569;
-    }
-  </style>
-  {% endblock %}
-
-  {% block scripts %}
-  {{ super() }}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <script>
-    // Chart variables
-    let trendChart, darajahChart, marhalaChart;
-
-    // Utility Functions
-    const sum = (arr) => arr?.reduce((a, b) => a + b, 0) || 0;
-
-    // Initialize Charts when DOM is loaded
-    document.addEventListener('DOMContentLoaded', function () {
+  // Initialize Charts when DOM is loaded
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(() => {
       initializeTrendChart();
       initializeDarajahChart();
       initializeMarhalaChart();
       setupFilters();
-    });
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+  });
 
-    // Trend Chart Initialization - FIXED
-    function initializeTrendChart() {
-      const trendCtx = document.getElementById('trendChart')?.getContext('2d');
-      const trendLabels = {{ trend_labels | tojson
-    }};
-    const trendValues = {{ trend_values | tojson }};
+  // Trend Chart Initialization
+  function initializeTrendChart() {
+    const trendCtx = document.getElementById('trendChart')?.getContext('2d');
+    let trendLabels = {{ trend_labels | tojson
+  }};
+  let trendValues = {{ trend_values | tojson }};
 
-    if (!trendCtx) {
-      console.error('Trend chart canvas not found');
-      return;
+  if (!trendCtx) {
+    const container = document.getElementById('trendChartContainer');
+    if (container) {
+      container.innerHTML = '<div class="text-center py-5"><i class="fas fa-chart-line fa-3x mb-3 text-muted"></i><p>Chart container not found</p></div>';
     }
-
-    if (!trendLabels?.length || !trendValues?.length) {
-      console.warn('Trend chart data not available');
-      document.getElementById('trendChartContainer').innerHTML =
-        '<div class="text-center py-5"><i class="fas fa-chart-line fa-3x mb-3 text-muted"></i><p>No borrowing trend data available</p></div>';
-      return;
-    }
-
-    // Ensure data is properly formatted as numbers
-    const labels = trendLabels.map(l => String(l));
-    const values = trendValues.map(v => Number(v) || 0);
-
-    const avgMonthly = values.length > 0 ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
-    const maxValue = Math.max(...values);
-    const peakIndex = values.indexOf(maxValue);
-
-    // Destroy existing chart if it exists
-    if (trendChart) {
-      trendChart.destroy();
-    }
-
-    trendChart = new Chart(trendCtx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Books Issued',
-          data: values,
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          borderWidth: 3,
-          tension: 0.4,
-          fill: true,
-          pointBackgroundColor: (context) => {
-            const index = context.dataIndex;
-            return index === peakIndex ? '#ef4444' : '#3b82f6';
-          },
-          pointBorderColor: '#ffffff',
-          pointBorderWidth: 2,
-          pointRadius: (context) => context.dataIndex === peakIndex ? 8 : 5,
-          pointHoverRadius: 10
-        }, {
-          label: 'Monthly Average',
-          data: Array(values.length).fill(avgMonthly),
-          borderColor: '#10b981',
-          borderWidth: 2,
-          borderDash: [5, 5],
-          fill: false,
-          pointRadius: 0,
-          pointHoverRadius: 0
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: true,
-            position: 'top',
-            labels: {
-              usePointStyle: true,
-              boxWidth: 8
-            }
-          },
-          tooltip: {
-            mode: 'index',
-            intersect: false,
-            callbacks: {
-              label: (ctx) => {
-                if (ctx.datasetIndex === 0) {
-                  const pct = avgMonthly > 0 ? ((ctx.raw / avgMonthly) * 100).toFixed(1) : '0';
-                  return `${ctx.dataset.label}: ${ctx.raw.toLocaleString()} (${pct}% of avg)${ctx.dataIndex === peakIndex ? ' 📈 PEAK' : ''}`;
-                }
-                return `${ctx.dataset.label}: ${ctx.raw.toLocaleString()}`;
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            grid: { color: '#e2e8f0' },
-            ticks: {
-              callback: function (value) {
-                return value.toLocaleString();
-              }
-            }
-          },
-          x: {
-            grid: { display: false },
-            ticks: {
-              maxRotation: 45,
-              minRotation: 45
-            }
-          }
-        }
-      }
-    });
+    return;
   }
 
-    // Darajah Chart Initialization
-    function initializeDarajahChart() {
-      const darajahCtx = document.getElementById('darajahChart')?.getContext('2d');
-      const darajahLabels = {{ darajah_labels | tojson
-    }};
-    const maleValues = {{ darajah_male_values | tojson }};
-    const femaleValues = {{ darajah_female_values | tojson }};
+  const hasValidData = trendLabels && trendValues &&
+    Array.isArray(trendLabels) && Array.isArray(trendValues) &&
+    trendLabels.length > 0 && trendValues.length > 0;
 
-    if (!darajahCtx || !darajahLabels?.length) {
-      console.warn('Darajah chart data not available');
-      return;
+  if (!hasValidData) {
+    const container = document.getElementById('trendChartContainer');
+    if (container) {
+      container.innerHTML = '<div class="text-center py-5"><i class="fas fa-chart-line fa-3x mb-3 text-muted"></i><p>No borrowing trend data available for the selected period</p><small class="text-muted">Data may appear once there are book issues in the current Academic Year</small></div>';
     }
-
-    darajahChart = new Chart(darajahCtx, {
-      type: 'bar',
-      data: {
-        labels: darajahLabels,
-        datasets: [{
-          label: 'Male',
-          data: maleValues,
-          backgroundColor: '#3b82f6', // Blue
-          borderRadius: 6,
-          barPercentage: 0.7,
-          categoryPercentage: 0.8
-        }, {
-          label: 'Female',
-          data: femaleValues,
-          backgroundColor: '#ff69b4', // Hot Pink
-          borderRadius: 6,
-          barPercentage: 0.7,
-          categoryPercentage: 0.8
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          tooltip: {
-            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-            padding: 12,
-            titleFont: { size: 14, weight: 'bold' },
-            bodyFont: { size: 13 },
-            displayColors: false,
-            callbacks: {
-              title: (ctx) => {
-                return `Darajah: ${ctx[0].label}`;
-              },
-              label: (ctx) => {
-                return `Value: ${ctx.raw}`;
-              }
-            }
-          }
-        },
-        scales: {
-          y: { stacked: true, beginAtZero: true },
-          x: { stacked: true }
-        }
-      }
-    });
+    return;
   }
 
-    // Marhala Chart Initialization
-    function initializeMarhalaChart() {
-      const marhalaCtx = document.getElementById('marhalaChart')?.getContext('2d');
-      const marhalaLabels = {{ marhala_labels | tojson
-    }};
-    const marhalaValues = {{ marhala_values | tojson }};
+  const labels = trendLabels.map(l => String(l).trim());
+  const values = trendValues.map(v => isNaN(Number(v)) ? 0 : Number(v));
 
-    if (!marhalaCtx || !marhalaLabels?.length) {
-      console.warn('Marhala chart data not available');
-      return;
-    }
+  const totalIssues = values.reduce((a, b) => a + b, 0);
+  const avgMonthly = values.length > 0 ? Math.round(totalIssues / values.length) : 0;
+  const maxValue = Math.max(...values);
+  const peakIndex = values.indexOf(maxValue);
+  const peakMonth = peakIndex !== -1 ? labels[peakIndex] : 'N/A';
 
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
-
-    marhalaChart = new Chart(marhalaCtx, {
-      type: 'pie',
-      data: {
-        labels: marhalaLabels,
-        datasets: [{
-          data: marhalaValues,
-          backgroundColor: colors.slice(0, marhalaLabels.length),
-          borderColor: 'white',
-          borderWidth: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: 'right' },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                const total = sum(marhalaValues);
-                const pct = ((ctx.raw / total) * 100).toFixed(1);
-                return `${ctx.label}: ${ctx.raw} books (${pct}%)`;
-              }
-            }
-          }
-        }
-      }
-    });
+  document.getElementById('totalBooksValue').textContent = totalIssues.toLocaleString();
+  document.getElementById('peakMonthValue').textContent = `${peakMonth}: ${maxValue}`;
+  document.getElementById('avgMonthlyValue').textContent = avgMonthly.toLocaleString();
+  document.getElementById('insightAvg').textContent = avgMonthly.toLocaleString();
+  if (avgMonthly > 0) {
+    const diffPercent = Math.round(((maxValue - avgMonthly) / avgMonthly) * 100);
+    document.getElementById('insightPeakDiff').textContent = `${diffPercent}%`;
   }
 
-    // Change Marhala Chart Type
-    window.changeMarhalaChartType = function (type) {
-      if (!marhalaChart) return;
+  if (trendChart) trendChart.destroy();
 
-      const marhalaLabels = {{ marhala_labels | tojson
-    }};
-    const marhalaValues = {{ marhala_values | tojson }};
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+  const gradient = trendCtx.createLinearGradient(0, 0, 0, 400);
+  gradient.addColorStop(0, 'rgba(59, 130, 246, 0.3)');
+  gradient.addColorStop(1, 'rgba(59, 130, 246, 0.02)');
 
-    marhalaChart.destroy();
-    marhalaChart = new Chart(document.getElementById('marhalaChart').getContext('2d'), {
-      type: type,
-      data: {
-        labels: marhalaLabels,
-        datasets: [{
-          data: marhalaValues,
-          backgroundColor: colors.slice(0, marhalaLabels.length),
-          borderColor: 'white',
-          borderWidth: 2
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { position: type === 'bar' ? 'top' : 'right' },
-          tooltip: {
-            callbacks: {
-              label: (ctx) => {
-                const total = sum(marhalaValues);
-                const pct = ((ctx.raw / total) * 100).toFixed(1);
-                return `${ctx.label}: ${ctx.raw} books (${pct}%)`;
-              }
-            }
-          }
+  trendChart = new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Books Issued',
+        data: values,
+        borderColor: '#3b82f6',
+        backgroundColor: gradient,
+        borderWidth: 3,
+        tension: 0.4,
+        fill: true,
+        pointBackgroundColor: (context) => context.dataIndex === peakIndex ? '#ef4444' : '#3b82f6',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: (context) => context.dataIndex === peakIndex ? 7 : 5,
+        pointHoverRadius: 10
+      }, {
+        label: 'Monthly Average',
+        data: Array(values.length).fill(avgMonthly),
+        borderColor: '#10b981',
+        borderWidth: 2,
+        borderDash: [8, 5],
+        fill: false,
+        pointRadius: 0
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 2,
+      plugins: {
+        legend: { display: true, position: 'top', labels: { usePointStyle: true, boxWidth: 8, padding: 15, font: { size: 12 } } },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: 'rgba(15, 23, 42, 0.95)',
+          titleColor: '#f1f5f9',
+          bodyColor: '#cbd5e1',
+          padding: 12,
+          cornerRadius: 8
         }
+      },
+      scales: {
+        y: { beginAtZero: true, grid: { color: '#e2e8f0', borderDash: [5, 5] }, title: { display: true, text: 'Number of Books Issued', color: '#64748b', font: { size: 11 } } },
+        x: { grid: { display: false }, title: { display: true, text: 'Month (Hijri)', color: '#64748b', font: { size: 11 } }, ticks: { maxRotation: 45, minRotation: 35, autoSkip: true, maxTicksLimit: 8, font: { size: 10 } } }
+      },
+      interaction: { intersect: false, mode: 'index' }
+    }
+  });
+  }
+
+  // Darajah Chart Initialization
+  function initializeDarajahChart() {
+    const darajahCtx = document.getElementById('darajahChart')?.getContext('2d');
+    const darajahLabels = {{ darajah_labels | tojson
+  }};
+  const maleValues = {{ darajah_male_values | tojson }};
+  const femaleValues = {{ darajah_female_values | tojson }};
+
+  if (!darajahCtx || !darajahLabels?.length) return;
+
+  darajahChart = new Chart(darajahCtx, {
+    type: 'bar',
+    data: {
+      labels: darajahLabels,
+      datasets: [{
+        label: 'Male', data: maleValues, backgroundColor: '#3b82f6', borderRadius: 6, barPercentage: 0.7, categoryPercentage: 0.8
+      }, {
+        label: 'Female', data: femaleValues, backgroundColor: '#ff69b4', borderRadius: 6, barPercentage: 0.7, categoryPercentage: 0.8
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1.5,
+      plugins: { tooltip: { backgroundColor: 'rgba(15, 23, 42, 0.9)', padding: 12 } },
+      scales: { y: { stacked: true, beginAtZero: true }, x: { stacked: true } }
+    }
+  });
+  }
+
+  // Marhala Chart Initialization
+  function initializeMarhalaChart() {
+    const marhalaCtx = document.getElementById('marhalaChart')?.getContext('2d');
+    const marhalaLabels = {{ marhala_labels | tojson
+  }};
+  const marhalaValues = {{ marhala_values | tojson }};
+
+  if (!marhalaCtx || !marhalaLabels?.length) return;
+
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+
+  marhalaChart = new Chart(marhalaCtx, {
+    type: 'pie',
+    data: { labels: marhalaLabels, datasets: [{ data: marhalaValues, backgroundColor: colors.slice(0, marhalaLabels.length), borderColor: 'white', borderWidth: 2 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1.2,
+      plugins: {
+        legend: { position: 'right' },
+        tooltip: { callbacks: { label: (ctx) => { const total = sum(marhalaValues); const pct = ((ctx.raw / total) * 100).toFixed(1); return `${ctx.label}: ${ctx.raw} books (${pct}%)`; } } }
       }
-    });
+    }
+  });
+  }
+
+  // Change Marhala Chart Type
+  window.changeMarhalaChartType = function (type) {
+    if (!marhalaChart) return;
+    const marhalaLabels = {{ marhala_labels | tojson
+  }};
+  const marhalaValues = {{ marhala_values | tojson }};
+  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899'];
+
+  marhalaChart.destroy();
+  marhalaChart = new Chart(document.getElementById('marhalaChart').getContext('2d'), {
+    type: type,
+    data: { labels: marhalaLabels, datasets: [{ data: marhalaValues, backgroundColor: colors.slice(0, marhalaLabels.length), borderColor: 'white', borderWidth: 2 }] },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      aspectRatio: 1.2,
+      plugins: {
+        legend: { position: type === 'bar' ? 'top' : 'right' },
+        tooltip: { callbacks: { label: (ctx) => { const total = sum(marhalaValues); const pct = ((ctx.raw / total) * 100).toFixed(1); return `${ctx.label}: ${ctx.raw} books (${pct}%)`; } } }
+      }
+    }
+  });
   };
 
-    // Filter Setup
-    function setupFilters() {
-      const searchInput = document.getElementById('searchDarajah');
-      const filterSelect = document.getElementById('filterMarhala');
+  // Filter Setup
+  function setupFilters() {
+    const searchInput = document.getElementById('searchDarajah');
+    const filterSelect = document.getElementById('filterMarhala');
+    if (searchInput) searchInput.addEventListener('input', filterTable);
+    if (filterSelect) filterSelect.addEventListener('change', filterTable);
+    filterTable();
+  }
 
-      if (searchInput) searchInput.addEventListener('input', filterTable);
-      if (filterSelect) filterSelect.addEventListener('change', filterTable);
+  // Filter Table Function
+  function filterTable() {
+    const searchInput = document.getElementById('searchDarajah');
+    const filterSelect = document.getElementById('filterMarhala');
+    const tableRows = document.querySelectorAll('.darajah-row');
+    const visibleCountEl = document.getElementById('visibleCount');
 
-      // Initial filter to ensure everything is visible
-      filterTable();
-    }
+    const searchTerm = searchInput?.value?.toLowerCase().trim() || '';
+    const filterValue = filterSelect?.value?.toLowerCase().trim() || 'all';
+    let visibleCount = 0;
 
-    // Filter Table Function
-    function filterTable() {
-      const searchInput = document.getElementById('searchDarajah');
-      const filterSelect = document.getElementById('filterMarhala');
-      const tableRows = document.querySelectorAll('.darajah-row');
-      const visibleCountEl = document.getElementById('visibleCount');
+    tableRows.forEach(row => {
+      const darajah = row.dataset.darajah?.toLowerCase() || '';
+      const marhala = row.dataset.marhala?.toLowerCase() || '';
+      const matchesSearch = !searchTerm || darajah.includes(searchTerm) || marhala.includes(searchTerm);
+      const matchesFilter = filterValue === 'all' || marhala.includes(filterValue);
 
-      const searchTerm = searchInput?.value?.toLowerCase().trim() || '';
-      const filterValue = filterSelect?.value?.toLowerCase().trim() || 'all';
-      let visibleCount = 0;
-
-      tableRows.forEach(row => {
-        const darajah = row.dataset.darajah?.toLowerCase() || '';
-        const marhala = row.dataset.marhala?.toLowerCase() || '';
-
-        const matchesSearch = !searchTerm || darajah.includes(searchTerm) || marhala.includes(searchTerm);
-        const matchesFilter = filterValue === 'all' || marhala.includes(filterValue);
-
-        if (matchesSearch && matchesFilter) {
-          row.style.display = '';
-          visibleCount++;
-        } else {
-          row.style.display = 'none';
-        }
-      });
-
-      if (visibleCountEl) visibleCountEl.textContent = visibleCount;
-    }
-
-    // Reset Filters
-    window.resetFilters = function () {
-      const searchInput = document.getElementById('searchDarajah');
-      const filterSelect = document.getElementById('filterMarhala');
-
-      if (searchInput) searchInput.value = '';
-      if (filterSelect) filterSelect.value = 'all';
-
-      filterTable();
-    };
-
-    // Export Table Data
-    window.exportTableData = function () {
-      const rows = document.querySelectorAll('#darajahTable tbody tr:not([style*="display: none"])');
-      if (!rows.length) {
-        alert('No data to export');
-        return;
+      if (matchesSearch && matchesFilter) {
+        row.style.display = '';
+        visibleCount++;
+      } else {
+        row.style.display = 'none';
       }
+    });
 
-      const headers = Array.from(document.querySelectorAll('#darajahTable thead th')).map(th => th.textContent.trim());
-      const data = Array.from(rows).map(row =>
-        Array.from(row.querySelectorAll('td')).map(cell => `"${cell.textContent.trim()}"`).join(',')
-      );
+    if (visibleCountEl) visibleCountEl.textContent = visibleCount;
+  }
 
-      const csv = [headers.join(','), ...data].join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `darajah-breakdown-${new Date().toISOString().split('T')[0]}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
-    };
+  // Reset Filters
+  window.resetFilters = function () {
+    const searchInput = document.getElementById('searchDarajah');
+    const filterSelect = document.getElementById('filterMarhala');
+    if (searchInput) searchInput.value = '';
+    if (filterSelect) filterSelect.value = 'all';
+    filterTable();
+  };
 
-    // Export Titles
-    window.exportTitles = function (lang) {
-      alert(`Exporting ${lang} titles data...`);
-    };
+  // Export Table Data
+  window.exportTableData = function () {
+    const rows = document.querySelectorAll('#darajahTable tbody tr:not([style*="display: none"])');
+    if (!rows.length) { alert('No data to export'); return; }
 
-    // Refresh Data
-    window.refreshData = function () {
-      const btn = event?.target;
-      if (btn) {
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Refreshing...';
-        btn.disabled = true;
-      }
-      setTimeout(() => location.reload(), 500);
-    };
-  </script>
-  {% endblock %}
+    const headers = Array.from(document.querySelectorAll('#darajahTable thead th')).map(th => th.textContent.trim());
+    const data = Array.from(rows).map(row => Array.from(row.querySelectorAll('td')).map(cell => `"${cell.textContent.trim()}"`).join(','));
+    const csv = [headers.join(','), ...data].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `darajah-breakdown-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Export Titles
+  window.exportTitles = function (lang) { alert(`Exporting ${lang} titles data...`); };
+
+  // Refresh Data
+  window.refreshData = function () {
+    const btn = event?.target;
+    if (btn) { btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Refreshing...'; btn.disabled = true; }
+    setTimeout(() => location.reload(), 500);
+  };
+</script>
+{% endblock %}

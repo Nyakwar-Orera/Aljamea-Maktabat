@@ -1,25 +1,24 @@
+# routes/password_reset.py — FIXED: removed deprecated before_app_first_request
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from werkzeug.security import generate_password_hash
 from flask_mail import Message
 from db_app import get_conn
-from email_utils import init_mail
 
 bp = Blueprint("password_reset_bp", __name__)
-mail = None
+_mail = None
 
 
-def get_serializer(app):
+def get_serializer(app=None):
+    app = app or current_app
     return URLSafeTimedSerializer(app.config["SECRET_KEY"], salt="password-reset")
 
 
-@bp.before_app_first_request
 def setup_mail():
-    """Initialize Flask-Mail once the app context exists."""
-    global mail
-    mail = init_mail(current_app)
-    current_app.logger.warning("MAIL_USERNAME=%s", current_app.config.get("MAIL_USERNAME"))
-    current_app.logger.warning("MAIL_DEFAULT_SENDER=%s", current_app.config.get("MAIL_DEFAULT_SENDER"))
+    """Initialize mail — called from create_app() instead of deprecated hook."""
+    global _mail
+    from email_utils import init_mail
+    _mail = init_mail(current_app)
 
 
 @bp.route("/forgot", methods=["GET", "POST"])
@@ -28,41 +27,38 @@ def forgot_password():
     if request.method == "POST":
         email = (request.form.get("email") or "").strip()
 
-        # Lookup user by email
         conn = get_conn()
         cur = conn.cursor()
         cur.execute("SELECT username, email FROM users WHERE email = ?", (email,))
         row = cur.fetchone()
-        conn.close()
 
         if not row:
-            flash("❌ No user found with that email address.", "danger")
-            return render_template("forgot.html")
+            # Don\'t reveal if email exists — always show success
+            flash("📩 If that email exists, a reset link has been sent.", "info")
+            return redirect(url_for("auth_bp.login"))
 
-        username, email = row
+        username = row[0] if isinstance(row, tuple) else row["username"]
+        user_email = row[1] if isinstance(row, tuple) else row["email"]
 
-        # Create signed token
-        s = get_serializer(current_app)
-        token = s.dumps(email)
+        s = get_serializer()
+        token = s.dumps(user_email)
         reset_url = url_for("password_reset_bp.reset_password", token=token, _external=True)
 
-        # Compose and send using Flask-Mail's default sender
         try:
             msg = Message(
                 subject="🔐 Password Reset – Maktabat al-Jamea",
-                recipients=[email],
+                recipients=[user_email],
                 html=render_template(
                     "emails/password_reset_email.html",
                     username=username,
                     reset_url=reset_url,
                 ),
-                body="Please see the HTML version of this email.",
             )
-            mail.send(msg)
+            _mail.send(msg)
             flash("📩 Password reset link sent to your email.", "info")
         except Exception as e:
-            current_app.logger.error("Password reset email send failed: %s", e, exc_info=True)
-            flash("⚠️ Could not send the reset email. Please contact the administrator.", "warning")
+            current_app.logger.error("Password reset email failed: %s", e, exc_info=True)
+            flash("⚠️ Could not send reset email. Contact the administrator.", "warning")
 
         return redirect(url_for("auth_bp.login"))
 
@@ -71,31 +67,36 @@ def forgot_password():
 
 @bp.route("/reset/<token>", methods=["GET", "POST"])
 def reset_password(token):
-    """Validate token and allow user to reset password."""
-    s = get_serializer(current_app)
+    """Reset password using the signed token."""
+    s = get_serializer()
     try:
-        email = s.loads(token, max_age=3600)
+        email = s.loads(token, max_age=3600)  # 1 hour expiry
     except SignatureExpired:
-        flash("⏰ Reset link expired. Please request a new one.", "danger")
+        flash("⏰ Reset link has expired. Please request a new one.", "warning")
         return redirect(url_for("password_reset_bp.forgot_password"))
     except BadSignature:
         flash("❌ Invalid reset link.", "danger")
-        return redirect(url_for("password_reset_bp.forgot_password"))
-
-    if request.method == "POST":
-        password = request.form.get("password") or ""
-        confirm = request.form.get("confirm") or ""
-        if password != confirm:
-            flash("⚠️ Passwords do not match.", "warning")
-            return render_template("reset.html")
-
-        hashed = generate_password_hash(password)
-        conn = get_conn()
-        cur = conn.cursor()
-        cur.execute("UPDATE users SET password_hash = ? WHERE email = ?", (hashed, email))
-        conn.commit()
-        conn.close()
-        flash("✅ Password reset successful! You can now log in.", "success")
         return redirect(url_for("auth_bp.login"))
 
-    return render_template("reset.html")
+    if request.method == "POST":
+        new_password = request.form.get("password", "")
+        confirm_password = request.form.get("confirm_password", "")
+
+        if len(new_password) < 8:
+            flash("❌ Password must be at least 8 characters.", "danger")
+            return render_template("reset.html", token=token)
+
+        if new_password != confirm_password:
+            flash("❌ Passwords do not match.", "danger")
+            return render_template("reset.html", token=token)
+
+        conn = get_conn()
+        conn.execute(
+            "UPDATE users SET password_hash = ? WHERE email = ?",
+            (generate_password_hash(new_password), email),
+        )
+        conn.commit()
+        flash("✅ Password updated successfully! Please log in.", "success")
+        return redirect(url_for("auth_bp.login"))
+
+    return render_template("reset.html", token=token)

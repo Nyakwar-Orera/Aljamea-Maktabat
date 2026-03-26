@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./appdata.db:/app/appdata.db
+      - ./static/uploads:/app/static/uploads
+    env_file:
+      - .env
+    restart: always

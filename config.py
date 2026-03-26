@@ -19,8 +19,8 @@ class Config:
     SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret_key_change_me")
 
     # ---- Admin login ----
-    ADMIN_USER = os.getenv("ADMIN_USER", "admin")
-    ADMIN_PASS = os.getenv("ADMIN_PASS", "adminpass")
+    ADMIN_USER = os.getenv("ADMIN_USER")
+    ADMIN_PASS = os.getenv("ADMIN_PASS")
 
     # ---- Email (Flask-Mail) ----
     MAIL_SERVER = os.getenv("MAIL_SERVER", "smtp.gmail.com")
@@ -40,7 +40,7 @@ class Config:
     ADMINS = [a.strip() for a in os.getenv("ADMINS", ADMIN_EMAIL).split(",")]
 
     # ---- Koha DB (read-only user) ----
-    KOHA_DB_HOST = os.getenv("KOHA_DB_HOST", os.getenv("DB_HOST", "197.211.6.51"))
+    KOHA_DB_HOST = os.getenv("KOHA_DB_HOST", os.getenv("DB_HOST"))
     KOHA_DB_USER = os.getenv("KOHA_DB_USER", os.getenv("DB_USER", "library_read"))
     KOHA_DB_PASS = os.getenv("KOHA_DB_PASS", os.getenv("DB_PASS", ""))
     KOHA_DB_NAME = os.getenv("KOHA_DB_NAME", os.getenv("DB_NAME", "koha_library"))

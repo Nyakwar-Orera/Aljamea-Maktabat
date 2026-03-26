@@ -1,10 +1,16 @@
-# services/koha_queries.py - OPTIMIZED VERSION
+# services/koha_queries.py - COMPLETELY UPDATED WITH WEEKLY TREND SUPPORT AND CACHING
+
 from typing import Dict, List, Optional, Tuple, Any, Union
 from contextlib import contextmanager
-from db_koha import get_conn
+from db_koha import get_conn, get_koha_conn 
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 import re
+import logging
+from functools import lru_cache
+from time import time
+
+logger = logging.getLogger(__name__)
 
 try:
     from hijri_converter import convert as hijri_convert
@@ -16,6 +22,35 @@ HIJRI_MONTHS = [
     "Jamādil Awwal", "Jamādā al-ʾŪkhrā", "Rajab al-Asab", "Shabān al-Karim",
     "Shehrullah al-Moazzam", "Shawwāl al-Mukarram", "Zilqādah al-Harām", "Zilhijjatil Harām",
 ]
+
+# ---------- Simple Cache Decorator ----------
+class SimpleCache:
+    """Simple time-based cache for function results."""
+    def __init__(self, ttl_seconds=300):
+        self.cache = {}
+        self.ttl = ttl_seconds
+    
+    def get(self, key):
+        if key in self.cache:
+            value, timestamp = self.cache[key]
+            if time() - timestamp < self.ttl:
+                return value
+            else:
+                del self.cache[key]
+        return None
+    
+    def set(self, key, value):
+        self.cache[key] = (value, time())
+    
+    def clear(self):
+        self.cache.clear()
+
+# Initialize caches for different functions
+summary_cache = SimpleCache(ttl_seconds=300)  # 5 minutes
+trend_cache = SimpleCache(ttl_seconds=300)
+marhala_stats_cache = SimpleCache(ttl_seconds=600)  # 10 minutes
+top_titles_cache = SimpleCache(ttl_seconds=600)
+darajah_cache = SimpleCache(ttl_seconds=300)
 
 # ---------- Connection Context Manager ----------
 @contextmanager
@@ -31,7 +66,7 @@ def get_db_cursor(dictionary=True):
         conn.close()
 
 
-# ---------- SQL Loader (unchanged) ----------
+# ---------- SQL Loader ----------
 _SQL_CACHE = None
 
 def _load_sql_file() -> dict:
@@ -77,72 +112,166 @@ def sql_named(name: str) -> str:
 
 
 # -------------------------------
-# ACADEMIC YEAR HELPER - FIXED
+# ACADEMIC YEAR HELPER
 # -------------------------------
 
+# Cache for academic year bounds (changes once per day)
+_ay_bounds_cache = None
+_ay_bounds_timestamp = None
 
 def get_ay_bounds() -> Tuple[Optional[date], Optional[date]]:
     """
     Academic Year follows the Hijri cycle starting from 1st Shawwal.
     For 1447 H, this started on March 20, 2026.
+    
+    This function dynamically calculates the start and end dates based on:
+    1. The current Hijri year
+    2. The Gregorian conversion of 1st Shawwal of that Hijri year
+    3. The end date is the last day of Sha'ban (month 8) of the next Hijri year
+    
+    Returns the full academic year range (start to end) without capping to today.
+    Results are cached for 24 hours since academic year doesn't change daily.
     """
+    global _ay_bounds_cache, _ay_bounds_timestamp
+    
+    # Check cache (24 hour expiry)
+    if _ay_bounds_cache and _ay_bounds_timestamp:
+        if time() - _ay_bounds_timestamp < 86400:  # 24 hours
+            return _ay_bounds_cache
+    
     today = date.today()
     
-    # For now, let's align with the user's current session (1447 H)
-    # which we know started in March 2026.
-    # In a production system, this would be computed by converting 1-10-HYear to Gregorian.
+    try:
+        from hijri_converter import convert
+        
+        # Convert today's date to Hijri
+        h_today = convert.Gregorian(today.year, today.month, today.day).to_hijri()
+        
+        # Get the current Hijri year
+        current_hijri_year = h_today.year
+        
+        # Try to get 1st Shawwal of current Hijri year and convert to Gregorian date
+        try:
+            start_hijri_obj = convert.Hijri(current_hijri_year, 10, 1)
+            start_greg = start_hijri_obj.to_gregorian()
+            start_hijri = date(start_greg.year, start_greg.month, start_greg.day)
+        except Exception:
+            return _fallback_ay_bounds()
+        
+        # If today is before Shawwal, we need the previous Hijri year's Shawwal
+        if today < start_hijri:
+            # Use previous Hijri year
+            previous_hijri_year = current_hijri_year - 1
+            try:
+                start_hijri_obj = convert.Hijri(previous_hijri_year, 10, 1)
+                start_greg = start_hijri_obj.to_gregorian()
+                start_hijri = date(start_greg.year, start_greg.month, start_greg.day)
+                # End of academic year is end of Sha'ban (month 8) of current Hijri year
+                end_hijri_obj = convert.Hijri(current_hijri_year, 8, 30)
+                end_greg = end_hijri_obj.to_gregorian()
+                end_hijri = date(end_greg.year, end_greg.month, end_greg.day)
+            except Exception:
+                return _fallback_ay_bounds()
+        else:
+            # We're in the current academic year
+            # End is end of Sha'ban (month 8) of the next Hijri year
+            next_hijri_year = current_hijri_year + 1
+            try:
+                end_hijri_obj = convert.Hijri(next_hijri_year, 8, 30)
+                end_greg = end_hijri_obj.to_gregorian()
+                end_hijri = date(end_greg.year, end_greg.month, end_greg.day)
+            except Exception:
+                # If conversion fails, approximate end date
+                end_hijri = start_hijri.replace(year=start_hijri.year + 1) - timedelta(days=11)
+        
+        # Ensure start date is not in the future
+        if start_hijri > today:
+            # Start is in the future, use previous academic year
+            previous_hijri_year = current_hijri_year - 1
+            start_hijri_obj = convert.Hijri(previous_hijri_year, 10, 1)
+            start_greg = start_hijri_obj.to_gregorian()
+            start_hijri = date(start_greg.year, start_greg.month, start_greg.day)
+            end_hijri_obj = convert.Hijri(current_hijri_year, 8, 30)
+            end_greg = end_hijri_obj.to_gregorian()
+            end_hijri = date(end_greg.year, end_greg.month, end_greg.day)
+        
+        result = (start_hijri, end_hijri)
+        
+        # Update cache
+        _ay_bounds_cache = result
+        _ay_bounds_timestamp = time()
+        
+        logger.info(f"Hijri Academic Year: {current_hijri_year} - Start: {start_hijri}, End: {end_hijri}")
+        return result
+        
+    except Exception as e:
+        logger.error(f"Error in Hijri-based AY calculation: {e}")
+        import traceback
+        traceback.print_exc()
+        return _fallback_ay_bounds()
+
+
+def _fallback_ay_bounds() -> Tuple[Optional[date], Optional[date]]:
+    """
+    Fallback calculation for Academic Year when Hijri conversion fails.
+    Uses the hardcoded dates for 1447 H as reference.
+    """
+    # Hardcoded dates for 1447 H (March 20, 2026 - February 7, 2027)
+    ay_start = date(2026, 3, 20)
+    ay_end = date(2027, 2, 7)
     
-    if today.year >= 2026:
-        # User is in the 1447 H session
-        current_start = date(2026, 3, 20)
-        current_end = date(2027, 3, 10) # Approx end of 1447 H
-    else:
-        # Fallback to previous logic for other years
-        current_start = date(today.year, 4, 1)
-        current_end = date(today.year, 12, 31)
-        if today.month < 4:
-            current_start = date(today.year - 1, 4, 1)
-            current_end = date(today.year - 1, 12, 31)
-            
-    return current_start, min(today, current_end)
-
+    return ay_start, ay_end
 
 
 # -------------------------------
-# HIJRI HELPER FUNCTIONS (unchanged)
+# HIJRI HELPER FUNCTIONS (Cached)
 # -------------------------------
+
+@lru_cache(maxsize=1024)
+def _get_hijri_conversion(year: int, month: int, day: int) -> Tuple[str, str]:
+    """Cached Hijri conversion for date objects."""
+    d = date(year, month, day)
+    if not hijri_convert:
+        return d.strftime("%B %Y"), d.strftime("%d %B %Y")
+    try:
+        h = hijri_convert.Gregorian(year, month, day).to_hijri()
+        month_label = f"{HIJRI_MONTHS[h.month - 1]} {h.year} H"
+        full_label = f"{h.day} {HIJRI_MONTHS[h.month - 1]} {h.year} H"
+        return month_label, full_label
+    except Exception:
+        return d.strftime("%B %Y"), d.strftime("%d %B %Y")
+
 
 def get_hijri_month_year_label(d: date) -> str:
     """Get professional Hijri month-year label for the given date."""
-    if not hijri_convert or not d:
-        return d.strftime("%B %Y") if d else ""
-    try:
-        h = hijri_convert.Gregorian(d.year, d.month, d.day).to_hijri()
-        return f"{HIJRI_MONTHS[h.month - 1]} {h.year} H"
-    except Exception:
-        return d.strftime("%B %Y")
+    if not d:
+        return ""
+    month_label, _ = _get_hijri_conversion(d.year, d.month, d.day)
+    return month_label
 
 
 def get_hijri_date_label(d: date) -> str:
     """Get full Hijri date label (Day Month Year H)."""
-    if not hijri_convert or not d:
-        return d.strftime("%d %B %Y") if d else ""
-    try:
-        h = hijri_convert.Gregorian(d.year, d.month, d.day).to_hijri()
-        return f"{h.day} {HIJRI_MONTHS[h.month - 1]} {h.year} H"
-    except Exception:
-        return d.strftime("%d %B %Y")
+    if not d:
+        return ""
+    _, full_label = _get_hijri_conversion(d.year, d.month, d.day)
+    return full_label
 
 
 # -------------------------------
-# PATRON COUNT QUERIES - OPTIMIZED
+# PATRON COUNT QUERIES (Cached)
 # -------------------------------
 
 def get_patron_counts(marhala_name: Optional[str] = None) -> Dict[str, int]:
     """
     Get all patron counts in a single optimized query.
-    Returns dict with total, student, non-student, and active counts.
+    Results are cached for 5 minutes.
     """
+    cache_key = f"patron_counts_{marhala_name}"
+    cached = summary_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
     with get_db_cursor() as cur:
         query = """
             SELECT 
@@ -179,12 +308,15 @@ def get_patron_counts(marhala_name: Optional[str] = None) -> Dict[str, int]:
         cur.execute(query, params)
         result = cur.fetchone()
         
-        return {
-            "total_patrons": int(result.get("total_all", 0)),
-            "active_patrons": int(result.get("active_total", 0)),
-            "student_patrons": int(result.get("active_students", 0)),
-            "non_student_patrons": int(result.get("active_non_students", 0)),
+        output = {
+            "total_patrons": int(result.get("total_all") or 0),
+            "active_patrons": int(result.get("active_total") or 0),
+            "student_patrons": int(result.get("active_students") or 0),
+            "non_student_patrons": int(result.get("active_non_students") or 0),
         }
+        
+        summary_cache.set(cache_key, output)
+        return output
 
 
 def get_total_patrons_count() -> int:
@@ -203,17 +335,20 @@ def get_non_student_patrons_count() -> int:
 
 
 # -------------------------------
-# DASHBOARD SUMMARY QUERIES - OPTIMIZED
+# DASHBOARD SUMMARY QUERIES (Cached)
 # -------------------------------
 
 def get_summary(marhala_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Return library summary stats with optimized single-pass approach.
-    Uses multiple focused queries instead of one giant query.
+    Results are cached for 5 minutes.
     """
-    # Get patron counts in one query
-    patron_counts = get_patron_counts(marhala_name)
+    cache_key = f"summary_{marhala_name}"
+    cached = summary_cache.get(cache_key)
+    if cached is not None:
+        return cached
     
+    patron_counts = get_patron_counts(marhala_name)
     start, end = get_ay_bounds()
     
     with get_db_cursor() as cur:
@@ -339,7 +474,7 @@ def get_summary(marhala_name: Optional[str] = None) -> Dict[str, Any]:
             cur.execute(fees_q, fees_p)
             fees_paid = float(cur.fetchone()["fees_paid"] or 0.0)
 
-    return {
+    result = {
         "active_patrons": patron_counts["active_patrons"],
         "total_patrons": patron_counts["total_patrons"],
         "student_patrons": patron_counts["student_patrons"],
@@ -352,6 +487,9 @@ def get_summary(marhala_name: Optional[str] = None) -> Dict[str, Any]:
         "currently_issued": currently_issued,
         "fees_paid": fees_paid,
     }
+    
+    summary_cache.set(cache_key, result)
+    return result
 
 
 def get_summary_with_updated_terms() -> Dict[str, Any]:
@@ -360,7 +498,7 @@ def get_summary_with_updated_terms() -> Dict[str, Any]:
 
 
 # -------------------------------
-# DARAJAH GROUP CONSTANTS - CENTRALIZED
+# DARAJAH GROUP CONSTANTS
 # -------------------------------
 
 DARAJAH_GROUPS = {
@@ -385,7 +523,6 @@ def get_darajah_group_from_std(std_attr: Optional[str]) -> str:
     if not std_attr:
         return "Unassigned"
     
-    # Extract numeric part
     match = re.search(r'\d+', str(std_attr))
     if not match:
         return "Unassigned"
@@ -398,20 +535,15 @@ def get_darajah_group_from_std(std_attr: Optional[str]) -> str:
     
     return "Other"
 
+
 def get_department_currently_issued(marhala_name: Optional[str] = None) -> Dict[str, Any]:
     """
     Get currently issued books by marhala.
-    
-    Args:
-        marhala_name: Optional marhala name/code to filter by
-        
-    Returns:
-        Dict with 'marhalas' list and 'total_currently_issued' count
     """
     start, end = get_ay_bounds()
     conn = get_conn()
     try:
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
         
         query = """
         SELECT
@@ -441,7 +573,7 @@ def get_department_currently_issued(marhala_name: Optional[str] = None) -> Dict[
         rows = cur.fetchall()
         cur.close()
         
-        total_issued = sum(row['CurrentlyIssued'] for row in rows)
+        total_issued = sum(row['CurrentlyIssued'] for row in rows) if rows else 0
         
         return {
             "marhalas": rows,
@@ -450,12 +582,18 @@ def get_department_currently_issued(marhala_name: Optional[str] = None) -> Dict[
     finally:
         conn.close()
 
+
 # -------------------------------
-# MARHALA & DARAJAH FUNCTIONS - OPTIMIZED
+# MARHALA & DARAJAH FUNCTIONS (Cached)
 # -------------------------------
 
 def get_marhala_distribution_with_dars_burhani() -> Tuple[List[str], List[int]]:
     """Return Marhala distribution including Dars Burhani."""
+    cache_key = "marhala_distribution"
+    cached = marhala_stats_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
     start, end = get_ay_bounds()
     if not start:
         return [], []
@@ -463,7 +601,6 @@ def get_marhala_distribution_with_dars_burhani() -> Tuple[List[str], List[int]]:
     academic_marhalas = get_academic_marhalas()
     
     with get_db_cursor() as cur:
-        # Get issues per category code
         placeholders = ', '.join(['%s'] * len(academic_marhalas))
         
         cur.execute(f"""
@@ -482,7 +619,6 @@ def get_marhala_distribution_with_dars_burhani() -> Tuple[List[str], List[int]]:
         
         result = {row["marhala_name"]: row["total_issues"] for row in cur.fetchall()}
     
-    # Standard marhala list in desired order
     all_marhalas = [
         'Collegiate I (5-7)',
         'Culture Générale (Std 3-4)',
@@ -498,11 +634,18 @@ def get_marhala_distribution_with_dars_burhani() -> Tuple[List[str], List[int]]:
         labels.append(marhala)
         values.append(result.get(marhala, 0))
     
-    return labels, values
+    output = (labels, values)
+    marhala_stats_cache.set(cache_key, output)
+    return output
 
 
 def get_darajah_summary_by_marhala(marhala_name: Optional[str] = None) -> List[Dict]:
     """Get Darajah summary filtered by Marhala - OPTIMIZED."""
+    cache_key = f"darajah_summary_{marhala_name}"
+    cached = darajah_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
     start, end = get_ay_bounds()
     if not start:
         return []
@@ -512,10 +655,8 @@ def get_darajah_summary_by_marhala(marhala_name: Optional[str] = None) -> List[D
     all_codes = academic_codes + non_academic_codes
     
     with get_db_cursor() as cur:
-        # Build parameterized query with IN clause
         placeholders = ', '.join(['%s'] * len(all_codes))
         
-        # Base query without WHERE filter
         query = f"""
             WITH darajah_issues AS (
                 SELECT
@@ -528,7 +669,7 @@ def get_darajah_summary_by_marhala(marhala_name: Optional[str] = None) -> List[D
                 LEFT JOIN categories c ON c.categorycode = b.categorycode
                 LEFT JOIN borrower_attributes std
                     ON std.borrowernumber = b.borrowernumber
-                    AND std.code IN ('STD', 'CLASS', 'DAR', 'CLASS_STD')
+                    AND std.code IN ('Class', 'STD', 'CLASS', 'DAR', 'CLASS_STD')
                 JOIN items it ON s.itemnumber = it.itemnumber
                 WHERE s.type = 'issue'
                   AND DATE(s.`datetime`) BETWEEN %s AND %s
@@ -545,12 +686,10 @@ def get_darajah_summary_by_marhala(marhala_name: Optional[str] = None) -> List[D
         
         params = [start, end, *all_codes]
         
-        # Add WHERE clause if marhala_name is provided
         if marhala_name:
             query += " WHERE marhala = %s"
             params.append(marhala_name)
         
-        # Add GROUP BY and ORDER BY
         query += " GROUP BY darajah, marhala ORDER BY BooksIssued DESC"
         
         cur.execute(query, params)
@@ -567,240 +706,169 @@ def get_darajah_summary_by_marhala(marhala_name: Optional[str] = None) -> List[D
         books_issued = r.get("BooksIssued") or 0
         r["IssuesPerStudent"] = round(books_issued / active_students, 2) if active_students else 0.0
     
+    darajah_cache.set(cache_key, rows)
     return rows
 
-def get_top_darajah_summary(limit: int = 10, exclude_asateza: bool = False) -> List[Dict]:
+
+# -------------------------------
+# IMPROVED TREND DATA FUNCTION - WITH CACHING
+# -------------------------------
+
+def get_ay_trend_data(marhala_code: Optional[str] = None, darajah_name: Optional[str] = None) -> Tuple[List[str], List[int]]:
     """
-    Unified function to get top darajah summary with optional Asateza exclusion.
+    Get borrowing trends for the current Academic Year.
+    Shows weekly trends for the first 60 days, then switches to monthly.
+    Results cached for 5 minutes.
     """
+    cache_key = f"trend_{marhala_code}_{darajah_name}"
+    cached = trend_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
     start, end = get_ay_bounds()
     if not start:
-        return []
-
+        return [], []
+    
+    # Calculate how many days into the academic year we are
+    today = date.today()
+    days_into_ay = (today - start).days
+    
     with get_db_cursor() as cur:
-        query = """
-            SELECT
-                COALESCE(std.attribute, b.branchcode, 'Unknown') AS Darajah,
-                COUNT(*) AS BooksIssued,
-                COUNT(DISTINCT s.borrowernumber) AS ActiveStudents,
-                GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS Collections
-            FROM statistics s
-            JOIN borrowers b ON b.borrowernumber = s.borrowernumber
-            LEFT JOIN borrower_attributes std
-                ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD', 'CLASS', 'DAR', 'CLASS_STD')
-            JOIN items it ON s.itemnumber = it.itemnumber
-            WHERE s.type = 'issue'
-              AND DATE(s.`datetime`) BETWEEN %s AND %s
-              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-              AND (b.debarred IS NULL OR b.debarred = 0)
-              AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
-        """
+        # For the first 60 days, show weekly trends instead of monthly
+        if days_into_ay <= 60 and days_into_ay > 0:
+            # Get daily data and group by week
+            query = """
+                SELECT 
+                    DATE(s.datetime) as issue_date,
+                    COUNT(*) as count
+                FROM statistics s
+                JOIN borrowers b ON s.borrowernumber = b.borrowernumber
+                LEFT JOIN categories c ON b.categorycode = c.categorycode
+                WHERE s.type = 'issue'
+                  AND DATE(s.datetime) BETWEEN %s AND %s
+            """
+            params = [start, end]
+            
+            if marhala_code:
+                query += " AND (c.description = %s OR b.categorycode = %s)"
+                params.extend([marhala_code, marhala_code])
+            elif darajah_name:
+                query += """ 
+                    AND EXISTS (
+                        SELECT 1 FROM borrower_attributes std 
+                        WHERE std.borrowernumber = b.borrowernumber 
+                        AND std.code IN ('Class','STD','CLASS','DAR','CLASS_STD')
+                        AND (std.attribute = %s OR b.branchcode = %s)
+                    )
+                """
+                params.extend([darajah_name, darajah_name])
+                
+            query += " GROUP BY issue_date ORDER BY issue_date"
+            
+            cur.execute(query, params)
+            rows = cur.fetchall()
+            
+            # Group by week
+            weekly_data = {}
+            
+            for row in rows:
+                issue_date = row['issue_date']
+                count = row['count']
+                
+                # Calculate week number (0-based from start of academic year)
+                week_num = (issue_date - start).days // 7
+                
+                if week_num not in weekly_data:
+                    weekly_data[week_num] = {'count': 0, 'start_date': start + timedelta(days=week_num * 7)}
+                weekly_data[week_num]['count'] += count
+            
+            # Create labels and values in order
+            labels = []
+            values = []
+            
+            for week_num in sorted(weekly_data.keys()):
+                week_start = weekly_data[week_num]['start_date']
+                week_end = min(week_start + timedelta(days=6), end)
+                
+                # Get Hijri date for the week's midpoint for display
+                mid_date = week_start + timedelta(days=3)
+                if mid_date > end:
+                    mid_date = week_start
+                
+                try:
+                    from hijri_converter import convert
+                    h_mid = convert.Gregorian(mid_date.year, mid_date.month, mid_date.day).to_hijri()
+                    month_name = HIJRI_MONTHS[h_mid.month - 1]
+                    label = f"Week {week_num + 1}\n{month_name}\n{week_start.day}-{min(week_end.day, 31)} {week_start.strftime('%b')}"
+                except:
+                    label = f"Week {week_num + 1}\n{week_start.strftime('%d %b')} - {week_end.strftime('%d %b')}"
+                
+                labels.append(label)
+                values.append(weekly_data[week_num]['count'])
+            
+            if labels:
+                logger.info(f"Weekly trend data: {len(labels)} weeks")
+                output = (labels, values)
+                trend_cache.set(cache_key, output)
+                return output
         
+        # Original monthly grouping for longer periods or no data yet
+        query = """
+            SELECT 
+                DATE_FORMAT(s.datetime, '%Y-%m') as month_str,
+                COUNT(*) as count
+            FROM statistics s
+            JOIN borrowers b ON s.borrowernumber = b.borrowernumber
+            LEFT JOIN categories c ON b.categorycode = c.categorycode
+            WHERE s.type = 'issue'
+              AND DATE(s.datetime) BETWEEN %s AND %s
+        """
         params = [start, end]
         
-        if exclude_asateza:
-            query += """
-                AND (std.attribute != 'AJSN' OR std.attribute IS NULL)
-                AND b.branchcode != 'AJSN'
+        if marhala_code:
+            query += " AND (c.description = %s OR b.categorycode = %s)"
+            params.extend([marhala_code, marhala_code])
+        elif darajah_name:
+            query += """ 
+                AND EXISTS (
+                    SELECT 1 FROM borrower_attributes std 
+                    WHERE std.borrowernumber = b.borrowernumber 
+                    AND std.code IN ('Class','STD','CLASS','DAR','CLASS_STD')
+                    AND (std.attribute = %s OR b.branchcode = %s)
+                )
             """
-        
-        query += " GROUP BY Darajah ORDER BY BooksIssued DESC LIMIT %s"
-        params.append(limit)
+            params.extend([darajah_name, darajah_name])
+            
+        query += " GROUP BY month_str ORDER BY month_str"
         
         cur.execute(query, params)
         rows = cur.fetchall()
-    
-    for r in rows:
-        name = (r.get("Darajah") or "").strip()
-        if name.upper() == "AJSN":
-            name = "Asateza"
-        r["Darajah"] = name or "Unknown"
-        r["Collections"] = r.get("Collections") or "—"
         
-        active_students = r.get("ActiveStudents") or 0
-        books_issued = r.get("BooksIssued") or 0
-        r["IssuesPerStudent"] = round(books_issued / active_students, 2) if active_students else 0.0
-    
-    return rows
-
-
-def get_top_darajah_summary_excluding_asateza(limit: int = 10) -> List[Dict]:
-    """Wrapper for top darajah excluding Asateza."""
-    return get_top_darajah_summary(limit=limit, exclude_asateza=True)
-
-
-def get_top_darajah_summary_with_asateza_last(limit: int = 10) -> List[Dict]:
-    """Top Darajah summary with Asateza placed last."""
-    rows = get_top_darajah_summary(limit=limit + 5)
-    
-    # Separate Asateza
-    asateza_rows = []
-    other_rows = []
+    labels = []
+    values = []
     
     for row in rows:
-        darajah_name = (row.get("Darajah") or "").strip().upper()
-        if darajah_name in ("ASATEZA", "AJSN"):
-            asateza_rows.append(row)
+        year_str, month_str = row['month_str'].split('-')
+        dummy_date = date(int(year_str), int(month_str), 15)
+        label = get_hijri_month_year_label(dummy_date)
+        
+        if labels and labels[-1] == label:
+            values[-1] += row['count']
         else:
-            other_rows.append(row)
+            labels.append(label)
+            values.append(row['count'])
     
-    # Return others first, then Asateza
-    result = other_rows[:limit]
-    if asateza_rows:
-        result.append(asateza_rows[0])
-    
-    return result
+    logger.info(f"Monthly trend data: {len(labels)} months")
+    output = (labels, values)
+    trend_cache.set(cache_key, output)
+    return output
 
 
 # -------------------------------
-# DEPARTMENT PERFORMANCE FUNCTIONS - OPTIMIZED
+# MARHALA HELPER FUNCTIONS (Cached)
 # -------------------------------
 
-def get_department_performance(category_codes: List[str]) -> List[Dict]:
-    """
-    Generic function to get performance for a list of category codes.
-    Used by both academic and non-academic department queries.
-    """
-    start, end = get_ay_bounds()
-    if not start or not category_codes:
-        return []
-    
-    with get_db_cursor() as cur:
-        placeholders = ', '.join(['%s'] * len(category_codes))
-        
-        # Use a single CTE for efficiency
-        cur.execute(f"""
-            WITH marhala_stats AS (
-                SELECT
-                    c.categorycode,
-                    c.description AS Marhala,
-                    COUNT(s.borrowernumber) AS BooksIssued,
-                    COUNT(DISTINCT s.borrowernumber) AS ActivePatrons,
-                    GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS Collections
-                FROM categories c
-                LEFT JOIN borrowers b ON c.categorycode = b.categorycode
-                    AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-                    AND (b.debarred IS NULL OR b.debarred = 0)
-                    AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
-                LEFT JOIN statistics s ON s.borrowernumber = b.borrowernumber
-                    AND s.type = 'issue'
-                    AND DATE(s.`datetime`) BETWEEN %s AND %s
-                LEFT JOIN items it ON s.itemnumber = it.itemnumber
-                WHERE c.categorycode IN ({placeholders})
-                GROUP BY c.categorycode, c.description
-            )
-            SELECT * FROM marhala_stats
-            ORDER BY BooksIssued DESC
-        """, (start, end, *category_codes))
-        
-        rows = cur.fetchall()
-    
-    for r in rows:
-        patrons = r.get("ActivePatrons") or 0
-        issues = r.get("BooksIssued") or 0
-        r["IssuesPerPatron"] = round(issues / patrons, 2) if patrons else 0.0
-        r["Collections"] = r.get("Collections") or "—"
-        r["Marhala"] = r.get("Marhala") or "Unknown"
-        r["MarhalaCode"] = r.get("categorycode") or ""
-    
-    return rows
-
-
-def get_academic_departments_performance() -> List[Dict]:
-    """Get performance for academic marhalas."""
-    return get_department_performance(get_academic_marhalas())
-
-
-def get_non_academic_departments_performance() -> List[Dict]:
-    """Get performance for non-academic marhalas."""
-    return get_department_performance(get_non_academic_marhalas())
-
-
-# -------------------------------
-# GENDER-SPECIFIC DARAJAH FUNCTIONS - OPTIMIZED
-# -------------------------------
-
-def get_gender_darajah_distribution() -> Tuple[List[str], List[int], List[int]]:
-    """
-    Get Darajah distribution by gender with ranges:
-    - Females: Darajah 1-7 only
-    - Males: Darajah 1-11
-    """
-    start, end = get_ay_bounds()
-    if not start:
-        return [], [], []
-
-    with get_db_cursor() as cur:
-        # Get all darajahs with their gender info in one query
-        cur.execute("""
-            SELECT
-                COALESCE(std.attribute, b.branchcode, 'Unknown') AS darajah_name,
-                UPPER(COALESCE(b.sex, '')) AS gender,
-                COUNT(*) AS cnt
-            FROM statistics s
-            JOIN borrowers b ON b.borrowernumber = s.borrowernumber
-            LEFT JOIN borrower_attributes std
-                ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD', 'CLASS', 'DAR', 'CLASS_STD')
-            WHERE s.type = 'issue'
-              AND DATE(s.`datetime`) BETWEEN %s AND %s
-              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-              AND (b.debarred IS NULL OR b.debarred = 0)
-              AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
-              AND COALESCE(std.attribute, b.branchcode) != 'AJSN'
-            GROUP BY darajah_name, gender
-        """, (start, end))
-        
-        rows = cur.fetchall()
-    
-    # Process data with gender-specific ranges
-    darajah_data = {}
-    
-    for row in rows:
-        darajah_name = (row["darajah_name"] or "Unknown").strip()
-        gender = row["gender"]
-        cnt = int(row["cnt"])
-        
-        if darajah_name not in darajah_data:
-            darajah_data[darajah_name] = {'M': 0, 'F': 0}
-        
-        # Extract darajah number
-        match = re.search(r'\d+', darajah_name)
-        if not match:
-            continue
-        
-        darajah_num = int(match.group())
-        
-        # Apply gender-specific ranges
-        if gender == 'M' and 1 <= darajah_num <= 11:
-            darajah_data[darajah_name]['M'] += cnt
-        elif gender == 'F' and 1 <= darajah_num <= 7:
-            darajah_data[darajah_name]['F'] += cnt
-        elif not gender:  # Unknown gender - try to infer from name
-            darajah_name_upper = darajah_name.upper()
-            if "F" in darajah_name_upper and 1 <= darajah_num <= 7:
-                darajah_data[darajah_name]['F'] += cnt
-            elif "M" in darajah_name_upper and 1 <= darajah_num <= 11:
-                darajah_data[darajah_name]['M'] += cnt
-    
-    # Sort darajahs numerically
-    def darajah_sort_key(name: str):
-        match = re.search(r'\d+', name)
-        return (0, int(match.group())) if match else (1, name)
-    
-    darajah_names = sorted(darajah_data.keys(), key=darajah_sort_key)
-    
-    male_counts = [darajah_data[name]['M'] for name in darajah_names]
-    female_counts = [darajah_data[name]['F'] for name in darajah_names]
-    
-    return darajah_names, male_counts, female_counts
-
-
-# -------------------------------
-# MARHALA HELPER FUNCTIONS - UPDATED
-# -------------------------------
-
+@lru_cache(maxsize=1)
 def get_academic_marhalas() -> List[str]:
     """Get academic marhala category codes."""
     return [
@@ -812,6 +880,7 @@ def get_academic_marhalas() -> List[str]:
     ]
 
 
+@lru_cache(maxsize=1)
 def get_non_academic_marhalas() -> List[str]:
     """Get non-academic marhala category codes."""
     return [
@@ -847,15 +916,52 @@ def is_non_academic_marhala(marhala_code: str) -> bool:
     return marhala_code in get_non_academic_marhalas()
 
 
+@lru_cache(maxsize=1)
+def get_all_marhalas() -> List[str]:
+    """
+    Get all Marhala names for filter dropdown.
+    Returns actual Koha category descriptions.
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        
+        academic_codes = get_academic_marhalas()
+        non_academic_codes = get_non_academic_marhalas()
+        all_codes = academic_codes + non_academic_codes
+        
+        if not all_codes:
+            return []
+        
+        placeholders = ', '.join(['%s'] * len(all_codes))
+        
+        cur.execute(f"""
+            SELECT DISTINCT c.description
+            FROM categories c
+            WHERE c.categorycode IN ({placeholders})
+            ORDER BY c.description;
+        """, tuple(all_codes))
+        
+        rows = cur.fetchall()
+        cur.close()
+        
+        return [row['description'] for row in rows if row.get('description')]
+    finally:
+        conn.close()
+
+
 # -------------------------------
-# KEY INSIGHTS - OPTIMIZED
+# KEY INSIGHTS (Cached)
 # -------------------------------
 
 def get_key_insights() -> List[str]:
     """Generate key insights with optimized data fetching."""
-    insights = []
+    cache_key = "key_insights"
+    cached = summary_cache.get(cache_key)
+    if cached is not None:
+        return cached
     
-    # Get all data in parallel where possible
+    insights = []
     start, end = get_ay_bounds()
     
     if start:
@@ -870,7 +976,7 @@ def get_key_insights() -> List[str]:
                 JOIN borrowers b ON b.borrowernumber = s.borrowernumber
                 LEFT JOIN borrower_attributes std
                     ON std.borrowernumber = b.borrowernumber
-                    AND std.code IN ('STD', 'CLASS', 'DAR', 'CLASS_STD')
+                    AND std.code IN ('Class', 'STD', 'CLASS', 'DAR', 'CLASS_STD')
                 WHERE s.type = 'issue'
                   AND DATE(s.`datetime`) BETWEEN %s AND %s
                   AND (std.attribute != 'AJSN' OR std.attribute IS NULL)
@@ -917,7 +1023,7 @@ def get_key_insights() -> List[str]:
                         f"({top_academic['Issues']:,} issues)."
                     )
             
-            # Get currently issued books (Filtered by AY)
+            # Get currently issued books
             cur.execute("""
                 SELECT COUNT(*) AS cnt
                 FROM issues
@@ -941,32 +1047,35 @@ def get_key_insights() -> List[str]:
                 f"(Girls: Darajah 1-7 only, Boys: Darajah 1-11)."
             )
     
+    summary_cache.set(cache_key, insights)
     return insights
 
 
 # -------------------------------
-# TOP TITLES - SECURE VERSION
+# TOP TITLES FUNCTIONS (Cached)
 # -------------------------------
 
 def top_titles(
     limit: int = 25, arabic: bool = False, non_arabic: bool = False
 ) -> List[Tuple[str, int, str]]:
-    """
-    Top borrowed titles for current AY with secure parameterization.
-    """
+    """Top borrowed titles for current AY with secure parameterization."""
+    cache_key = f"top_titles_{limit}_{arabic}_{non_arabic}"
+    cached = top_titles_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
     start, end = get_ay_bounds()
     if not start:
         return []
     
-    # Build language filter securely
     lang_condition = ""
     params = [start, end]
     
     if arabic:
-        lang_condition = "AND bib.title REGEXP ?"
+        lang_condition = "AND bib.title REGEXP %s"
         params.append('[ء-ي]')
     elif non_arabic:
-        lang_condition = "AND bib.title NOT REGEXP ?"
+        lang_condition = "AND bib.title NOT REGEXP %s"
         params.append('[ء-ي]')
     
     params.append(int(limit))
@@ -986,26 +1095,26 @@ def top_titles(
             ) all_iss
             JOIN items it ON all_iss.itemnumber = it.itemnumber
             JOIN biblio bib ON it.biblionumber = bib.biblionumber
-            WHERE DATE(all_iss.issuedate) BETWEEN ? AND ?
+            WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
             {lang_condition}
             GROUP BY bib.biblionumber, bib.title
             ORDER BY cnt DESC
-            LIMIT ?
+            LIMIT %s
         """, params)
         
         rows = cur.fetchall()
     
+    top_titles_cache.set(cache_key, rows)
     return rows
 
 
-# -------------------------------
-# ARABIC/ENGLISH TOP 25 - OPTIMIZED
-# -------------------------------
-
 def _top_titles_by_language(language_code: str, limit: int = 25, marhala_name: Optional[str] = None) -> List[Dict]:
-    """
-    Generic function for top titles by MARC 041$a language code.
-    """
+    """Generic function for top titles by MARC 041$a language code."""
+    cache_key = f"top_titles_lang_{language_code}_{limit}_{marhala_name}"
+    cached = top_titles_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
     start, end = get_ay_bounds()
     if not start:
         return []
@@ -1054,11 +1163,12 @@ def _top_titles_by_language(language_code: str, limit: int = 25, marhala_name: O
         cur.execute(query, params)
         rows = cur.fetchall()
     
+    top_titles_cache.set(cache_key, rows)
     return rows
 
 
 def get_language_top25(marhala_name: Optional[str] = None) -> Dict[str, Dict[str, List]]:
-    """Combine Arabic and English top 25 into expected structure with optional mapping."""
+    """Combine Arabic and English top 25 into expected structure."""
     def pack(rows: List[Dict]) -> Dict[str, List]:
         titles = [r.get("Title") for r in rows]
         counts = [int(r.get("Times_Issued") or 0) for r in rows]
@@ -1085,15 +1195,17 @@ def english_top25(marhala_name: Optional[str] = None) -> List[Dict]:
 
 
 # -------------------------------
-# OPTIMIZED MARHALA STATS FUNCTIONS
+# OPTIMIZED MARHALA STATS FUNCTIONS (Cached)
 # -------------------------------
 
 def get_all_marhalas_with_stats() -> List[Dict]:
-    """
-    Get all marhalas with detailed statistics using optimized batch queries.
-    """
+    """Get all marhalas with detailed statistics using optimized batch queries."""
+    cache_key = "all_marhalas_with_stats"
+    cached = marhala_stats_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
     with get_db_cursor() as cur:
-        # Get all categories
         cur.execute("""
             SELECT 
                 c.categorycode AS marhala_code,
@@ -1115,7 +1227,6 @@ def get_all_marhalas_with_stats() -> List[Dict]:
                 "overdues": 0
             })
         
-        # Get borrower counts
         if marhalas:
             placeholders = ', '.join(['%s'] * len(marhala_map.keys()))
             
@@ -1140,7 +1251,6 @@ def get_all_marhalas_with_stats() -> List[Dict]:
                     marhala_map[code]["total_borrowers"] = row["total"]
                     marhala_map[code]["active_borrowers"] = row["active"]
         
-        # Get AY issues and current issues in one pass
         start, end = get_ay_bounds()
         if start and end and marhalas:
             placeholders = ', '.join(['%s'] * len(marhala_map.keys()))
@@ -1148,21 +1258,24 @@ def get_all_marhalas_with_stats() -> List[Dict]:
             cur.execute(f"""
                 SELECT 
                     b.categorycode,
-                    SUM(CASE 
-                        WHEN s.type = 'issue' 
-                            AND DATE(s.`datetime`) BETWEEN %s AND %s
-                        THEN 1 ELSE 0 
-                    END) AS ay_issues,
-                    SUM(CASE 
-                        WHEN i.returndate IS NULL THEN 1 ELSE 0 
-                    END) AS currently_issued,
-                    SUM(CASE 
-                        WHEN i.returndate IS NULL AND i.date_due < CURDATE() 
-                        THEN 1 ELSE 0 
-                    END) AS overdues
+                    SUM(COALESCE(s_agg.cnt, 0)) AS ay_issues,
+                    SUM(COALESCE(i_agg.cnt, 0)) AS currently_issued,
+                    SUM(COALESCE(i_agg.overdue_cnt, 0)) AS overdues
                 FROM borrowers b
-                LEFT JOIN statistics s ON b.borrowernumber = s.borrowernumber
-                LEFT JOIN issues i ON b.borrowernumber = i.borrowernumber
+                LEFT JOIN (
+                    SELECT borrowernumber, COUNT(*) AS cnt
+                    FROM statistics
+                    WHERE type = 'issue' AND DATE(`datetime`) BETWEEN %s AND %s
+                    GROUP BY borrowernumber
+                ) s_agg ON b.borrowernumber = s_agg.borrowernumber
+                LEFT JOIN (
+                    SELECT borrowernumber, 
+                           COUNT(*) AS cnt,
+                           SUM(CASE WHEN date_due < CURDATE() THEN 1 ELSE 0 END) AS overdue_cnt
+                    FROM issues
+                    WHERE returndate IS NULL
+                    GROUP BY borrowernumber
+                ) i_agg ON b.borrowernumber = i_agg.borrowernumber
                 WHERE b.categorycode IN ({placeholders})
                 GROUP BY b.categorycode
             """, (start, end, *marhala_map.keys()))
@@ -1174,40 +1287,54 @@ def get_all_marhalas_with_stats() -> List[Dict]:
                     marhala_map[code]["currently_issued"] = int(row["currently_issued"] or 0)
                     marhala_map[code]["overdues"] = int(row["overdues"] or 0)
     
-    # Add type metadata (in Python for performance)
+    aggregated = {}
     academic_codes = set(get_academic_marhalas())
     non_academic_codes = set(get_non_academic_marhalas())
-    
-    for marhala in marhalas:
-        code = marhala.get("marhala_code")
-        name = marhala.get("marhala_name", "").lower()
+
+    for m in marhalas:
+        orig_name = m.get("marhala_name", "Unknown")
+        display_name = format_marhala_display_name(orig_name)
+        code = m.get("marhala_code")
+
+        if display_name not in aggregated:
+            m_type = "Other"
+            m_icon = "info-circle"
+            
+            if code in academic_codes:
+                m_type = "Academic"
+                m_icon = "graduation-cap"
+            elif code in non_academic_codes:
+                if display_name == "Library Staff":
+                    m_type = "Library"
+                    m_icon = "book"
+                elif display_name == "Teaching Staff":
+                    m_type = "Staff"
+                    m_icon = "user-tie"
+                else:
+                    m_type = "Staff"
+                    m_icon = "user-tie"
+            
+            aggregated[display_name] = {
+                "marhala_name": display_name,
+                "total_borrowers": 0,
+                "active_borrowers": 0,
+                "ay_issues": 0,
+                "currently_issued": 0,
+                "overdues": 0,
+                "type": m_type,
+                "icon": m_icon
+            }
         
-        if code in academic_codes:
-            marhala["type"] = "Academic"
-            marhala["icon"] = "graduation-cap"
-        elif code in non_academic_codes:
-            if code == 'L' or code == 'S':
-                marhala["type"] = "Library"
-                marhala["icon"] = "book"
-            else:
-                marhala["type"] = "Staff"
-                marhala["icon"] = "user-tie"
-        else:
-            # Fallback detection
-            if any(k in name for k in ['student', 'std', 'darajah', 'grade', 'collegiate', 'culture', 'dars']):
-                marhala["type"] = "Academic"
-                marhala["icon"] = "graduation-cap"
-            elif any(k in name for k in ['faculty', 'staff', 'teacher', 'asateza']):
-                marhala["type"] = "Staff"
-                marhala["icon"] = "user-tie"
-            elif any(k in name for k in ['library', 'maktabat']):
-                marhala["type"] = "Library"
-                marhala["icon"] = "book"
-            else:
-                marhala["type"] = "Other"
-                marhala["icon"] = "users"
-    
-    return marhalas
+        agg = aggregated[display_name]
+        agg["total_borrowers"] += int(m.get("total_borrowers", 0))
+        agg["active_borrowers"] += int(m.get("active_borrowers", 0))
+        agg["ay_issues"] += int(m.get("ay_issues", 0))
+        agg["currently_issued"] += int(m.get("currently_issued", 0))
+        agg["overdues"] += int(m.get("overdues", 0))
+
+    result = list(aggregated.values())
+    marhala_stats_cache.set(cache_key, result)
+    return result
 
 
 def get_marhala_summary(selected_marhala: Optional[str] = None) -> List[Dict]:
@@ -1278,39 +1405,148 @@ def get_marhala_engagement_stats() -> Dict[str, int]:
     return counts
 
 
+# -------------------------------
+# GENDER-SPECIFIC DARAJAH FUNCTIONS (Cached)
+# -------------------------------
+
+def get_gender_darajah_distribution() -> Tuple[List[str], List[int], List[int]]:
+    """
+    Get Darajah distribution by gender with ranges:
+    - Females: Darajah 1-7 only
+    - Males: Darajah 1-11
+    """
+    cache_key = "gender_darajah_distribution"
+    cached = darajah_cache.get(cache_key)
+    if cached is not None:
+        return cached
+    
+    start, end = get_ay_bounds()
+    if not start:
+        return [], [], []
+
+    with get_db_cursor() as cur:
+        cur.execute("""
+            SELECT
+                COALESCE(std.attribute, b.branchcode, 'Unknown') AS darajah_name,
+                UPPER(COALESCE(b.sex, '')) AS gender,
+                COUNT(*) AS cnt
+            FROM statistics s
+            JOIN borrowers b ON b.borrowernumber = s.borrowernumber
+            LEFT JOIN borrower_attributes std
+                ON std.borrowernumber = b.borrowernumber
+                AND std.code IN ('Class', 'STD', 'CLASS', 'DAR', 'CLASS_STD')
+            WHERE s.type = 'issue'
+              AND DATE(s.`datetime`) BETWEEN %s AND %s
+              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+              AND (b.debarred IS NULL OR b.debarred = 0)
+              AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
+              AND COALESCE(std.attribute, b.branchcode) != 'AJSN'
+            GROUP BY darajah_name, gender
+        """, (start, end))
+        
+        rows = cur.fetchall()
+    
+    darajah_data = {}
+    
+    for row in rows:
+        darajah_name = (row["darajah_name"] or "Unknown").strip()
+        gender = row["gender"]
+        cnt = int(row["cnt"])
+        
+        if darajah_name not in darajah_data:
+            darajah_data[darajah_name] = {'M': 0, 'F': 0}
+        
+        match = re.search(r'\d+', darajah_name)
+        if not match:
+            continue
+        
+        darajah_num = int(match.group())
+        
+        if gender == 'M' and 1 <= darajah_num <= 11:
+            darajah_data[darajah_name]['M'] += cnt
+        elif gender == 'F' and 1 <= darajah_num <= 7:
+            darajah_data[darajah_name]['F'] += cnt
+        elif not gender:
+            darajah_name_upper = darajah_name.upper()
+            if "F" in darajah_name_upper and 1 <= darajah_num <= 7:
+                darajah_data[darajah_name]['F'] += cnt
+            elif "M" in darajah_name_upper and 1 <= darajah_num <= 11:
+                darajah_data[darajah_name]['M'] += cnt
+    
+    def darajah_sort_key(name: str):
+        match = re.search(r'\d+', name)
+        return (0, int(match.group())) if match else (1, name)
+    
+    darajah_names = sorted(darajah_data.keys(), key=darajah_sort_key)
+    
+    male_counts = [darajah_data[name]['M'] for name in darajah_names]
+    female_counts = [darajah_data[name]['F'] for name in darajah_names]
+    
+    result = (darajah_names, male_counts, female_counts)
+    darajah_cache.set(cache_key, result)
+    return result
+
+
+# -------------------------------
+# ADDITIONAL FUNCTIONS (Remain unchanged but add caching where beneficial)
+# -------------------------------
+
+def format_marhala_display_name(marhala_name: str) -> str:
+    """Format Marhala name for consistent display."""
+    if not marhala_name:
+        return "Unknown"
+    
+    marhala_name = str(marhala_name).strip()
+    
+    display_map = {
+        "Teacher": "Teaching Staff",
+        "Library": "Library Staff",
+        "Asateza Kiram": "Asateza Kiram",
+        "Sighat ul jamea": "Sighat ul Jamea",
+        "Mukhayyam Khidmat Guzar": "Mukhayyam Khidmat Guzar",
+        "Collegiate I (5-7)": "Collegiate I (5-7)",
+        "Culture Générale (Std 3-4)": "Culture Générale (Std 3-4)",
+        "Culture Générale (Std 1-2)": "Culture Générale (Std 1-2)",
+        "Collegiate II & Higher Studies (Std 8-11)": "Collegiate II & Higher Studies (Std 8-11)",
+        "Collegiate II and Higher Studies": "Collegiate II & Higher Studies (Std 8-11)",
+        "Dars Burhani": "Dars Burhani",
+        "Staff": "Library Staff"
+    }
+    
+    return display_map.get(marhala_name, marhala_name)
+
+
 def get_darajahs_in_marhala(marhala_code: str) -> List[Dict]:
     """Get all darajahs belonging to a specific marhala."""
     start, end = get_ay_bounds()
     
     with get_db_cursor() as cur:
-        # Get darajah list and stats in one query
         cur.execute("""
             SELECT 
                 COALESCE(std.attribute, b.branchcode) AS darajah_name,
                 COUNT(DISTINCT b.borrowernumber) AS total_students,
-                COUNT(DISTINCT CASE 
-                    WHEN s.type = 'issue' 
-                        AND DATE(s.`datetime`) BETWEEN %s AND %s
-                    THEN s.borrowernumber 
-                END) AS active_students,
-                COUNT(CASE 
-                    WHEN s.type = 'issue' 
-                        AND DATE(s.`datetime`) BETWEEN %s AND %s
-                    THEN 1 
-                END) AS ay_issues
+                SUM(COALESCE(s_agg.active_cnt, 0)) AS active_students,
+                SUM(COALESCE(s_agg.ay_issues, 0)) AS ay_issues
             FROM borrowers b
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD', 'CLASS', 'DAR', 'CLASS_STD')
-            LEFT JOIN statistics s ON b.borrowernumber = s.borrowernumber
+                AND std.code IN ('Class', 'STD', 'CLASS', 'DAR', 'CLASS_STD')
+            LEFT JOIN (
+                SELECT borrowernumber, 
+                       COUNT(DISTINCT borrowernumber) AS active_cnt,
+                       COUNT(*) AS ay_issues
+                FROM statistics
+                WHERE type = 'issue' AND DATE(`datetime`) BETWEEN %s AND %s
+                GROUP BY borrowernumber
+            ) s_agg ON b.borrowernumber = s_agg.borrowernumber
             WHERE b.categorycode = %s
                 AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
                 AND (b.debarred IS NULL OR b.debarred = 0)
                 AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
                 AND COALESCE(std.attribute, b.branchcode) IS NOT NULL
                 AND COALESCE(std.attribute, b.branchcode) != ''
-            GROUP BY COALESCE(std.attribute, b.branchcode)
-            ORDER BY COALESCE(std.attribute, b.branchcode)
+            GROUP BY darajah_name
+            ORDER BY darajah_name
         """, (start, end, start, end, marhala_code))
         
         darajahs = cur.fetchall()
@@ -1319,7 +1555,6 @@ def get_darajahs_in_marhala(marhala_code: str) -> List[Dict]:
         name = darajah.get("darajah_name", "")
         name_str = str(name)
         
-        # Set gender based on naming pattern
         if " M" in name_str or name_str.endswith("M"):
             darajah["gender"] = "Boys"
             darajah["icon"] = "male"
@@ -1363,7 +1598,7 @@ def get_top_students(limit: int = 10, marhala_name: Optional[str] = None) -> Lis
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD', 'CLASS', 'DAR', 'CLASS_STD')
+                AND std.code IN ('Class', 'STD', 'CLASS', 'DAR', 'CLASS_STD')
             JOIN items it ON s.itemnumber = it.itemnumber
             WHERE s.type = 'issue'
               AND DATE(s.`datetime`) BETWEEN %s AND %s
@@ -1393,15 +1628,150 @@ def get_top_students(limit: int = 10, marhala_name: Optional[str] = None) -> Lis
         if row.get("Class") and "AJSN" in str(row["Class"]).upper():
             row["Class"] = "Asateza"
         
-        # Ensure name is never empty/None
         if not row.get("StudentName") or str(row["StudentName"]).strip() in ("", "None"):
             row["StudentName"] = f"Student #{row['cardnumber']}"
     
     return rows
 
 
+def get_department_performance(category_codes: List[str]) -> List[Dict]:
+    """Generic function to get performance for a list of category codes."""
+    start, end = get_ay_bounds()
+    if not start or not category_codes:
+        return []
+    
+    with get_db_cursor() as cur:
+        placeholders = ', '.join(['%s'] * len(category_codes))
+        
+        cur.execute(f"""
+            WITH marhala_stats AS (
+                SELECT
+                    c.categorycode,
+                    c.description AS Marhala,
+                    COUNT(s.borrowernumber) AS BooksIssued,
+                    COUNT(DISTINCT s.borrowernumber) AS ActivePatrons,
+                    GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS Collections
+                FROM categories c
+                LEFT JOIN borrowers b ON c.categorycode = b.categorycode
+                    AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+                    AND (b.debarred IS NULL OR b.debarred = 0)
+                    AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
+                LEFT JOIN statistics s ON s.borrowernumber = b.borrowernumber
+                    AND s.type = 'issue'
+                    AND DATE(s.`datetime`) BETWEEN %s AND %s
+                LEFT JOIN items it ON s.itemnumber = it.itemnumber
+                WHERE c.categorycode IN ({placeholders})
+                GROUP BY c.categorycode, c.description
+            )
+            SELECT * FROM marhala_stats
+            ORDER BY BooksIssued DESC
+        """, (start, end, *category_codes))
+        
+        rows = cur.fetchall()
+    
+    for r in rows:
+        patrons = r.get("ActivePatrons") or 0
+        issues = r.get("BooksIssued") or 0
+        r["IssuesPerPatron"] = round(issues / patrons, 2) if patrons else 0.0
+        r["Collections"] = r.get("Collections") or "—"
+        r["Marhala"] = r.get("Marhala") or "Unknown"
+        r["MarhalaCode"] = r.get("categorycode") or ""
+    
+    return rows
+
+
+def get_academic_departments_performance() -> List[Dict]:
+    """Get performance for academic marhalas."""
+    return get_department_performance(get_academic_marhalas())
+
+
+def get_non_academic_departments_performance() -> List[Dict]:
+    """Get performance for non-academic marhalas."""
+    return get_department_performance(get_non_academic_marhalas())
+
+
+def get_top_darajah_summary(limit: int = 10, exclude_asateza: bool = False) -> List[Dict]:
+    """Unified function to get top darajah summary with optional Asateza exclusion."""
+    start, end = get_ay_bounds()
+    if not start:
+        return []
+
+    with get_db_cursor() as cur:
+        query = """
+            SELECT
+                COALESCE(std.attribute, b.branchcode, 'Unknown') AS Darajah,
+                COUNT(*) AS BooksIssued,
+                COUNT(DISTINCT s.borrowernumber) AS ActiveStudents,
+                GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS Collections
+            FROM statistics s
+            JOIN borrowers b ON b.borrowernumber = s.borrowernumber
+            LEFT JOIN borrower_attributes std
+                ON std.borrowernumber = b.borrowernumber
+                AND std.code IN ('Class', 'STD', 'CLASS', 'DAR', 'CLASS_STD')
+            JOIN items it ON s.itemnumber = it.itemnumber
+            WHERE s.type = 'issue'
+              AND DATE(s.`datetime`) BETWEEN %s AND %s
+              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+              AND (b.debarred IS NULL OR b.debarred = 0)
+              AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
+        """
+        
+        params = [start, end]
+        
+        if exclude_asateza:
+            query += """
+                AND (std.attribute != 'AJSN' OR std.attribute IS NULL)
+                AND b.branchcode != 'AJSN'
+            """
+        
+        query += " GROUP BY Darajah ORDER BY BooksIssued DESC LIMIT %s"
+        params.append(limit)
+        
+        cur.execute(query, params)
+        rows = cur.fetchall()
+    
+    for r in rows:
+        name = (r.get("Darajah") or "").strip()
+        if name.upper() == "AJSN":
+            name = "Asateza"
+        r["Darajah"] = name or "Unknown"
+        r["Collections"] = r.get("Collections") or "—"
+        
+        active_students = r.get("ActiveStudents") or 0
+        books_issued = r.get("BooksIssued") or 0
+        r["IssuesPerStudent"] = round(books_issued / active_students, 2) if active_students else 0.0
+    
+    return rows
+
+
+def get_top_darajah_summary_excluding_asateza(limit: int = 10) -> List[Dict]:
+    """Wrapper for top darajah excluding Asateza."""
+    return get_top_darajah_summary(limit=limit, exclude_asateza=True)
+
+
+def get_top_darajah_summary_with_asateza_last(limit: int = 10) -> List[Dict]:
+    """Top Darajah summary with Asateza placed last."""
+    rows = get_top_darajah_summary(limit=limit + 5)
+    
+    asateza_rows = []
+    other_rows = []
+    
+    for row in rows:
+        darajah_name = (row.get("Darajah") or "").strip().upper()
+        if darajah_name in ("ASATEZA", "AJSN"):
+            asateza_rows.append(row)
+        else:
+            other_rows.append(row)
+    
+    result = other_rows[:limit]
+    if asateza_rows:
+        result.append(asateza_rows[0])
+    
+    return result
+
+
 # -------------------------------
-# LEGACY FUNCTIONS - PRESERVED WITH OPTIMIZATIONS
+# LEGACY FUNCTIONS (Unchanged)
 # -------------------------------
 
 def darajah_issues() -> List[Tuple[str, int]]:
@@ -1419,7 +1789,7 @@ def darajah_issues() -> List[Tuple[str, int]]:
             JOIN borrowers b ON b.borrowernumber = s.borrowernumber
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD', 'CLASS', 'DAR', 'CLASS_STD')
+                AND std.code IN ('Class', 'STD', 'CLASS', 'DAR', 'CLASS_STD')
             WHERE s.type = 'issue'
               AND DATE(s.`datetime`) BETWEEN %s AND %s
               AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
@@ -1470,7 +1840,7 @@ def borrowing_trend_monthly() -> List[Tuple[str, int]]:
     
     with get_db_cursor(dictionary=False) as cur:
         cur.execute("""
-            SELECT DATE_FORMAT(s.`datetime`, '%%Y-%%m') AS ym,
+            SELECT DATE_FORMAT(s.`datetime`, '%Y-%m') AS ym,
                    COUNT(*) AS cnt
             FROM statistics s
             WHERE s.type = 'issue'
@@ -1482,69 +1852,6 @@ def borrowing_trend_monthly() -> List[Tuple[str, int]]:
         rows = cur.fetchall()
     
     return rows
-
-
-def get_ay_trend_data(marhala_code: str = None, darajah_name: str = None) -> Tuple[List[str], List[int]]:
-    """
-    Get zero-filled monthly trend data for the current Academic Year.
-    Optionally filters by marhala_code or darajah_name.
-    """
-    start, end = get_ay_bounds()
-    if not start:
-        return [], []
-
-    # Get raw data
-    query = """
-        SELECT DATE_FORMAT(s.`datetime`, '%%Y-%%m') AS ym, COUNT(*) AS cnt
-        FROM statistics s
-    """
-    params = [start, end]
-    
-    # Add filters
-    join_clause = ""
-    where_clause = "WHERE s.type = 'issue' AND DATE(s.`datetime`) BETWEEN %s AND %s"
-    
-    if marhala_code or darajah_name:
-        join_clause += " JOIN borrowers b ON s.borrowernumber = b.borrowernumber"
-        if darajah_name:
-            join_clause += " LEFT JOIN borrower_attributes std ON std.borrowernumber = b.borrowernumber AND std.code IN ('STD','CLASS','DAR','CLASS_STD')"
-            where_clause += " AND (std.attribute = %s OR b.branchcode = %s)"
-            params.extend([darajah_name, darajah_name])
-        elif marhala_code:
-            where_clause += " AND b.categorycode = %s"
-            params.append(marhala_code)
-
-    full_query = f"{query} {join_clause} {where_clause} GROUP BY ym"
-    
-    with get_db_cursor(dictionary=False) as cur:
-        cur.execute(full_query, tuple(params))
-        rows = cur.fetchall()
-    
-    by_month = {ym: int(cnt) for ym, cnt in (rows or [])}
-    
-    labels = []
-    values = []
-    
-    # Start from April of the AY start year
-    # Loop through months until 'today' or end of AY
-    curr = date(start.year, 4, 1)
-    # If today is before start (unlikely but safe), use start
-    target_end = min(date.today(), end)
-    
-    # We want a continuous sequence of months from April to target_end
-    # The loop should handle the year transition nicely
-    while curr <= target_end:
-        ym = curr.strftime("%Y-%m")
-        labels.append(get_hijri_month_year_label(curr))  # Always Hijri display
-        values.append(by_month.get(ym, 0))
-        
-        # Increment month
-        if curr.month == 12:
-            curr = date(curr.year + 1, 1, 1)
-        else:
-            curr = date(curr.year, curr.month + 1, 1)
-
-    return labels, values
 
 
 def darajah_buckets() -> List[Tuple[str, int]]:
@@ -1562,7 +1869,7 @@ def darajah_buckets() -> List[Tuple[str, int]]:
                 COUNT(*) AS patrons
             FROM borrowers b
             LEFT JOIN borrower_attributes std
-                ON std.borrowernumber = b.borrowernumber AND std.code = 'STD'
+                ON std.borrowernumber = b.borrowernumber AND std.code IN ('Class', 'STD')
             WHERE (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
               AND (b.debarred IS NULL OR b.debarred = 0)
               AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
@@ -1593,7 +1900,6 @@ def darajah_max_books() -> List[Tuple[str, int]]:
 def verify_patron_counts() -> Dict[str, Any]:
     """Verify patron counts match Koha database."""
     with get_db_cursor() as cur:
-        # Single query for all counts
         cur.execute("""
             SELECT 
                 COUNT(*) AS total_in_database,
@@ -1618,7 +1924,6 @@ def verify_patron_counts() -> Dict[str, Any]:
         
         summary = cur.fetchone()
         
-        # Get category breakdown
         cur.execute("""
             SELECT 
                 b.categorycode,
@@ -1642,10 +1947,6 @@ def verify_patron_counts() -> Dict[str, Any]:
     return summary
 
 
-# -------------------------------
-# ADDITIONAL LEGACY FUNCTIONS - UNCHANGED STRUCTURE BUT OPTIMIZED
-# -------------------------------
-
 def get_all_active_patrons(limit: int = 1000) -> List[Dict]:
     """Get all active patrons with basic info."""
     with get_db_cursor() as cur:
@@ -1667,7 +1968,7 @@ def get_all_active_patrons(limit: int = 1000) -> List[Dict]:
             FROM borrowers b
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             LEFT JOIN borrower_attributes std 
-                ON std.borrowernumber = b.borrowernumber AND std.code = 'STD'
+                ON std.borrowernumber = b.borrowernumber AND std.code IN ('Class', 'STD')
             LEFT JOIN borrower_attributes trno 
                 ON trno.borrowernumber = b.borrowernumber AND trno.code = 'TRNO'
             WHERE (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
@@ -1695,25 +1996,19 @@ def today_activity() -> Tuple[int, int]:
     """Return (today_checkouts, today_checkins) using statistics.type ('issue'/'return')."""
     conn = get_conn()
     try:
-        cur = conn.cursor()
-        cur.execute(
-            """
+        cur = conn.cursor(dictionary=True)
+        cur.execute("""
             SELECT
-              SUM(CASE WHEN type='issue'  THEN 1 ELSE 0 END) AS checkouts,
+              SUM(CASE WHEN type='issue' THEN 1 ELSE 0 END) AS checkouts,
               SUM(CASE WHEN type='return' THEN 1 ELSE 0 END) AS checkins
             FROM statistics
             WHERE DATE(`datetime`) = CURDATE();
-            """
-        )
-        row = cur.fetchone() or (0, 0)
+        """)
+        row = cur.fetchone()
         cur.close()
-        # Handle None values safely
-        if isinstance(row, tuple):
-            checkouts = int(row[0]) if row[0] is not None else 0
-            checkins = int(row[1]) if row[1] is not None else 0
-        else:  # dictionary cursor
-            checkouts = int(row.get("checkouts") or 0)
-            checkins = int(row.get("checkins") or 0)
+        
+        checkouts = int(row.get("checkouts") or 0) if row else 0
+        checkins = int(row.get("checkins") or 0) if row else 0
         return checkouts, checkins
     finally:
         conn.close()
@@ -1721,7 +2016,12 @@ def today_activity() -> Tuple[int, int]:
 
 def find_student_by_identifier(identifier: str) -> Optional[dict]:
     """Find student by cardnumber / userid / borrowernumber / TRNO."""
-    with get_db_cursor() as cur:
+    conn = None
+    cur = None
+    try:
+        conn = get_koha_conn()
+        cur = conn.cursor(dictionary=True)
+        
         cur.execute("""
             SELECT
                 b.borrowernumber,
@@ -1740,9 +2040,9 @@ def find_student_by_identifier(identifier: str) -> Optional[dict]:
             FROM borrowers b
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             LEFT JOIN borrower_attributes std
-                ON std.borrowernumber = b.borrowernumber AND std.code = 'STD'
+                ON std.borrowernumber = b.borrowernumber AND std.code IN ('Class', 'STD', 'CLASS', 'DAR')
             LEFT JOIN borrower_attributes trno
-                ON trno.borrowernumber = b.borrowernumber AND trno.code = 'TRNO'
+                ON trno.borrowernumber = b.borrowernumber AND trno.code IN ('TRNO', 'TRN', 'TR_NUMBER', 'TR')
             WHERE (LOWER(b.cardnumber) = LOWER(%s)
                OR LOWER(b.userid) = LOWER(%s)
                OR CAST(b.borrowernumber AS CHAR) = %s
@@ -1754,14 +2054,21 @@ def find_student_by_identifier(identifier: str) -> Optional[dict]:
         """, (identifier, identifier, identifier, identifier))
         
         row = cur.fetchone()
-    
-    return row
+        return row
+        
+    except Exception as e:
+        logger.error(f"Error finding student by identifier {identifier}: {e}")
+        return None
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 def borrowed_books_for(borrowernumber: int) -> List[dict]:
     """Get active + past borrowed books for a student."""
     with get_db_cursor() as cur:
-        # Active issues
         cur.execute("""
             SELECT bi.title, iss.issuedate AS date_issued, iss.date_due, 0 AS returned
             FROM issues iss
@@ -1773,7 +2080,6 @@ def borrowed_books_for(borrowernumber: int) -> List[dict]:
         
         active = cur.fetchall()
         
-        # Past issues (limited)
         cur.execute("""
             SELECT bi.title, oi.issuedate AS date_issued, oi.returndate AS date_due, 1 AS returned
             FROM old_issues oi
@@ -1810,7 +2116,7 @@ def darajah_dataframe(darajah_std: str) -> list:
             FROM borrowers b
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             LEFT JOIN borrower_attributes std
-                ON std.borrowernumber = b.borrowernumber AND std.code = 'STD'
+                ON std.borrowernumber = b.borrowernumber AND std.code IN ('Class', 'STD')
             LEFT JOIN borrower_attributes trno
                 ON trno.borrowernumber = b.borrowernumber AND trno.code = 'TRNO'
             LEFT JOIN (
@@ -1832,38 +2138,6 @@ def darajah_dataframe(darajah_std: str) -> list:
     
     return rows
 
-def get_all_marhalas() -> List[str]:
-    """
-    Get all Marhala names for filter dropdown.
-    Returns actual Koha category descriptions.
-    """
-    conn = get_conn()
-    try:
-        cur = conn.cursor()
-        
-        # Get descriptions for both academic and non-academic categories
-        academic_codes = get_academic_marhalas()
-        non_academic_codes = get_non_academic_marhalas()
-        all_codes = academic_codes + non_academic_codes
-        
-        if not all_codes:
-            return []
-        
-        placeholders = ', '.join(['%s'] * len(all_codes))
-        
-        cur.execute(f"""
-            SELECT DISTINCT c.description
-            FROM categories c
-            WHERE c.categorycode IN ({placeholders})
-            ORDER BY c.description;
-        """, tuple(all_codes))
-        
-        rows = cur.fetchall()
-        cur.close()
-        
-        return [row[0] for row in rows if row[0]]
-    finally:
-        conn.close()
 
 def marhala_dataframe(marhala: str) -> list:
     """Return list of students in a marhala (by category)."""
@@ -1886,7 +2160,7 @@ def marhala_dataframe(marhala: str) -> list:
             FROM borrowers b
             LEFT JOIN categories c ON c.categorycode = b.categorycode
             LEFT JOIN borrower_attributes std
-                ON std.borrowernumber = b.borrowernumber AND std.code = 'STD'
+                ON std.borrowernumber = b.borrowernumber AND std.code IN ('Class', 'STD')
             LEFT JOIN borrower_attributes trno
                 ON trno.borrowernumber = b.borrowernumber AND trno.code = 'TRNO'
             LEFT JOIN (
@@ -1926,7 +2200,7 @@ def patron_title_agg(from_date, to_date, exclude_category: str = "T-KG") -> list
                 ) AS titles_list
             FROM borrowers b
             LEFT JOIN borrower_attributes std
-                ON std.borrowernumber = b.borrowernumber AND std.code = 'STD'
+                ON std.borrowernumber = b.borrowernumber AND std.code IN ('Class', 'STD')
             LEFT JOIN borrower_attributes trno
                 ON trno.borrowernumber = b.borrowernumber AND trno.code = 'TRNO'
             LEFT JOIN (
@@ -1956,7 +2230,6 @@ def get_all_darajahs() -> List[Dict]:
     start, end = get_ay_bounds()
     
     with get_db_cursor() as cur:
-        # Single combined query for efficiency
         cur.execute("""
             SELECT 
                 COALESCE(std.attribute, b.branchcode) AS darajah_name,
@@ -1967,27 +2240,24 @@ def get_all_darajahs() -> List[Dict]:
                         AND (b.gonenoaddress IS NULL OR b.gonenoaddress = 0)
                     THEN b.borrowernumber 
                 END) AS active_students,
-                COUNT(DISTINCT CASE 
-                    WHEN s.type = 'issue' 
-                        AND DATE(s.`datetime`) BETWEEN %s AND %s
-                    THEN s.borrowernumber 
-                END) AS ay_active,
-                COUNT(CASE 
-                    WHEN s.type = 'issue' 
-                        AND DATE(s.`datetime`) BETWEEN %s AND %s
-                    THEN 1 
-                END) AS ay_issues
+                SUM(COALESCE(s_agg.ay_issues, 0)) AS ay_issues
             FROM borrowers b
             LEFT JOIN borrower_attributes std
                 ON std.borrowernumber = b.borrowernumber
-                AND std.code IN ('STD', 'CLASS', 'DAR', 'CLASS_STD')
-            LEFT JOIN statistics s ON b.borrowernumber = s.borrowernumber
+                AND std.code IN ('Class', 'STD', 'CLASS', 'DAR', 'CLASS_STD')
+            LEFT JOIN (
+                SELECT borrowernumber, 
+                       COUNT(*) AS ay_issues
+                FROM statistics
+                WHERE type = 'issue' AND DATE(`datetime`) BETWEEN %s AND %s
+                GROUP BY borrowernumber
+            ) s_agg ON b.borrowernumber = s_agg.borrowernumber
             WHERE (std.attribute IS NOT NULL OR b.branchcode IS NOT NULL)
                 AND (std.attribute != '' OR b.branchcode != '')
-            GROUP BY COALESCE(std.attribute, b.branchcode)
+            GROUP BY darajah_name
             ORDER BY 
-                CAST(REGEXP_SUBSTR(COALESCE(std.attribute, b.branchcode), '^[0-9]+') AS UNSIGNED),
-                COALESCE(std.attribute, b.branchcode)
+                CAST(SUBSTRING_INDEX(darajah_name, ' ', 1) AS UNSIGNED),
+                darajah_name
         """, (start, end, start, end))
         
         darajahs = cur.fetchall()
@@ -1996,7 +2266,6 @@ def get_all_darajahs() -> List[Dict]:
         name = darajah.get("darajah_name", "")
         name_str = str(name)
         
-        # Determine gender
         if " M" in name_str or name_str.endswith("M"):
             darajah["gender"] = "Boys"
             darajah["icon"] = "male"
@@ -2007,7 +2276,6 @@ def get_all_darajahs() -> List[Dict]:
             darajah["gender"] = "Mixed"
             darajah["icon"] = "users"
         
-        # Determine section
         if " A" in name_str:
             darajah["section"] = "A"
         elif " B" in name_str:
@@ -2016,26 +2284,20 @@ def get_all_darajahs() -> List[Dict]:
             darajah["section"] = "C"
         else:
             darajah["section"] = ""
+        
+        year_match = re.search(r'\d+', name_str)
+        darajah["year"] = year_match.group() if year_match else ""
     
     return darajahs
 
 
 def get_marhala_distribution() -> Tuple[List[str], List[int]]:
     """Return (labels, values) for Marhala/Darajah distribution based on issue counts."""
-    # First try marhala-based distribution
     labels, values = get_marhala_distribution_with_dars_burhani()
     
-    # If no marhala data, fall back to darajah buckets
     if not labels:
         buckets = darajah_buckets()
         labels = [b[0] for b in buckets if b[1] > 0]
         values = [b[1] for b in buckets if b[1] > 0]
     
     return labels, values
-
-
-def get_top_darajah_summary_with_asateza_last() -> List[Dict]:
-    """
-    Legacy function - delegates to optimized version.
-    """
-    return get_top_darajah_summary_with_asateza_last(limit=10)

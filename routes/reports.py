@@ -1,4 +1,5 @@
-# routes/reports.py - UPDATED WITH FIXED OPAC LINKS AND STUDENT NAME LINKING
+# routes/reports.py - FULLY UPDATED WITH FIXED CURSOR DICTIONARY
+
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, send_file, current_app
 from db_koha import get_koha_conn
 from services import koha_queries as KQ
@@ -19,7 +20,7 @@ bp = Blueprint("reports_bp", __name__)
 DARAJAH_CODES = ("STD", "CLASS", "DAR", "CLASS_STD")
 
 # Borrower attribute codes we accept for TR number lookups
-TR_ATTR_CODES = ("TRNO", "TRN", "TR_NUMBER", "TR")  # include your local variants as needed
+TR_ATTR_CODES = ("TRNO", "TRN", "TR_NUMBER", "TR")
 
 # ---------------- OPAC URL HELPER ----------------
 def get_opac_base_url():
@@ -29,7 +30,6 @@ def get_opac_base_url():
 def get_opac_book_url(biblionumber: int) -> str:
     """Generate OPAC book URL from biblionumber."""
     opac_base = get_opac_base_url()
-    # Ensure the URL ends with a single slash and proper catalog path
     return f"{opac_base.rstrip('/')}/cgi-bin/koha/opac-detail.pl?biblionumber={biblionumber}"
 
 # ---------------- HELPER FUNCTIONS FOR SQL ----------------
@@ -44,21 +44,12 @@ def _tr_codes_sql() -> str:
 
 # ---------------- ROLE HELPERS ----------------
 def _current_role() -> str:
-    """
-    Normalize role from session:
-    - 'admin'
-    - 'hod'
-    - 'teacher'
-    - or '' if missing
-    """
+    """Normalize role from session."""
     return (session.get("role") or "").strip().lower()
 
 
 def _hod_marhala() -> str | None:
-    """
-    Return the HOD's marhala label as stored in session["department_name"].
-    This should match COALESCE(categories.description, categorycode) in Koha.
-    """
+    """Return the HOD's marhala label."""
     dep = session.get("department_name")
     if dep:
         return str(dep)
@@ -66,10 +57,7 @@ def _hod_marhala() -> str | None:
 
 
 def _teacher_darajah() -> str | None:
-    """
-    Return the teacher's darajah (class) from session.
-    Falls back to class_name if darajah_name not set.
-    """
+    """Return the teacher's darajah (class) from session."""
     darajah = session.get("darajah_name") or session.get("class_name")
     if darajah:
         return str(darajah)
@@ -78,10 +66,9 @@ def _teacher_darajah() -> str | None:
 
 # ---------------- TEACHER MAPPING HELPER ----------------
 def _get_teachers_for_darajah(darajah_name: str) -> list[dict]:
-    """
-    Get teachers mapped to a specific darajah from the app database.
-    Returns list of teachers with their roles.
-    """
+    """Get teachers mapped to a specific darajah from the app database."""
+    conn = None
+    cur = None
     try:
         conn = get_app_conn()
         cur = conn.cursor()
@@ -108,239 +95,186 @@ def _get_teachers_for_darajah(darajah_name: str) -> list[dict]:
                 'role': role_display,
                 'email': row[2]
             })
-        
-        cur.close()
-        conn.close()
         return teachers
     except Exception as e:
         current_app.logger.error(f"Error fetching teachers for darajah {darajah_name}: {e}")
         return []
-
-
-# ---------------- AY WINDOW ----------------
+    finally:
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 
 # ---------------- INDIVIDUAL LOOKUP ----------------
 def _resolve_borrower_by_identifier(identifier: str) -> int | None:
-    """
-    Resolve a patron by:
-      1) borrowernumber
-      2) cardnumber
-      3) userid (ITS)
-      4) TR number via borrower_attributes
-
-    Only returns ACTIVE patrons:
-      - dateexpiry IS NULL OR >= today
-    """
+    """Resolve a patron by various identifiers."""
     if not identifier:
         return None
 
     conn = get_koha_conn()
     cur = conn.cursor()
-
-    # common active filter
     active_filter = " AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())"
 
-    # 1) If numeric, try direct borrowernumber
     try:
-        bn = int(identifier)
-        cur.execute(
-            f"""
-            SELECT b.borrowernumber
-            FROM borrowers b
-            WHERE b.borrowernumber=%s
-              {active_filter}
-            """,
-            (bn,),
-        )
+        # 1) borrowernumber
+        try:
+            bn = int(identifier)
+            cur.execute(f"SELECT b.borrowernumber FROM borrowers b WHERE b.borrowernumber=%s {active_filter}", (bn,))
+            row = cur.fetchone()
+            if row:
+                return int(row[0])
+        except ValueError:
+            pass
+
+        # 2) Cardnumber
+        cur.execute(f"SELECT b.borrowernumber FROM borrowers b WHERE b.cardnumber=%s {active_filter}", (identifier,))
         row = cur.fetchone()
         if row:
-            cur.close()
-            conn.close()
             return int(row[0])
-    except ValueError:
-        pass
 
-    # 2) Cardnumber
-    cur.execute(
-        f"""
-        SELECT b.borrowernumber
-        FROM borrowers b
-        WHERE b.cardnumber=%s
-          {active_filter}
-        """,
-        (identifier,),
-    )
-    row = cur.fetchone()
-    if row:
-        bn = int(row[0])
+        # 3) ITS (userid)
+        cur.execute(f"SELECT b.borrowernumber FROM borrowers b WHERE b.userid=%s {active_filter}", (identifier,))
+        row = cur.fetchone()
+        if row:
+            return int(row[0])
+
+        # 4) TR number via borrower_attributes
+        sql = f"""
+            SELECT b.borrowernumber
+            FROM borrower_attributes ba
+            JOIN borrowers b ON b.borrowernumber = ba.borrowernumber
+            WHERE ba.code IN ({_tr_codes_sql()})
+              AND ba.attribute=%s
+              {active_filter}
+            LIMIT 1
+        """
+        cur.execute(sql, (identifier,))
+        row = cur.fetchone()
+        if row:
+            return int(row[0])
+        return None
+    finally:
         cur.close()
         conn.close()
-        return bn
-
-    # 3) ITS (userid)
-    cur.execute(
-        f"""
-        SELECT b.borrowernumber
-        FROM borrowers b
-        WHERE b.userid=%s
-          {active_filter}
-        """,
-        (identifier,),
-    )
-    row = cur.fetchone()
-    if row:
-        bn = int(row[0])
-        cur.close()
-        conn.close()
-        return bn
-
-    # 4) TR number via borrower_attributes (joined to borrowers for active filter)
-    sql = f"""
-        SELECT b.borrowernumber
-        FROM borrower_attributes ba
-        JOIN borrowers b ON b.borrowernumber = ba.borrowernumber
-        WHERE ba.code IN ({_tr_codes_sql()})
-          AND ba.attribute=%s
-          {active_filter}
-        LIMIT 1
-    """
-    cur.execute(sql, (identifier,))
-    row = cur.fetchone()
-    cur.close()
-    conn.close()
-    if row:
-        return int(row[0])
-
-    return None
 
 
-# ---------------- UTILITIES ----------------
+# ---------------- DARAJAH ROWS FUNCTION - FIXED WITH DICTIONARY CURSOR ----------------
 def _darajah_rows_for_value(darajah_std: str, marhala_filter: str | None = None) -> list[dict]:
-    """
-    Darajah-wise rows with AY metrics:
-    - Only ACTIVE patrons (dateexpiry IS NULL or >= today)
-    - Optional marhala_filter => restrict to that marhala
-    - Replaces cardnumber with TRNumber (COALESCE(TR, cardnumber))
-    """
+    """Darajah-wise rows with AY metrics."""
     start, end = KQ.get_ay_bounds()
     conn = get_koha_conn()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
 
-    # Get collections and language from Koha
-    collections_language_join = """
-        LEFT JOIN (
-            SELECT s.borrowernumber,
-                   GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS collections,
-                   ExtractValue(
-                       bmd.metadata,
-                       '//datafield[@tag="041"]/subfield[@code="a"]'
-                   ) AS language
-            FROM statistics s
-            JOIN items it ON it.itemnumber = s.itemnumber
-            JOIN biblio bib ON it.biblionumber = bib.biblionumber
-            LEFT JOIN biblio_metadata bmd ON bib.biblionumber = bmd.biblionumber
-            WHERE s.type = 'issue' AND DATE(s.`datetime`) BETWEEN %s AND %s
-            GROUP BY s.borrowernumber
-        ) cl ON cl.borrowernumber = b.borrowernumber
-    """
-    collections_language_params = [start, end] if start else [None, None]
+    try:
+        collections_language_join = """
+            LEFT JOIN (
+                SELECT s.borrowernumber,
+                       GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS collections,
+                       ExtractValue(
+                           bmd.metadata,
+                           '//datafield[@tag="041"]/subfield[@code="a"]'
+                       ) AS language
+                FROM statistics s
+                JOIN items it ON it.itemnumber = s.itemnumber
+                JOIN biblio bib ON it.biblionumber = bib.biblionumber
+                LEFT JOIN biblio_metadata bmd ON bib.biblionumber = bmd.biblionumber
+                WHERE s.type = 'issue' AND DATE(s.`datetime`) BETWEEN %s AND %s
+                GROUP BY s.borrowernumber
+            ) cl ON cl.borrowernumber = b.borrowernumber
+        """
+        marhala_clause = ""
+        if marhala_filter:
+            marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
 
-    marhala_clause = ""
-    if marhala_filter:
-        marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+        ay_where = "AND DATE(`datetime`) BETWEEN %s AND %s" if start else ""
+        fay_where = "AND DATE(`date`) BETWEEN %s AND %s" if start else ""
+        collections_language_select = "cl.collections AS Collections, cl.language AS Language" if start else "NULL AS Collections, NULL AS Language"
+        
+        sql = f"""
+            SELECT
+              b.borrowernumber,
+              b.cardnumber,
+              COALESCE(tr.attribute, b.cardnumber)               AS TRNumber,
+              b.surname,
+              b.firstname,
+              CONCAT(
+                COALESCE(b.surname, ''),
+                CASE WHEN b.surname IS NOT NULL AND b.firstname IS NOT NULL THEN ' ' ELSE '' END,
+                COALESCE(b.firstname, '')
+              )                                                   AS FullName,
+              b.email                                            AS EduEmail,
+              UPPER(COALESCE(b.sex,''))                          AS Sex,
+              b.dateenrolled                                     AS Enrolled,
+              b.dateexpiry                                       AS Expiry,
+              COALESCE(a.currently_issued, 0)                        AS CurrentlyIssued,
+              COALESCE(a.overdues, 0)                            AS Overdues,
+              COALESCE(ay.total_issues_ay, 0)                    AS Issues_AcademicYear,
+              COALESCE(fay.fees_paid_ay, 0)                     AS FeesPaid_AcademicYear,
+              COALESCE(ob.outstanding, 0)                        AS OutstandingBalance,
+              {collections_language_select}
+            FROM borrowers b
+            LEFT JOIN borrower_attributes std
+                   ON std.borrowernumber = b.borrowernumber
+                  AND std.code IN ({_darajah_codes_sql()})
+            LEFT JOIN borrower_attributes tr
+                   ON tr.borrowernumber = b.borrowernumber
+                  AND tr.code IN ({_tr_codes_sql()})
+            LEFT JOIN (
+                SELECT borrowernumber,
+                       COUNT(*) AS currently_issued,
+                       SUM(CASE WHEN returndate IS NULL AND date_due < NOW() THEN 1 ELSE 0 END) AS overdues
+                FROM issues
+                WHERE returndate IS NULL
+                GROUP BY borrowernumber
+            ) a ON a.borrowernumber = b.borrowernumber
+            LEFT JOIN (
+                SELECT borrowernumber,
+                       COUNT(*) AS total_issues_ay
+                FROM statistics
+                WHERE type='issue' {ay_where}
+                GROUP BY borrowernumber
+            ) ay ON ay.borrowernumber = b.borrowernumber
+            LEFT JOIN (
+                SELECT borrowernumber,
+                       SUM(CASE
+                             WHEN credit_type_code='PAYMENT'
+                                  AND (status IS NULL OR status <> 'VOID')
+                                  {fay_where}
+                             THEN -amount ELSE 0 END) AS fees_paid_ay
+                FROM accountlines
+                GROUP BY borrowernumber
+            ) fay ON fay.borrowernumber = b.borrowernumber
+            LEFT JOIN (
+                SELECT borrowernumber,
+                       SUM(COALESCE(amountoutstanding,0)) AS outstanding
+                FROM accountlines
+                GROUP BY borrowernumber
+            ) ob ON ob.borrowernumber = b.borrowernumber
+            LEFT JOIN categories c ON c.categorycode = b.categorycode
+            {collections_language_join if start else ""}
+            WHERE (std.attribute = %s OR b.branchcode = %s)
+              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+              {marhala_clause}
+            ORDER BY FullName ASC;
+        """
 
-    # Build the query based on whether we have AY dates
-    ay_where = "AND DATE(`datetime`) BETWEEN %s AND %s" if start else ""
-    fay_where = "AND DATE(`date`) BETWEEN %s AND %s" if start else ""
-    
-    # Conditionally include collections and language based on AY dates
-    collections_language_select = "cl.collections AS Collections, cl.language AS Language" if start else "NULL AS Collections, NULL AS Language"
-    
-    sql = f"""
-        SELECT
-          b.borrowernumber,
-          b.cardnumber,
-          COALESCE(tr.attribute, b.cardnumber)               AS TRNumber,
-          b.surname,
-          b.firstname,
-          CONCAT(
-            COALESCE(b.surname, ''),
-            CASE WHEN b.surname IS NOT NULL AND b.firstname IS NOT NULL THEN ' ' ELSE '' END,
-            COALESCE(b.firstname, '')
-          )                                                   AS FullName,
-          b.email                                            AS EduEmail,
-          UPPER(COALESCE(b.sex,''))                          AS Sex,
-          b.dateenrolled                                     AS Enrolled,
-          b.dateexpiry                                       AS Expiry,
-          COALESCE(a.currently_issued, 0)                        AS CurrentlyIssued,
-          COALESCE(a.overdues, 0)                            AS Overdues,
-          COALESCE(ay.total_issues_ay, 0)                    AS Issues_AcademicYear,
-          COALESCE(fay.fees_paid_ay, 0)                     AS FeesPaid_AcademicYear,
-          COALESCE(ob.outstanding, 0)                        AS OutstandingBalance,
-          {collections_language_select}
-        FROM borrowers b
-        LEFT JOIN borrower_attributes std
-               ON std.borrowernumber = b.borrowernumber
-              AND std.code IN ({_darajah_codes_sql()})
-        LEFT JOIN borrower_attributes tr
-               ON tr.borrowernumber = b.borrowernumber
-              AND tr.code IN ({_tr_codes_sql()})
-        LEFT JOIN (
-            SELECT borrowernumber,
-                   COUNT(*) AS currently_issued,
-                   SUM(CASE WHEN returndate IS NULL AND date_due < NOW() THEN 1 ELSE 0 END) AS overdues
-            FROM issues
-            WHERE returndate IS NULL
-            GROUP BY borrowernumber
-        ) a ON a.borrowernumber = b.borrowernumber
-        LEFT JOIN (
-            SELECT borrowernumber,
-                   COUNT(*) AS total_issues_ay
-            FROM statistics
-            WHERE type='issue' {ay_where}
-            GROUP BY borrowernumber
-        ) ay ON ay.borrowernumber = b.borrowernumber
-        LEFT JOIN (
-            SELECT borrowernumber,
-                   SUM(CASE
-                         WHEN credit_type_code='PAYMENT'
-                              AND (status IS NULL OR status <> 'VOID')
-                              {fay_where}
-                         THEN -amount ELSE 0 END) AS fees_paid_ay
-            FROM accountlines
-            GROUP BY borrowernumber
-        ) fay ON fay.borrowernumber = b.borrowernumber
-        LEFT JOIN (
-            SELECT borrowernumber,
-                   SUM(COALESCE(amountoutstanding,0)) AS outstanding
-            FROM accountlines
-            GROUP BY borrowernumber
-        ) ob ON ob.borrowernumber = b.borrowernumber
-        LEFT JOIN categories c ON c.categorycode = b.categorycode
-        {collections_language_join if start else ""}
-        WHERE (std.attribute = %s OR b.branchcode = %s)
-          AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-          {marhala_clause}
-        ORDER BY FullName ASC;
-    """
+        params = []
+        if start:
+            params.extend([start, end])
+        if start:
+            params.extend([start, end])
+        if start:
+            params.extend([start, end])
+        params.extend([darajah_std, darajah_std])
+        if marhala_filter:
+            params.append(marhala_filter)
 
-    # Build parameters
-    params = []
-    if start:
-        params.extend([start, end])  # collections_language_params
-    if start:
-        params.extend([start, end])  # ay subquery
-    if start:
-        params.extend([start, end])  # fees_ay subquery
-    params.extend([darajah_std, darajah_std])
-    if marhala_filter:
-        params.append(marhala_filter)
-
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
 
     # Get teachers for this darajah
     teachers = _get_teachers_for_darajah(darajah_std)
@@ -349,7 +283,6 @@ def _darajah_rows_for_value(darajah_std: str, marhala_filter: str | None = None)
     for row in rows:
         row["Darajah"] = darajah_std
         if teachers:
-            # Add primary teacher (first teacher in list, usually Masool or Class Teacher)
             primary_teacher = next((t for t in teachers if t['role'] in ['Masool', 'Class Teacher']), teachers[0])
             row["TeacherName"] = primary_teacher['name']
             row["TeacherRole"] = primary_teacher['role']
@@ -363,73 +296,63 @@ def _darajah_rows_for_value(darajah_std: str, marhala_filter: str | None = None)
 
 
 def darajah_report(darajah_std: str | None, marhala_filter: str | None = None):
-    """
-    Darajah-wise report.
-    Returns: (DataFrame, total_students)
-    """
+    """Darajah-wise report. Returns: (DataFrame, total_students)"""
     if darajah_std:
-        # If a specific darajah is provided, fetch darajah-specific rows
         rows = _darajah_rows_for_value(darajah_std, marhala_filter)
         total_students = len(rows) if rows else 0
     else:
-        # Discover all darajahs first (optionally limited to marhala_filter)
         conn = get_koha_conn()
-        cur = conn.cursor()
+        cur = conn.cursor(dictionary=True)
+        try:
+            marhala_clause = ""
+            params = []
+            if marhala_filter:
+                marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+                params.append(marhala_filter)
 
-        marhala_clause = ""
-        params = []
-        if marhala_filter:
-            marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
-            params.append(marhala_filter)
+            sql_list = f"""
+                SELECT DISTINCT COALESCE(std.attribute, b.branchcode) AS cls
+                FROM borrowers b
+                LEFT JOIN borrower_attributes std
+                  ON std.borrowernumber = b.borrowernumber
+                 AND std.code IN ({_darajah_codes_sql()})
+                LEFT JOIN categories c ON c.categorycode = b.categorycode
+                WHERE COALESCE(std.attribute, b.branchcode) IS NOT NULL
+                  AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+                  {marhala_clause}
+                ORDER BY cls;
+            """
+            cur.execute(sql_list, params)
+            darajahs = [r['cls'] for r in cur.fetchall()]
+        finally:
+            cur.close()
+            conn.close()
 
-        sql_list = f"""
-            SELECT DISTINCT COALESCE(std.attribute, b.branchcode) AS cls
-            FROM borrowers b
-            LEFT JOIN borrower_attributes std
-              ON std.borrowernumber = b.borrowernumber
-             AND std.code IN ({_darajah_codes_sql()})
-            LEFT JOIN categories c ON c.categorycode = b.categorycode
-            WHERE COALESCE(std.attribute, b.branchcode) IS NOT NULL
-              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-              {marhala_clause}
-            ORDER BY cls;
-        """
-        cur.execute(sql_list, params)
-        darajahs = [r[0] for r in cur.fetchall()]
-        cur.close()
-        conn.close()
-
-        # Fetch rows for each darajah and aggregate them
         rows = []
         for darajah in darajahs:
             rows += _darajah_rows_for_value(darajah, marhala_filter)
-        
         total_students = len(rows)
 
     # Process rows for display with links
     processed_rows = []
     for row in rows:
-        # Create student name link
         borrowernumber = row.get("borrowernumber")
         cardnumber = row.get("cardnumber")
         full_name = row.get("FullName", "")
         
-        # Clean up the name
         if not full_name or full_name.strip() == "" or full_name.lower() == "none":
             full_name = f"Student #{cardnumber}" if cardnumber else "Unknown Student"
         
-        # Create link to student detail page
         if borrowernumber:
             student_link = f'<a href="/students/{borrowernumber}" target="_blank">{full_name}</a>'
         elif cardnumber:
-            # Try to find by cardnumber
             student_link = f'<a href="/students/search?q={urllib.parse.quote(cardnumber)}" target="_blank">{full_name}</a>'
         else:
             student_link = full_name
         
-        processed_row = {
+        processed_rows.append({
             "TRNumber": row.get("TRNumber", ""),
-            "FullName": student_link,  # Linked name
+            "FullName": student_link,
             "Sex": row.get("Sex", ""),
             "CurrentlyIssued": row.get("CurrentlyIssued", 0),
             "Overdues": row.get("Overdues", 0),
@@ -440,133 +363,120 @@ def darajah_report(darajah_std: str | None, marhala_filter: str | None = None):
             "Darajah": row.get("Darajah", ""),
             "TeacherName": row.get("TeacherName", ""),
             "TeacherRole": row.get("TeacherRole", "")
-        }
-        processed_rows.append(processed_row)
+        })
     
-    # Return the rows as a DataFrame and total students
     df = pd.DataFrame(processed_rows) if processed_rows else pd.DataFrame()
-    
     return df, total_students
 
 
+# ---------------- MARHALA ROWS FUNCTION - FIXED WITH DICTIONARY CURSOR ----------------
 def _marhala_rows_for_value(marhala: str) -> list[dict]:
-    """
-    Marhala-wise rows:
-    - Only ACTIVE patrons (dateexpiry IS NULL or >= today)
-    - Keeps: Darajah (STD / branchcode)
-    - Adds: Collections, Language from Koha
-    - Adds: Teacher information for each student's darajah
-    """
+    """Marhala-wise rows with AY metrics."""
     start, end = KQ.get_ay_bounds()
     conn = get_koha_conn()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
 
-    # Get collections and language from Koha
-    collections_language_join = """
-        LEFT JOIN (
-            SELECT s.borrowernumber,
-                   GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS collections,
-                   ExtractValue(
-                       bmd.metadata,
-                       '//datafield[@tag="041"]/subfield[@code="a"]'
-                   ) AS language
-            FROM statistics s
-            JOIN items it ON it.itemnumber = s.itemnumber
-            JOIN biblio bib ON it.biblionumber = bib.biblionumber
-            LEFT JOIN biblio_metadata bmd ON bib.biblionumber = bmd.biblionumber
-            WHERE s.type = 'issue' AND DATE(s.`datetime`) BETWEEN %s AND %s
-            GROUP BY s.borrowernumber
-        ) cl ON cl.borrowernumber = b.borrowernumber
-    """
-    collections_language_params = [start, end] if start else [None, None]
+    try:
+        collections_language_join = """
+            LEFT JOIN (
+                SELECT s.borrowernumber,
+                       GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS collections,
+                       ExtractValue(
+                           bmd.metadata,
+                           '//datafield[@tag="041"]/subfield[@code="a"]'
+                       ) AS language
+                FROM statistics s
+                JOIN items it ON it.itemnumber = s.itemnumber
+                JOIN biblio bib ON it.biblionumber = bib.biblionumber
+                LEFT JOIN biblio_metadata bmd ON bib.biblionumber = bmd.biblionumber
+                WHERE s.type = 'issue' AND DATE(s.`datetime`) BETWEEN %s AND %s
+                GROUP BY s.borrowernumber
+            ) cl ON cl.borrowernumber = b.borrowernumber
+        """
+        ay_where = "AND DATE(`datetime`) BETWEEN %s AND %s" if start else ""
+        fay_where = "AND DATE(`date`) BETWEEN %s AND %s" if start else ""
+        collections_language_select = "cl.collections AS Collections, cl.language AS Language" if start else "NULL AS Collections, NULL AS Language"
+        
+        sql = f"""
+            SELECT
+              b.borrowernumber,
+              b.cardnumber,
+              COALESCE(tr.attribute, b.cardnumber)               AS TRNumber,
+              CONCAT(
+                COALESCE(b.surname, ''),
+                CASE WHEN b.surname IS NOT NULL AND b.firstname IS NOT NULL THEN ' ' ELSE '' END,
+                COALESCE(b.firstname, '')
+              )                                                   AS FullName,
+              b.email                                            AS EduEmail,
+              UPPER(COALESCE(b.sex,''))                          AS Sex,
+              b.dateenrolled                                     AS Enrolled,
+              b.dateexpiry                                       AS Expiry,
+              COALESCE(std.attribute, b.branchcode)              AS Darajah,
+              COALESCE(a.currently_issued, 0)                        AS CurrentlyIssued,
+              COALESCE(a.overdues, 0)                            AS Overdues,
+              COALESCE(ay.total_issues_ay, 0)                    AS Issues_AcademicYear,
+              COALESCE(fay.fees_paid_ay, 0)                     AS FeesPaid_AcademicYear,
+              COALESCE(ob.outstanding, 0)                        AS OutstandingBalance,
+              {collections_language_select}
+            FROM borrowers b
+            LEFT JOIN borrower_attributes std
+                   ON std.borrowernumber = b.borrowernumber
+                  AND std.code IN ({_darajah_codes_sql()})
+            LEFT JOIN borrower_attributes tr
+                   ON tr.borrowernumber = b.borrowernumber
+                  AND tr.code IN ({_tr_codes_sql()})
+            LEFT JOIN (
+                SELECT borrowernumber,
+                       COUNT(*) AS currently_issued,
+                       SUM(CASE WHEN returndate IS NULL AND date_due < NOW() THEN 1 ELSE 0 END) AS overdues
+                FROM issues
+                WHERE returndate IS NULL
+                GROUP BY borrowernumber
+            ) a ON a.borrowernumber = b.borrowernumber
+            LEFT JOIN (
+                SELECT borrowernumber,
+                       COUNT(*) AS total_issues_ay
+                FROM statistics
+                WHERE type='issue' {ay_where}
+                GROUP BY borrowernumber
+            ) ay ON ay.borrowernumber = b.borrowernumber
+            LEFT JOIN (
+                SELECT borrowernumber,
+                       SUM(CASE
+                             WHEN credit_type_code='PAYMENT'
+                                  AND (status IS NULL OR status <> 'VOID')
+                                  {fay_where}
+                             THEN -amount ELSE 0 END) AS fees_paid_ay
+                FROM accountlines
+                GROUP BY borrowernumber
+            ) fay ON fay.borrowernumber = b.borrowernumber
+            LEFT JOIN (
+                SELECT borrowernumber,
+                       SUM(COALESCE(amountoutstanding,0)) AS outstanding
+                FROM accountlines
+                GROUP BY borrowernumber
+            ) ob ON ob.borrowernumber = b.borrowernumber
+            LEFT JOIN categories c ON c.categorycode = b.categorycode
+            {collections_language_join if start else ""}
+            WHERE (COALESCE(c.description, b.categorycode) = %s OR b.categorycode = %s)
+              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+            ORDER BY FullName ASC;
+        """
 
-    # Build the query based on whether we have AY dates
-    ay_where = "AND DATE(`datetime`) BETWEEN %s AND %s" if start else ""
-    fay_where = "AND DATE(`date`) BETWEEN %s AND %s" if start else ""
-    
-    # Conditionally include collections and language based on AY dates
-    collections_language_select = "cl.collections AS Collections, cl.language AS Language" if start else "NULL AS Collections, NULL AS Language"
-    
-    sql = f"""
-        SELECT
-          b.borrowernumber,
-          b.cardnumber,
-          COALESCE(tr.attribute, b.cardnumber)               AS TRNumber,
-          CONCAT(
-            COALESCE(b.surname, ''),
-            CASE WHEN b.surname IS NOT NULL AND b.firstname IS NOT NULL THEN ' ' ELSE '' END,
-            COALESCE(b.firstname, '')
-          )                                                   AS FullName,
-          b.email                                            AS EduEmail,
-          UPPER(COALESCE(b.sex,''))                          AS Sex,
-          b.dateenrolled                                     AS Enrolled,
-          b.dateexpiry                                       AS Expiry,
-          COALESCE(std.attribute, b.branchcode)              AS Darajah,
-          COALESCE(a.currently_issued, 0)                        AS CurrentlyIssued,
-          COALESCE(a.overdues, 0)                            AS Overdues,
-          COALESCE(ay.total_issues_ay, 0)                    AS Issues_AcademicYear,
-          COALESCE(fay.fees_paid_ay, 0)                     AS FeesPaid_AcademicYear,
-          COALESCE(ob.outstanding, 0)                        AS OutstandingBalance,
-          {collections_language_select}
-        FROM borrowers b
-        LEFT JOIN borrower_attributes std
-               ON std.borrowernumber = b.borrowernumber
-              AND std.code IN ({_darajah_codes_sql()})
-        LEFT JOIN borrower_attributes tr
-               ON tr.borrowernumber = b.borrowernumber
-              AND tr.code IN ({_tr_codes_sql()})
-        LEFT JOIN (
-            SELECT borrowernumber,
-                   COUNT(*) AS currently_issued,
-                   SUM(CASE WHEN returndate IS NULL AND date_due < NOW() THEN 1 ELSE 0 END) AS overdues
-            FROM issues
-            WHERE returndate IS NULL
-            GROUP BY borrowernumber
-        ) a ON a.borrowernumber = b.borrowernumber
-        LEFT JOIN (
-            SELECT borrowernumber,
-                   COUNT(*) AS total_issues_ay
-            FROM statistics
-            WHERE type='issue' {ay_where}
-            GROUP BY borrowernumber
-        ) ay ON ay.borrowernumber = b.borrowernumber
-        LEFT JOIN (
-            SELECT borrowernumber,
-                   SUM(CASE
-                         WHEN credit_type_code='PAYMENT'
-                              AND (status IS NULL OR status <> 'VOID')
-                              {fay_where}
-                         THEN -amount ELSE 0 END) AS fees_paid_ay
-            FROM accountlines
-            GROUP BY borrowernumber
-        ) fay ON fay.borrowernumber = b.borrowernumber
-        LEFT JOIN (
-            SELECT borrowernumber,
-                   SUM(COALESCE(amountoutstanding,0)) AS outstanding
-            FROM accountlines
-            GROUP BY borrowernumber
-        ) ob ON ob.borrowernumber = b.borrowernumber
-        LEFT JOIN categories c ON c.categorycode = b.categorycode
-        {collections_language_join if start else ""}
-        WHERE (COALESCE(c.description, b.categorycode) = %s OR b.categorycode = %s)
-          AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-        ORDER BY FullName ASC;
-    """
+        params = []
+        if start:
+            params.extend([start, end])
+        if start:
+            params.extend([start, end])
+        if start:
+            params.extend([start, end])
+        params.extend([marhala, marhala])
 
-    # Build parameters
-    params = []
-    if start:
-        params.extend([start, end])  # collections_language_params
-    if start:
-        params.extend([start, end])  # ay subquery
-    if start:
-        params.extend([start, end])  # fees_ay subquery
-    params.extend([marhala, marhala])
-
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
 
     # Add teacher information for each student's darajah
     for row in rows:
@@ -574,7 +484,6 @@ def _marhala_rows_for_value(marhala: str) -> list[dict]:
         if darajah:
             teachers = _get_teachers_for_darajah(darajah)
             if teachers:
-                # Add primary teacher (first teacher in list, usually Masool or Class Teacher)
                 primary_teacher = next((t for t in teachers if t['role'] in ['Masool', 'Class Teacher']), teachers[0])
                 row["TeacherName"] = primary_teacher['name']
                 row["TeacherRole"] = primary_teacher['role']
@@ -588,59 +497,53 @@ def _marhala_rows_for_value(marhala: str) -> list[dict]:
 
 
 def marhala_report(marhala_code: str | None):
-    """
-    Marhala-wise report (Admin only; HOD is blocked before calling this).
-    Returns: (DataFrame, total_students)
-    """
+    """Marhala-wise report. Returns: (DataFrame, total_students)"""
     if marhala_code:
         rows = _marhala_rows_for_value(marhala_code)
         total_students = len(rows) if rows else 0
     else:
-        sql_list = """
-            SELECT DISTINCT COALESCE(c.description, b.categorycode) AS marhala
-            FROM borrowers b
-            LEFT JOIN categories c ON c.categorycode = b.categorycode
-            WHERE COALESCE(c.description, b.categorycode) IS NOT NULL
-              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-            ORDER BY marhala;
-        """
         conn = get_koha_conn()
-        cur = conn.cursor()
-        cur.execute(sql_list)
-        marhalas = [r[0] for r in cur.fetchall()]
-        cur.close()
-        conn.close()
+        cur = conn.cursor(dictionary=True)
+        try:
+            sql_list = """
+                SELECT DISTINCT COALESCE(c.description, b.categorycode) AS marhala
+                FROM borrowers b
+                LEFT JOIN categories c ON c.categorycode = b.categorycode
+                WHERE COALESCE(c.description, b.categorycode) IS NOT NULL
+                  AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+                ORDER BY marhala;
+            """
+            cur.execute(sql_list)
+            marhalas = [r['marhala'] for r in cur.fetchall()]
+        finally:
+            cur.close()
+            conn.close()
 
         rows = []
         for m in marhalas:
             rows += _marhala_rows_for_value(m)
-        
         total_students = len(rows)
 
     # Process rows for display with links
     processed_rows = []
     for row in rows:
-        # Create student name link
         borrowernumber = row.get("borrowernumber")
         cardnumber = row.get("cardnumber")
         full_name = row.get("FullName", "")
         
-        # Clean up the name
         if not full_name or full_name.strip() == "" or full_name.lower() == "none":
             full_name = f"Student #{cardnumber}" if cardnumber else "Unknown Student"
         
-        # Create link to student detail page
         if borrowernumber:
             student_link = f'<a href="/students/{borrowernumber}" target="_blank">{full_name}</a>'
         elif cardnumber:
-            # Try to find by cardnumber
             student_link = f'<a href="/students/search?q={urllib.parse.quote(cardnumber)}" target="_blank">{full_name}</a>'
         else:
             student_link = full_name
         
-        processed_row = {
+        processed_rows.append({
             "TRNumber": row.get("TRNumber", ""),
-            "FullName": student_link,  # Linked name
+            "FullName": student_link,
             "Darajah": row.get("Darajah", ""),
             "Sex": row.get("Sex", ""),
             "CurrentlyIssued": row.get("CurrentlyIssued", 0),
@@ -651,13 +554,10 @@ def marhala_report(marhala_code: str | None):
             "Language": row.get("Language", ""),
             "TeacherName": row.get("TeacherName", ""),
             "TeacherRole": row.get("TeacherRole", "")
-        }
-        processed_rows.append(processed_row)
+        })
     
     df = pd.DataFrame(processed_rows) if processed_rows else pd.DataFrame()
-    
     return df, total_students
-
 
 # ---------------- HTML CLEANING UTILITY ----------------
 def clean_html_for_pdf(html_text: str) -> str:
@@ -728,130 +628,127 @@ def top_books_df(
     for_pdf: bool = False
 ):
     """
-    Top titles for the CURRENT AY window (Apr 1 -> today, max Dec 31),
-    derived from issues + old_issues (all_iss), joined via MARC.
+    Top titles for the CURRENT AY window, derived from issues + old_issues.
     """
     start, end = KQ.get_ay_bounds()
     if not start:
         return pd.DataFrame(columns=["Title", "Language", "Collections", "Count", "LastIssued"])
 
     conn = get_koha_conn()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
 
-    lang_clause = ""
-    lang_param = None
-    if arabic_only:
-        lang_clause = """
-          AND ExtractValue(
-                bmd.metadata,
-                '//datafield[@tag="041"]/subfield[@code="a"]'
-              ) LIKE %s
+    try:
+        lang_clause = ""
+        lang_param = None
+        if arabic_only:
+            lang_clause = """
+                AND ExtractValue(
+                    bmd.metadata,
+                    '//datafield[@tag="041"]/subfield[@code="a"]'
+                ) LIKE %s
+            """
+            lang_param = "ar%"
+        elif english_only:
+            lang_clause = """
+                AND ExtractValue(
+                    bmd.metadata,
+                    '//datafield[@tag="041"]/subfield[@code="a"]'
+                ) LIKE %s
+            """
+            lang_param = "eng%"
+
+        marhala_clause = ""
+        if marhala_filter:
+            marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+
+        darajah_clause = ""
+        if darajah_filter:
+            darajah_clause = "AND COALESCE(std.attribute, b.branchcode) = %s"
+
+        sql = f"""
+            SELECT
+                bib.title AS Title,
+                ExtractValue(
+                    bmd.metadata,
+                    '//datafield[@tag="041"]/subfield[@code="a"]'
+                ) AS Language,
+                GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS Collections,
+                COUNT(*) AS cnt,
+                MAX(DATE(all_iss.issuedate)) AS last_issued,
+                bib.biblionumber AS BiblioNumber
+            FROM (
+                SELECT borrowernumber, itemnumber, issuedate
+                FROM issues
+                UNION ALL
+                SELECT borrowernumber, itemnumber, issuedate
+                FROM old_issues
+            ) all_iss
+            JOIN borrowers b
+                 ON b.borrowernumber = all_iss.borrowernumber
+            LEFT JOIN borrower_attributes std
+                 ON std.borrowernumber = b.borrowernumber
+                AND std.code IN ({_darajah_codes_sql()})
+            LEFT JOIN categories c
+                 ON c.categorycode = b.categorycode
+            JOIN items it
+                 ON all_iss.itemnumber = it.itemnumber
+            JOIN biblio bib
+                 ON it.biblionumber = bib.biblionumber
+            LEFT JOIN biblio_metadata bmd
+                 ON bib.biblionumber = bmd.biblionumber
+            WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
+              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+              {marhala_clause}
+              {darajah_clause}
+              {lang_clause}
+            GROUP BY bib.biblionumber, bib.title, Language
+            ORDER BY cnt DESC
+            LIMIT %s;
         """
-        lang_param = "ar%"
-    elif english_only:
-        lang_clause = """
-          AND ExtractValue(
-                bmd.metadata,
-                '//datafield[@tag="041"]/subfield[@code="a"]'
-              ) LIKE %s
-        """
-        lang_param = "eng%"
 
-    marhala_clause = ""
-    if marhala_filter:
-        marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+        params = [start, end]
+        if marhala_filter:
+            params.append(marhala_filter)
+        if darajah_filter:
+            params.append(darajah_filter)
+        if lang_clause:
+            params.append(lang_param)
+        params.append(int(limit))
 
-    darajah_clause = ""
-    if darajah_filter:
-        darajah_clause = "AND COALESCE(std.attribute, b.branchcode) = %s"
-
-    sql = f"""
-        SELECT
-            bib.title AS Title,
-            ExtractValue(
-                bmd.metadata,
-                '//datafield[@tag="041"]/subfield[@code="a"]'
-            ) AS Language,
-            GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS Collections,
-            COUNT(*) AS cnt,
-            MAX(DATE(all_iss.issuedate)) AS last_issued,
-            bib.biblionumber AS BiblioNumber
-        FROM (
-            SELECT borrowernumber, itemnumber, issuedate
-            FROM issues
-            UNION ALL
-            SELECT borrowernumber, itemnumber, issuedate
-            FROM old_issues
-        ) all_iss
-        JOIN borrowers b
-             ON b.borrowernumber = all_iss.borrowernumber
-        LEFT JOIN borrower_attributes std
-             ON std.borrowernumber = b.borrowernumber
-            AND std.code IN ({_darajah_codes_sql()})
-        LEFT JOIN categories c
-             ON c.categorycode = b.categorycode
-        JOIN items it
-             ON all_iss.itemnumber = it.itemnumber
-        JOIN biblio bib
-             ON it.biblionumber = bib.biblionumber
-        LEFT JOIN biblio_metadata bmd
-             ON bib.biblionumber = bmd.biblionumber
-        WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
-          AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-          {marhala_clause}
-          {darajah_clause}
-          {lang_clause}
-        GROUP BY bib.biblionumber, bib.title, Language
-        ORDER BY cnt DESC
-        LIMIT %s;
-    """
-
-    # Build params
-    params = [start, end]
-    if marhala_filter:
-        params.append(marhala_filter)
-    if darajah_filter:
-        params.append(darajah_filter)
-    if lang_clause:
-        params.append(lang_param)
-    params.append(int(limit))
-
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
 
     if not rows:
         return pd.DataFrame(columns=["Title", "Language", "Collections", "Count", "LastIssued"])
 
     processed_rows = []
     for row in rows:
-        title = row[0]
-        language = row[1]
-        collections = row[2]
-        count = row[3]
-        last_issued = row[4]
-        bib_number = row[5]
+        title = row.get("Title", "")
+        language = row.get("Language", "")
+        collections = row.get("Collections", "")
+        count = row.get("cnt", 0)
+        last_issued = row.get("last_issued")
+        bib_number = row.get("BiblioNumber")
         
         if for_pdf:
-            # For PDF, just use plain text
             processed_rows.append({
                 "Title": title,
                 "Language": language,
                 "Collections": collections,
                 "Count": count,
-                "LastIssued": last_issued,
+                "LastIssued": last_issued.strftime('%Y-%m-%d') if last_issued else "",
                 "BiblioNumber": bib_number
             })
         else:
-            # For HTML display, create clickable link
             if bib_number:
                 opac_url = get_opac_book_url(bib_number)
                 title_with_link = f'<a href="{opac_url}" target="_blank" class="book-link">{title}</a>'
             else:
                 title_with_link = title
             
-            # Add language-specific styling
             if language and language.lower().startswith('ar'):
                 title_with_link = f'<span style="font-family: Al Kanz, sans-serif; text-align: center;">{title_with_link}</span>'
             else:
@@ -885,84 +782,85 @@ def top_authors_df(
         return pd.DataFrame(columns=["Author", "Books Issued", "Top Titles"])
 
     conn = get_koha_conn()
-    cur = conn.cursor()
+    cur = conn.cursor(dictionary=True)
 
-    marhala_clause = ""
-    if marhala_filter:
-        marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
+    try:
+        marhala_clause = ""
+        if marhala_filter:
+            marhala_clause = "AND COALESCE(c.description, b.categorycode) = %s"
 
-    darajah_clause = ""
-    if darajah_filter:
-        darajah_clause = "AND COALESCE(std.attribute, b.branchcode) = %s"
+        darajah_clause = ""
+        if darajah_filter:
+            darajah_clause = "AND COALESCE(std.attribute, b.branchcode) = %s"
 
-    sql = f"""
-        SELECT
-            ExtractValue(
-                bmd.metadata,
-                '//datafield[@tag="100"]/subfield[@code="a"]'
-            ) AS Author,
-            COUNT(DISTINCT bib.biblionumber) AS books_issued,
-            GROUP_CONCAT(DISTINCT bib.title ORDER BY bib.title SEPARATOR '; ') AS top_titles,
-            COUNT(*) AS total_issues
-        FROM (
-            SELECT borrowernumber, itemnumber, issuedate
-            FROM issues
-            UNION ALL
-            SELECT borrowernumber, itemnumber, issuedate
-            FROM old_issues
-        ) all_iss
-        JOIN borrowers b
-             ON b.borrowernumber = all_iss.borrowernumber
-        LEFT JOIN borrower_attributes std
-             ON std.borrowernumber = b.borrowernumber
-            AND std.code IN ({_darajah_codes_sql()})
-        LEFT JOIN categories c
-             ON c.categorycode = b.categorycode
-        JOIN items it
-             ON all_iss.itemnumber = it.itemnumber
-        JOIN biblio bib
-             ON it.biblionumber = bib.biblionumber
-        LEFT JOIN biblio_metadata bmd
-             ON bib.biblionumber = bmd.biblionumber
-        WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
-          AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
-          AND ExtractValue(
-                bmd.metadata,
-                '//datafield[@tag="100"]/subfield[@code="a"]'
-              ) IS NOT NULL
-          AND ExtractValue(
-                bmd.metadata,
-                '//datafield[@tag="100"]/subfield[@code="a"]'
-              ) != ''
-          {marhala_clause}
-          {darajah_clause}
-        GROUP BY Author
-        ORDER BY books_issued DESC, total_issues DESC
-        LIMIT %s;
-    """
+        sql = f"""
+            SELECT
+                ExtractValue(
+                    bmd.metadata,
+                    '//datafield[@tag="100"]/subfield[@code="a"]'
+                ) AS Author,
+                COUNT(DISTINCT bib.biblionumber) AS books_issued,
+                GROUP_CONCAT(DISTINCT bib.title ORDER BY bib.title SEPARATOR '; ') AS top_titles,
+                COUNT(*) AS total_issues
+            FROM (
+                SELECT borrowernumber, itemnumber, issuedate
+                FROM issues
+                UNION ALL
+                SELECT borrowernumber, itemnumber, issuedate
+                FROM old_issues
+            ) all_iss
+            JOIN borrowers b
+                 ON b.borrowernumber = all_iss.borrowernumber
+            LEFT JOIN borrower_attributes std
+                 ON std.borrowernumber = b.borrowernumber
+                AND std.code IN ({_darajah_codes_sql()})
+            LEFT JOIN categories c
+                 ON c.categorycode = b.categorycode
+            JOIN items it
+                 ON all_iss.itemnumber = it.itemnumber
+            JOIN biblio bib
+                 ON it.biblionumber = bib.biblionumber
+            LEFT JOIN biblio_metadata bmd
+                 ON bib.biblionumber = bmd.biblionumber
+            WHERE DATE(all_iss.issuedate) BETWEEN %s AND %s
+              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+              AND ExtractValue(
+                    bmd.metadata,
+                    '//datafield[@tag="100"]/subfield[@code="a"]'
+                  ) IS NOT NULL
+              AND ExtractValue(
+                    bmd.metadata,
+                    '//datafield[@tag="100"]/subfield[@code="a"]'
+                  ) != ''
+              {marhala_clause}
+              {darajah_clause}
+            GROUP BY Author
+            ORDER BY books_issued DESC, total_issues DESC
+            LIMIT %s;
+        """
 
-    # Build params
-    params = [start, end]
-    if marhala_filter:
-        params.append(marhala_filter)
-    if darajah_filter:
-        params.append(darajah_filter)
-    params.append(int(limit))
+        params = [start, end]
+        if marhala_filter:
+            params.append(marhala_filter)
+        if darajah_filter:
+            params.append(darajah_filter)
+        params.append(int(limit))
 
-    cur.execute(sql, params)
-    rows = cur.fetchall()
-    cur.close()
-    conn.close()
+        cur.execute(sql, params)
+        rows = cur.fetchall()
+    finally:
+        cur.close()
+        conn.close()
 
     if not rows:
         return pd.DataFrame(columns=["Author", "Books Issued", "Top Titles"])
 
     processed_rows = []
     for row in rows:
-        author = row[0] or "Unknown Author"
-        books_issued = row[1]
-        top_titles = row[2] or ""
-        # Limit titles display
+        author = row.get("Author") or "Unknown Author"
+        books_issued = row.get("books_issued", 0)
+        top_titles = row.get("top_titles") or ""
+        
         if top_titles:
             titles_list = top_titles.split('; ')
             if len(titles_list) > 3:
@@ -979,7 +877,6 @@ def top_authors_df(
         })
     
     return pd.DataFrame(processed_rows)
-
 
 # ---------------- DATA PROCESSING FOR DISPLAY ----------------
 def _process_display_df(df: pd.DataFrame, report_type: str) -> pd.DataFrame:
@@ -1406,7 +1303,7 @@ def export_darajah_pdf(darajah_val):
     pdf_bytes = dataframe_to_pdf_bytes(
         f"Darajah Report - {darajah_val}", 
         df_clean,
-        orientation='portrait'  # Changed to portrait
+        orientation='portrait'
     )
     
     return send_file(
@@ -1471,7 +1368,7 @@ def export_marhala_pdf(marhala_val):
     pdf_bytes = dataframe_to_pdf_bytes(
         f"Marhala Report - {marhala_val}", 
         df_clean,
-        orientation='portrait'  # Changed to portrait
+        orientation='portrait'
     )
     
     return send_file(

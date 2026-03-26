@@ -74,8 +74,8 @@ class RecommendationService:
             return cur.fetchall()
 
     @staticmethod
-    def get_lapsed_borrowers(months_threshold: int = 3) -> List[Dict[str, Any]]:
-        """Identify students who haven't borrowed anything in the last few months."""
+    def get_lapsed_borrowers(months_threshold: int = 3, limit: int = 50, offset: int = 0) -> List[Dict[str, Any]]:
+        """Identify students who haven't borrowed anything in the last few months with pagination."""
         with koha_conn() as conn:
             cur = conn.cursor(dictionary=True)
             query = """
@@ -88,7 +88,7 @@ class RecommendationService:
                 GROUP BY b.borrowernumber
                 HAVING (MAX(s.datetime) < DATE_SUB(CURDATE(), INTERVAL %s MONTH) OR MAX(s.datetime) IS NULL)
                 AND b.email IS NOT NULL AND b.email != ''
-                LIMIT 50
+                LIMIT %s OFFSET %s
             """
-            cur.execute(query, (months_threshold,))
+            cur.execute(query, (months_threshold, limit, offset))
             return cur.fetchall()

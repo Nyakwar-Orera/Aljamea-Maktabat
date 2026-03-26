@@ -18,3 +18,4 @@ appdata.db
 # System
 .DS_Store
 Thumbs.db
+app.log
