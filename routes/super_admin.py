@@ -39,6 +39,10 @@ def god_eye():
     lang_dist = get_global_language_distribution(summaries)
     fiction_stats = get_global_fiction_stats(summaries)
     global_top_students = get_global_top_students(summaries)
+    global_darajahs = get_global_darajah_performance(summaries)
+    
+    from config import Config
+    campus_registry = Config.CAMPUS_REGISTRY
     
     available_years = KQ.get_available_academic_years()
     
@@ -50,6 +54,8 @@ def god_eye():
                          lang_dist=lang_dist,
                          fiction_stats=fiction_stats,
                          top_students=global_top_students,
+                         global_darajahs=global_darajahs,
+                         campus_registry=campus_registry,
                          selected_ay=selected_ay,
                          available_years=available_years)
 

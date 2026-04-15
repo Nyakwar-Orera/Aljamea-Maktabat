@@ -120,6 +120,9 @@ def get_branch_summary(branch_code: str, hijri_year: Optional[int] = None) -> Di
         # ── Top marhala ────────────────────────────────────────────
         top_marhalas = _get_branch_top_marhalas(cur, start, end)
 
+        # ── Top Darajahs (Performance) ──────────────────────────────
+        top_darajahs = _get_branch_top_darajahs(cur, start, end)
+
         # ── Top books ──────────────────────────────────────────────
         top_books = _get_branch_top_books(cur, start, end)
 
@@ -127,6 +130,7 @@ def get_branch_summary(branch_code: str, hijri_year: Optional[int] = None) -> Di
         # Re-using the logic from get_branch_top_students but with existing cursor
         cur.execute("""
             SELECT
+                b.borrowernumber,
                 CONCAT(COALESCE(b.surname, ''), ' ', COALESCE(b.firstname, '')) AS StudentName,
                 trno.attribute AS TRNumber,
                 b.cardnumber,
@@ -160,6 +164,7 @@ def get_branch_summary(branch_code: str, hijri_year: Optional[int] = None) -> Di
             "currently_issued":   currently_issued,
             "weekly_trend":       weekly_trend,
             "top_marhalas":       top_marhalas,
+            "top_darajahs":       top_darajahs,
             "top_books":          top_books,
             "top_students":       top_students,
             "fetched_at":         datetime.utcnow().isoformat(),
@@ -241,6 +246,30 @@ def _get_branch_top_books(cur, start, end) -> List[Dict]:
               AND DATE(s.datetime) BETWEEN %s AND %s
             GROUP BY bi.biblionumber
             ORDER BY issue_count DESC
+            LIMIT 5
+        """, (start, end))
+        return cur.fetchall()
+    except Exception:
+        return []
+def _get_branch_top_darajahs(cur, start, end) -> List[Dict]:
+    """Get top 5 performing classes (Darajahs) for a branch."""
+    try:
+        if not start or not end:
+            return []
+        cur.execute("""
+            SELECT
+                COALESCE(std.attribute, 'General') AS darajah,
+                COUNT(s.datetime) AS issues,
+                COUNT(DISTINCT b.borrowernumber) AS active_students
+            FROM statistics s
+            JOIN borrowers b ON s.borrowernumber = b.borrowernumber
+            LEFT JOIN borrower_attributes std
+                ON std.borrowernumber = b.borrowernumber
+                AND std.code IN ('Class','STD','CLASS','DAR','CLASS_STD')
+            WHERE s.type = 'issue'
+              AND DATE(s.datetime) BETWEEN %s AND %s
+            GROUP BY darajah
+            ORDER BY issues DESC
             LIMIT 5
         """, (start, end))
         return cur.fetchall()
@@ -474,6 +503,7 @@ def get_branch_top_students(branch_code: str, limit: int = 10) -> List[Dict]:
 
         cur.execute("""
             SELECT
+                b.borrowernumber,
                 b.cardnumber,
                 CASE
                     WHEN b.surname IS NULL OR b.surname = ''
@@ -699,8 +729,8 @@ def get_global_top_students(branch_summaries: Optional[List[Dict]] = None) -> Li
     if branch_summaries is None:
         branch_summaries = get_all_branches_summary()
 
-    # trno -> {name, trno, issues, branches: [ {code, flag, color} ]}
-    master_list = defaultdict(lambda: {"name": "", "trno": "", "issues": 0, "branches": []})
+    # trno -> {name, trno, issues, borrowernumber, branches: [ {code, flag, color} ]}
+    master_list = defaultdict(lambda: {"name": "", "trno": "", "issues": 0, "borrowernumber": None, "branches": []})
 
     for b in branch_summaries:
         branch_code = b.get("branch_code")
@@ -712,6 +742,7 @@ def get_global_top_students(branch_summaries: Optional[List[Dict]] = None) -> Li
             trno = s.get("TRNumber") or s.get("cardnumber")
             name = s.get("StudentName")
             issues = int(s.get("BooksIssued", 0))
+            bid = s.get("borrowernumber")
             
             if not trno: continue
             
@@ -721,6 +752,7 @@ def get_global_top_students(branch_summaries: Optional[List[Dict]] = None) -> Li
             if not master_list[key]["name"]:
                 master_list[key]["name"] = name
                 master_list[key]["trno"] = trno
+                master_list[key]["borrowernumber"] = bid
                 
             master_list[key]["issues"] += issues
             master_list[key]["branches"].append({
@@ -732,6 +764,37 @@ def get_global_top_students(branch_summaries: Optional[List[Dict]] = None) -> Li
     # Convert and sort
     sorted_students = sorted(master_list.values(), key=lambda x: x["issues"], reverse=True)
     return sorted_students[:10]
+
+def get_global_darajah_performance(summaries: List[Dict]) -> List[Dict]:
+    """Aggregate and rank Darajah (class) performance across all campuses."""
+    darajah_map = defaultdict(lambda: {"name": "", "issues": 0, "students": 0, "campuses": set()})
+    
+    for s in summaries:
+        code = s.get("branch_code")
+        top_darajahs = s.get("top_darajahs", [])
+        for d in top_darajahs:
+            name = d.get("darajah")
+            issues = int(d.get("issues", 0))
+            students = int(d.get("active_students", 0))
+            
+            # Key: Darajah Name (normalized)
+            key = str(name).strip().upper()
+            
+            if not darajah_map[key]["name"]:
+                darajah_map[key]["name"] = name
+                
+            darajah_map[key]["issues"] += issues
+            darajah_map[key]["students"] += students
+            darajah_map[key]["campuses"].add(code)
+    
+    # Convert and sort
+    sorted_darajahs = []
+    for k, v in darajah_map.items():
+        v["campus_count"] = len(v["campuses"])
+        v["avg_issues"] = round(v["issues"] / v["students"], 2) if v["students"] > 0 else 0
+        sorted_darajahs.append(v)
+        
+    return sorted(sorted_darajahs, key=lambda x: x["issues"], reverse=True)[:10]
 
 def get_global_aggregate(branch_summaries: Optional[List[Dict]] = None) -> Dict[str, Any]:
     """

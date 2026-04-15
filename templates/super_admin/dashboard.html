@@ -205,13 +205,34 @@
                                 {% for s in top_students %}
                                 <tr>
                                     <td class="ps-4">
-                                        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+                                        <div class="d-flex align-items-center">
+                                            <span class="me-3 fs-5">
+                                                {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+                                            </span>
+                                            <div class="position-relative">
+                                                <img src="{{ url_for('static', filename='images/avatar.png') }}" 
+                                                     class="rounded-circle border border-2 border-white shadow-sm"
+                                                     style="width: 38px; height: 38px; object-fit: cover;"
+                                                     alt="Student">
+                                                <span class="position-absolute bottom-0 end-0 p-1 bg-success border border-white rounded-circle" style="width: 10px; height: 10px;"></span>
+                                            </div>
+                                        </div>
                                     </td>
                                     <td>
                                         <div class="fw-bold text-dark">{{ s.name }}</div>
+                                        <div class="text-muted small">ID: <code>{{ s.trno }}</code></div>
                                     </td>
-                                    <td><code>{{ s.trno }}</code></td>
-                                    <td><span class="badge rounded-pill bg-golden px-3">{{ s.issues }}</span></td>
+                                    <td>
+                                        <div class="d-flex flex-column">
+                                            <span class="fw-bold fs-5" style="color: var(--color-gold);">{{ s.issues }}</span>
+                                            <span class="text-muted" style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px;">Books Issued</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="progress" style="height: 6px; width: 100px;">
+                                            <div class="progress-bar bg-golden" role="progressbar" style="width: {{ (s.issues / top_students[0].issues * 100)|int }}%"></div>
+                                        </div>
+                                    </td>
                                     <td class="text-end pe-4">
                                         <div class="d-flex justify-content-end gap-2">
                                             {% for br in s.branches %}
@@ -225,6 +246,82 @@
                                     </td>
                                 </tr>
                                 {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Global Darajah Performance Ranking -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="sa-kpi-card shadow-lg">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0" style="color: #4A3728;">
+                        <i class="bi bi-bar-chart-steps me-2" style="color: #C5A059;"></i>Global Darajah Performance
+                    </h5>
+                    <div class="badge bg-soft-golden text-golden rounded-pill px-3">Top 10 Performing Classes</div>
+                </div>
+                <div class="card-body px-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr class="text-muted small uppercase">
+                                    <th class="ps-4">Class (Darajah)</th>
+                                    <th>Total Issues</th>
+                                    <th>Avg per Student</th>
+                                    <th>Presence</th>
+                                    <th class="text-end pe-4">Efficiency Score</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in global_darajahs %}
+                                <tr>
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="icon-shape bg-soft-brown text-brown rounded-3 me-3" style="width: 40px; height: 40px; font-size: 1rem;">
+                                                <i class="bi bi-mortarboard-fill"></i>
+                                            </div>
+                                            <div class="fw-bold">{{ d.name }}</div>
+                                        </div>
+                                    </td>
+                                    <td><span class="fw-bold">{{ d.issues }}</span></td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="fw-bold text-dark">{{ d.avg_issues }}</span>
+                                            <div class="progress" style="height: 4px; width: 60px;">
+                                                <div class="progress-bar bg-golden" style="width: {{ (d.avg_issues / 10 * 100)|int if d.avg_issues < 10 else 100 }}%"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex gap-1 overflow-hidden" style="max-width: 120px;">
+                                            {% for br in d.campuses %}
+                                            <span class="badge bg-light text-dark border-0 rounded-pill" style="font-size: 9px;">{{ br }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        {% if d.avg_issues >= 8 %}
+                                            <span class="text-success"><i class="bi bi-lightning-charge-fill me-1"></i>Exceptional</span>
+                                        {% elif d.avg_issues >= 5 %}
+                                            <span class="text-primary"><i class="bi bi-star-fill me-1"></i>Active</span>
+                                        {% else %}
+                                            <span class="text-muted">Standard</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not global_darajahs %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inbox fs-2 mb-2 d-block"></i>
+                                        No Darajah data available for the selected period.
+                                    </td>
+                                </tr>
+                                {% endif %}
                             </tbody>
                         </table>
                     </div>
