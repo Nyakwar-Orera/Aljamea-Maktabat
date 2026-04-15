@@ -1,0 +1,192 @@
+{% extends "super_admin/_sa_base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🔌 Branch Connection Settings</h1>
+    <p>Configure Koha MySQL database credentials for each campus</p>
+  </div>
+  <a href="{{ url_for('super_admin_bp.god_eye') }}" class="nav-btn">
+    <i class="bi bi-arrow-left"></i> God Eye
+  </a>
+</div>
+
+  <div style="display:flex;gap:1.5rem;margin-bottom:28px" class="fade-in">
+    {% set online_count = branches | selectattr('is_active') | selectattr('last_test_ok') | list | length %}
+    {% set configured_count = branches | selectattr('is_active') | list | length %}
+    <div class="white-card py-3 px-4 flex-grow-1" style="min-width:200px">
+      <div class="text-muted small fw-800 uppercase mb-1">Online Branches</div>
+      <div class="fs-2 fw-900 text-success">{{ online_count }}</div>
+    </div>
+    <div class="white-card py-3 px-4 flex-grow-1" style="min-width:200px">
+      <div class="text-muted small fw-800 uppercase mb-1">Active Branches</div>
+      <div class="fs-2 fw-900 text-primary">{{ configured_count }}</div>
+    </div>
+    <div class="white-card py-3 px-4 flex-grow-1" style="min-width:200px">
+      <div class="text-muted small fw-800 uppercase mb-1">Total Registered</div>
+      <div class="fs-2 fw-900 text-main">{{ branches|length }}</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px" class="fade-in">
+    {% for b in branches %}
+    <div class="white-card" style="border-top: 4px solid {{ b.color_hex }}">
+
+      <!-- Branch Header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:24px">{{ b.flag_emoji }}</span>
+          <div>
+            <div style="font-family:var(--font-display);font-weight:700;font-size:14px">{{ b.branch_name }}</div>
+            <div style="font-size:10px;color:var(--text-muted)">{{ b.branch_code }} · {{ b.country }}</div>
+          </div>
+        </div>
+        <div>
+          {% if b.is_active and b.last_test_ok %}
+            <span class="branch-status-badge status-online"><div class="status-dot"></div> Online</span>
+          {% elif b.is_active %}
+            <span class="branch-status-badge status-offline"><div class="status-dot" style="animation:none"></div> Offline</span>
+          {% else %}
+            <span class="branch-status-badge status-unconfigured"><div class="status-dot" style="animation:none"></div> Inactive</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Connection Info from Config -->
+      <div style="background:rgba(255,255,255,0.03);border-radius:10px;padding:12px;font-size:11px;color:var(--text-muted);margin-bottom:16px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span>Host</span>
+          <span style="color:var(--text-dim);font-family:monospace">{{ b.config_host or 'Not configured' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span>Database</span>
+          <span style="color:var(--accent-blue);font-family:monospace">{{ b.config_db or 'Not configured' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+          <span>OPAC URL</span>
+          {% if b.opac_url %}
+            <a href="{{ b.opac_url }}" target="_blank" style="color:var(--accent-blue);font-size:10px">
+              {{ b.opac_url | truncate(30, True) }} <i class="bi bi-box-arrow-up-right"></i>
+            </a>
+          {% else %}
+            <span style="color:var(--text-muted)">Not set</span>
+          {% endif %}
+        </div>
+        {% if b.last_tested %}
+        <div style="display:flex;justify-content:space-between">
+          <span>Last Tested</span>
+          <span style="color:var(--text-dim)">{{ b.last_tested[:16] if b.last_tested else '—' }}</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Config Hint -->
+      <div style="font-size:11px;color:var(--text-muted);background:rgba(56,189,248,0.04);border:1px solid rgba(56,189,248,0.1);border-radius:8px;padding:10px;margin-bottom:14px">
+        <i class="bi bi-info-circle" style="color:var(--accent-blue)"></i>
+        Set credentials via <code style="background:rgba(56,189,248,.1);color:var(--accent-blue);padding:1px 5px;border-radius:4px;font-size:10px">KOHA_{{ b.branch_code }}_HOST</code>,
+        <code style="background:rgba(56,189,248,.1);color:var(--accent-blue);padding:1px 5px;border-radius:4px;font-size:10px">KOHA_{{ b.branch_code }}_PASS</code>,
+        <code style="background:rgba(56,189,248,.1);color:var(--accent-blue);padding:1px 5px;border-radius:4px;font-size:10px">{{ b.branch_code }}_ACTIVE=True</code>
+        in your <strong>.env</strong> file, then restart the server.
+      </div>
+
+      <!-- Test Connection Button -->
+      <button onclick="testConn('{{ b.branch_code }}')"
+              id="test-btn-{{ b.branch_code }}"
+              class="nav-btn {% if b.is_active %}primary{% endif %}"
+              style="width:100%;justify-content:center;padding:10px">
+        <i class="bi bi-plug" id="plug-icon-{{ b.branch_code }}"></i>
+        <span id="test-lbl-{{ b.branch_code }}">Test Connection</span>
+      </button>
+
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- .env Guide -->
+  <div class="chart-card fade-in delay-3" style="margin-top:32px">
+    <h3><i class="bi bi-file-code"></i> .env Configuration Reference</h3>
+    <p style="color:var(--text-muted);font-size:12px;margin-bottom:16px">
+      Add these variables to your <code>.env</code> file to activate each branch. Restart the server after changes.
+    </p>
+    <pre style="background:rgba(0,0,0,0.4);border:1px solid var(--border-subtle);border-radius:12px;padding:20px;font-size:11px;color:#94A3B8;overflow-x:auto;line-height:1.8"><code># ════════════════════════════════════════════
+# MULTI-CAMPUS BRANCH CONFIGURATION
+# ════════════════════════════════════════════
+
+# Nairobi (always active — primary)
+KOHA_AJSN_HOST=197.211.6.51
+KOHA_AJSN_USER=library_read
+KOHA_AJSN_PASS=Library@5152
+KOHA_AJSN_DB=koha_library
+KOHA_AJSN_OPAC=https://library-nairobi.jameasaifiyah.org
+
+# Surat — Activate when Koha is ready
+AJSS_ACTIVE=False
+KOHA_AJSS_HOST=&lt;surat-db-host&gt;
+KOHA_AJSS_USER=library_read
+KOHA_AJSS_PASS=&lt;password&gt;
+KOHA_AJSS_DB=koha_ajss
+KOHA_AJSS_OPAC=https://library-surat.jameasaifiyah.org
+
+# Karachi — Activate when Koha is ready
+AJSK_ACTIVE=False
+KOHA_AJSK_HOST=&lt;karachi-db-host&gt;
+KOHA_AJSK_USER=library_read
+KOHA_AJSK_PASS=&lt;password&gt;
+KOHA_AJSK_DB=koha_ajsk
+
+# Marol — Activate when Koha is ready
+AJSM_ACTIVE=False
+KOHA_AJSM_HOST=&lt;marol-db-host&gt;
+KOHA_AJSM_USER=library_read
+KOHA_AJSM_PASS=&lt;password&gt;
+KOHA_AJSM_DB=koha_ajsm
+
+# Sidhpur — Activate when Koha is ready
+AJSI_ACTIVE=False
+KOHA_AJSI_HOST=&lt;sidhpur-db-host&gt;
+KOHA_AJSI_USER=library_read
+KOHA_AJSI_PASS=&lt;password&gt;
+KOHA_AJSI_DB=koha_ajsi</code></pre>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function testConn(code) {
+  const btn  = document.getElementById('test-btn-' + code);
+  const lbl  = document.getElementById('test-lbl-' + code);
+  const icon = document.getElementById('plug-icon-' + code);
+  if(lbl)  lbl.textContent = 'Testing...';
+  if(icon) icon.className = 'bi bi-hourglass-split';
+  if(btn)  btn.disabled = true;
+
+  try {
+    const res  = await fetch(`/god-eye/branches/${code}/test-connection`, {
+      method: 'POST',
+      headers: { 
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-CSRFToken': '{{ csrf_token() }}'
+      }
+    });
+    const data = await res.json();
+    if (data.online) {
+      if(lbl)  lbl.textContent = '✓ Online — Connected';
+      if(icon) icon.className = 'bi bi-check-circle-fill';
+      if(btn)  btn.style.borderColor = '#34D399';
+      if(btn)  btn.style.color = '#34D399';
+    } else {
+      if(lbl)  lbl.textContent = '✗ Cannot connect';
+      if(icon) icon.className = 'bi bi-x-circle-fill';
+      if(btn)  btn.style.borderColor = '#F87171';
+      if(btn)  btn.style.color = '#F87171';
+    }
+  } catch(e) {
+    if(lbl)  lbl.textContent = 'Error';
+    if(icon) icon.className = 'bi bi-wifi-off';
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+</script>
+{% endblock %}

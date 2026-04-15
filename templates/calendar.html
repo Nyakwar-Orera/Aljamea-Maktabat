@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Hijri Calendar - Aljamea Library{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center bg-white p-4 rounded-4 shadow-sm border border-secondary border-opacity-10">
+            <div>
+                <h2 class="h3 mb-1 text-dark fw-bold">
+                    <i class="bi bi-calendar-event text-primary me-2"></i>Hijri Academic Calendar
+                </h2>
+                <p class="text-muted mb-0">Academic Year: {{ current_ay }}</p>
+            </div>
+            <div class="d-none d-md-block">
+                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2">
+                    <i class="bi bi-clock-history me-1"></i> Today: {{ today_hijri }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div class="card-body p-0">
+        <div class="ratio ratio-16x9" style="min-height: 750px;">
+            <iframe src="https://calendar.google.com/calendar/embed?src=fh0h90ic2lhhsst6088f2rlhc8%40group.calendar.google.com&ctz=Africa%2FNairobi" 
+                    style="border: 0" width="800" height="600" frameborder="0" scrolling="no"></iframe>
+        </div>
+    </div>
+</div>
+
+<div class="mt-4 text-center">
+    <p class="text-muted small">
+        <i class="bi bi-info-circle me-1"></i> This calendar shows important library and academic dates for the Hijri year.
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}500 - Internal Server Error | Maktabat al-Jamea{% endblock %}
+{% block content %}
+<div class="container d-flex flex-column align-items-center justify-content-center" style="min-height: 70vh;">
+    <div class="text-center p-5 rounded-4 shadow-sm bg-white border border-light-subtle" style="max-width: 500px;">
+        <div class="display-1 fw-bold text-danger mb-3">500</div>
+        <h2 class="fw-bold text-dark mb-4">Something went wrong.</h2>
+        <p class="text-muted mb-5">We're experiencing an internal server error. Our administrators have been notified and we're working to fix the issue.</p>
+        <button onclick="window.location.reload()" class="btn btn-outline-danger px-4 py-2 fw-semibold rounded-pill shadow-sm me-2">
+            <i class="bi bi-arrow-clockwise me-2"></i>Try Again
+        </button>
+        <a href="{{ url_for('auth_bp.login') }}" class="btn btn-dark px-4 py-2 fw-semibold rounded-pill shadow-sm">
+            <i class="bi bi-house-door me-2"></i>Return Home
+        </a>
+    </div>
+</div>
+{% endblock %}

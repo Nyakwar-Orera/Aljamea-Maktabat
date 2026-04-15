@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Select Darajah{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="card border-0 shadow-lg bg-glass">
+        <div class="card-body p-4 p-md-5">
+          <div class="text-center mb-4">
+            <div
+              class="rounded-circle bg-primary bg-opacity-10 text-primary d-flex align-items-center justify-content-center mx-auto mb-3"
+              style="width: 64px; height: 64px;">
+              <i class="fas fa-chalkboard-teacher fa-lg"></i>
+            </div>
+            <h2 class="fw-bold">Select Darajah</h2>
+            <p class="text-muted small">Choose a class to view its dashboard</p>
+          </div>
+
+          <form method="GET" action="{{ url_for('teacher_dashboard_bp.dashboard') }}">
+            <div class="mb-4">
+              <label for="darajah_name" class="form-label fw-bold small text-uppercase tracking-wider">Choose a
+                Darajah:</label>
+              <select id="darajah_name" name="darajah_name" class="form-select form-select-lg" required>
+                <option value="" disabled selected>Select a class...</option>
+                {% for darajah in all_darajahs %}
+                <option value="{{ darajah.name }}" {% if darajah.name==session.get('darajah_name') %}selected{% endif
+                  %}>
+                  {{ darajah.display }}
+                </option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary btn-lg shadow-sm">
+                <i class="fas fa-check-circle me-2"></i> Select Class
+              </button>
+              <a href="{{ url_for('teacher_dashboard_bp.dashboard') }}" class="btn btn-link text-muted">
+                Cancel
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

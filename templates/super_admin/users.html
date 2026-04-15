@@ -1,0 +1,112 @@
+{% extends "super_admin/_sa_base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>👤 Global User Management</h1>
+    <p>Manage users across all {{ campus_registry|length }} campus branches</p>
+  </div>
+  <div style="display:flex;gap:10px;align-items:center">
+    <form action="{{ url_for('super_admin_bp.sync_all_patrons') }}" method="post" 
+          onsubmit="return confirm('This will update the global student roster from all 5 campus databases. Continue?')">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+      <button type="submit" class="nav-btn" style="background:#4F46E5;color:white;border:none">
+        <i class="bi bi-arrow-repeat"></i> Sync from Koha
+      </button>
+    </form>
+    <a href="{{ url_for('super_admin_bp.create_user') }}" class="nav-btn primary">
+      <i class="bi bi-person-plus"></i> New User
+    </a>
+  </div>
+</div>
+
+<div class="content-area">
+  <!-- Stats by branch -->
+  <div class="kpi-strip fade-in" style="margin-bottom:24px">
+    {% for code in branch_order %}
+    {% set cfg = campus_registry.get(code, {}) %}
+    {% set count = users | selectattr('branch_code', 'equalto', code) | list | length %}
+    <div class="kpi-card" style="--kpi-color: {{ cfg.color }}">
+      <div class="kpi-label">{{ cfg.flag }} {{ cfg.short_name }}</div>
+      <div class="kpi-value">{{ count }}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">users assigned</div>
+      <i class="bi bi-people kpi-icon"></i>
+    </div>
+    {% endfor %}
+    <div class="kpi-card" style="--kpi-color:#94A3B8">
+      <div class="kpi-label">🌐 Global</div>
+      <div class="kpi-value">{{ users | selectattr('branch_code', 'none') | list | length }}</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">all branches</div>
+      <i class="bi bi-globe kpi-icon"></i>
+    </div>
+  </div>
+
+  <!-- User Table -->
+  <div class="comparison-table-wrap fade-in delay-1">
+    <div class="ct-header">
+      <h3>All Users ({{ users|length }} total)</h3>
+      <a href="{{ url_for('super_admin_bp.create_user') }}" class="nav-btn primary">
+        <i class="bi bi-plus"></i> Add User
+      </a>
+    </div>
+    <div style="overflow-x:auto">
+    <table class="god-table">
+      <thead>
+        <tr>
+          <th>Username</th><th>Name</th><th>Role</th><th>Branch</th><th>Email</th><th>Last Login</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td style="font-family:monospace;font-size:12px;color:var(--accent-blue)">{{ u.username }}</td>
+          <td>{{ u.teacher_name or '—' }}</td>
+          <td>
+            {% set role_colors = {'super_admin': '#FBBF24', 'admin': '#38BDF8', 'hod': '#A78BFA', 'teacher': '#34D399', 'student': '#94A3B8'} %}
+            <span style="
+              background: {{ role_colors.get(u.role, '#888') }}18;
+              color: {{ role_colors.get(u.role, '#888') }};
+              border: 1px solid {{ role_colors.get(u.role, '#888') }}40;
+              border-radius: 20px; padding: 2px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing:.05em
+            ">{{ u.role | replace('_', ' ') | title }}</span>
+          </td>
+          <td>
+            {% set bc = u.branch_code %}
+            {% if bc and bc in campus_registry %}
+              {% set cfg = campus_registry[bc] %}
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px">
+                {{ cfg.flag }} {{ cfg.short_name }}
+              </span>
+            {% else %}
+              <span style="color:var(--text-muted);font-size:12px">🌐 All Branches</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:11px">{{ u.email or '—' }}</td>
+          <td style="color:var(--text-muted);font-size:11px">{{ u.last_login[:16] if u.last_login else 'Never' }}</td>
+          <td>
+            <form method="post"
+                  action="{{ url_for('super_admin_bp.toggle_user_branch', user_id=u.id) }}"
+                  style="display:flex;gap:6px;align-items:center">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+              <select name="branch_code"
+                      style="background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer">
+                <option value="">🌐 All</option>
+                {% for code in branch_order %}
+                  {% set cfg2 = campus_registry.get(code, {}) %}
+                  <option value="{{ code }}" {% if u.branch_code == code %}selected{% endif %}>
+                    {{ cfg2.flag }} {{ cfg2.short_name }}
+                  </option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="nav-btn" style="font-size:10px;padding:4px 10px">Set</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

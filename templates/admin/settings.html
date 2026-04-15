@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+{% block title %}⚙️ Admin Dashboard - Maktabat al-Jamea{% endblock %}
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+  <!-- Header -->
+  <div class="admin-header">
+    <div class="container">
+      <h1>⚙️ Admin Dashboard</h1>
+      <p class="admin-subtitle lead">Professional user management, taqeem calculation, email automation & system configuration</p>
+    </div>
+  </div>
+
+  <!-- Navigation Tabs -->
+  <div class="nav-scroller border-bottom mb-4">
+    <ul class="nav nav-tabs nav-tabs-custom border-0" id="adminTabs" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button">
+          <i class="bi bi-people-fill me-2 text-primary"></i>Users & Staff
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="academic-tab" data-bs-toggle="tab" data-bs-target="#academic" type="button">
+          <i class="bi bi-mortarboard-fill me-2 text-success"></i>Academic Setup
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="email-tab" data-bs-toggle="tab" data-bs-target="#email" type="button">
+          <i class="bi bi-envelope-paper-fill me-2 text-info"></i>Email & Automation
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="system-tab" data-bs-toggle="tab" data-bs-target="#system" type="button">
+          <i class="bi bi-cpu-fill me-2 text-warning"></i>System Config
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="branding-tab" data-bs-toggle="tab" data-bs-target="#branding" type="button">
+          <i class="bi bi-palette-fill me-2 text-danger"></i>Branding
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" id="audit-tab" data-bs-toggle="tab" data-bs-target="#audit" type="button">
+          <i class="bi bi-journal-text me-2 text-dark"></i>Activity Log
+        </button>
+      </li>
+    </ul>
+  </div>
+
+  <!-- Tab Content -->
+  <div class="tab-content" id="adminTabContent">
+    
+    <!-- Tab 1: Users & STAFF -->
+    <div class="tab-pane fade show active" id="users" role="tabpanel">
+      <div class="row g-4 mb-4">
+        <!-- User Management Form -->
+        <div class="col-lg-5">
+          <div class="card h-100 shadow-sm border-0 glass-card">
+            <div class="card-header bg-transparent py-3 fw-bold border-0">
+              <i class="bi bi-person-plus-fill me-2 text-primary"></i>User Profile Editor
+            </div>
+            <div class="card-body pt-0">
+              <form id="userForm">
+                <div class="row g-2 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Username (ITSID)</label>
+                    <input type="text" name="username" class="form-control bg-light" placeholder="ITSID" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">ITS Branch</label>
+                    <select name="campus_branch" class="form-select bg-light" required>
+                      {% for branch in campus_branches %}
+                      <option value="{{ branch }}">{{ branch }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Email Address</label>
+                  <input type="email" name="email" class="form-control bg-light" placeholder="email@jamea.org" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Password</label>
+                  <div class="input-group">
+                    <input type="password" id="userPassInput" name="password" class="form-control bg-light" placeholder="Optional for teachers">
+                    <button class="btn btn-outline-secondary" type="button" onclick="togglePasswordVisibility('userPassInput')">
+                      <i class="bi bi-eye"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Access Level</label>
+                  <select id="role" name="role" class="form-select bg-light" required>
+                    <option value="">-- Select --</option>
+                    <option value="admin">Administrator</option>
+                    <option value="hod">Head of Marhala</option>
+                    <option value="teacher">Darajah Teacher</option>
+                    <option value="student">Student</option>
+                  </select>
+                </div>
+                <div id="roleFields" class="mb-3">
+                   <div id="marhalaField" class="d-none mb-2">
+                     <label class="form-label small fw-semibold">Marhala Name</label>
+                     <input type="text" name="department_name" class="form-control bg-light">
+                   </div>
+                   <div id="darajahField" class="d-none mb-2">
+                     <label class="form-label small fw-semibold">Darajah Name</label>
+                     <input type="text" name="class_name" class="form-control bg-light">
+                   </div>
+                   <div id="teacherName" class="d-none mb-2">
+                     <label class="form-label small fw-semibold">Teacher Display Name</label>
+                     <input type="text" name="teacher_name" class="form-control bg-light">
+                   </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold"><i class="bi bi-save me-2"></i>Save User Profile</button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats & Quick Actions -->
+        <div class="col-lg-7">
+           <div class="card h-100 shadow-sm border-0">
+             <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-0 py-3">
+               <span class="fw-bold"><i class="bi bi-people-fill me-2 text-primary"></i>Active Staff & Users</span>
+               <span class="badge bg-primary rounded-pill px-3" id="userCountBadge">0</span>
+             </div>
+             <div class="card-body p-0">
+               <div class="table-responsive" style="max-height: 480px;">
+                 <table class="table table-hover align-middle mb-0" id="usersTable">
+                   <thead class="bg-light sticky-top">
+                     <tr>
+                       <th>User Display</th>
+                       <th>Email</th>
+                       <th>Role</th>
+                       <th>Branch</th>
+                       <th class="text-end px-4">Actions</th>
+                     </tr>
+                   </thead>
+                   <tbody></tbody>
+                 </table>
+               </div>
+             </div>
+           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: ACADEMIC SETUP -->
+    <div class="tab-pane fade" id="academic" role="tabpanel">
+        <div class="row g-4 mb-4">
+            <!-- Mappings Section -->
+            <div class="col-lg-6">
+                <!-- Teacher Mapping -->
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-transparent fw-bold border-0 py-3"><i class="bi bi-link-45deg me-2 text-success"></i>Darajah Teacher Assignment</div>
+                    <div class="card-body pt-0">
+                        <form id="teacherMappingForm" class="row g-2">
+                            <div class="col-md-6">
+                                <input type="text" name="teacher_username" class="form-control" placeholder="Teacher ITSID" required>
+                            </div>
+                            <div class="col-md-6">
+                                <input type="text" name="darajah_name" class="form-control" placeholder="Darajah Name" required>
+                            </div>
+                            <div class="col-md-8">
+                                <input type="text" name="teacher_name" class="form-control" placeholder="Display Name (Optional)">
+                            </div>
+                            <div class="col-md-4">
+                                <button type="submit" class="btn btn-success w-100"><i class="bi bi-plus-lg me-2"></i>Map</button>
+                            </div>
+                        </form>
+                        <div class="table-responsive mt-3" style="max-height: 300px;">
+                            <table class="table table-sm table-hover align-middle" id="teacherMappingTable">
+                                <thead class="small text-muted border-bottom">
+                                    <tr><th>Darajah</th><th>Teacher</th><th>Action</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Marhala Heads -->
+                <div class="card shadow-sm border-0">
+                    <div class="card-header bg-transparent fw-bold border-0 py-3"><i class="bi bi-shield-shaded me-2 text-purple"></i>Heads of Marhala (HODs)</div>
+                    <div class="card-body pt-0">
+                        <form id="hodForm" class="row g-2">
+                            <div class="col-md-4">
+                                <input type="text" name="department_name" class="form-control" placeholder="Marhala" required>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" name="head_name" class="form-control" placeholder="HOD ITSID" required>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-dark w-100">Assign</button>
+                            </div>
+                        </form>
+                        <div class="table-responsive mt-3">
+                            <table class="table table-sm" id="hodTable">
+                                <thead class="small text-muted"><tr><th>Marhala</th><th>HOD</th><th>Action</th></tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Mapping Section -->
+            <div class="col-lg-6">
+                <!-- Manage Student Mappings -->
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-transparent fw-bold border-0 py-3"><i class="bi bi-people me-2 text-info"></i>Student Mappings</div>
+                    <div class="card-body pt-0">
+                        <form id="studentMappingForm" class="row g-2 mb-4">
+                            <div class="col-md-4">
+                                <input type="text" name="student_username" class="form-control" placeholder="Student ITSID" required>
+                            </div>
+                            <div class="col-md-5">
+                                <input type="text" name="darajah_name" class="form-control" placeholder="Target Darajah" required>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-info text-white w-100">Enroll</button>
+                            </div>
+                        </form>
+                        <div class="table-responsive" style="max-height: 500px;">
+                            <table class="table table-sm table-hover align-middle" id="studentMappingTable">
+                                <thead class="small text-muted border-bottom">
+                                    <tr><th>Darajah</th><th>Student</th><th>Action</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 3: EMAIL & AUTOMATION -->
+    <div class="tab-pane fade" id="email" role="tabpanel">
+      <!-- Info Alert -->
+      <div class="alert alert-primary mb-4 border-0 shadow-sm d-flex align-items-start">
+        <i class="bi bi-robot fs-4 me-3 text-primary mt-1"></i>
+        <div>
+          <h5 class="fw-bold mb-1">Automation Engine (APScheduler)</h5>
+          <p class="mb-0">Configure automated reporting schedules and AI-powered nudges for teachers and HODs.</p>
+        </div>
+      </div>
+
+      <div class="row g-4">
+        <!-- Scheduler Config -->
+        <div class="col-md-6 col-lg-4">
+          <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold py-3"><i class="bi bi-clock-history me-2 text-info"></i>Report Schedule</div>
+            <div class="card-body">
+              <form id="emailForm">
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Sender Identity</label>
+                  <input type="email" name="email_sender" class="form-control" placeholder="library@jamea.org" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label small fw-semibold">Frequency</label>
+                  <select name="email_frequency" class="form-select" onchange="this.value==='weekly'?document.getElementById('weeklyOpts').classList.remove('d-none'):document.getElementById('weeklyOpts').classList.add('d-none'); this.value==='monthly'?document.getElementById('monthlyOpts').classList.remove('d-none'):document.getElementById('monthlyOpts').classList.add('d-none');" required>
+                    <option value="daily">Every Morning</option>
+                    <option value="weekly">Once a Week</option>
+                    <option value="monthly" selected>First of Month</option>
+                  </select>
+                </div>
+                <div id="weeklyOpts" class="mb-3 d-none">
+                  <label class="form-label small fw-semibold">Day of Week</label>
+                  <select name="day_of_week" class="form-select">
+                    <option value="mon">Monday</option><option value="tue">Tuesday</option><option value="wed">Wednesday</option>
+                  </select>
+                </div>
+                <div id="monthlyOpts" class="mb-3">
+                  <label class="form-label small fw-semibold">Day of Month (1-28)</label>
+                  <input type="number" name="day_of_month" class="form-control" min="1" max="28" value="1">
+                </div>
+                <div class="row g-2 mb-4">
+                   <div class="col-6"><label class="small text-muted">Hour (24h)</label><input type="number" name="send_hour" class="form-control" value="8"></div>
+                   <div class="col-6"><label class="small text-muted">Minute</label><input type="number" name="send_minute" class="form-control" value="0"></div>
+                </div>
+                <button type="submit" class="btn btn-info w-100 py-2 text-white fw-semibold mb-2">💾 Save Schedule</button>
+              </form>
+              <div class="d-flex gap-2">
+                <button onclick="adminManager.runEmailReports()" class="btn btn-primary flex-grow-1"><i class="bi bi-send-fill me-2"></i>Send Now</button>
+                <button onclick="adminManager.runAiNudge()" class="btn btn-dark flex-grow-1"><i class="bi bi-stars me-2"></i>AI Nudge</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Templates Management -->
+        <div class="col-md-6 col-lg-8">
+          <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold py-3 border-0"><i class="bi bi-file-earmark-code me-2 text-secondary"></i>Live Email Templates</div>
+            <div class="card-body pt-0">
+              <form id="templateForm" class="mb-4">
+                 <div class="row g-2 mb-3">
+                   <div class="col-md-4">
+                     <select name="template_key" class="form-select" required>
+                       <option value="class_report">Darajah Performance</option>
+                       <option value="marhala_report">Marhala Summary</option>
+                       <option value="student_report">Library Activity</option>
+                     </select>
+                   </div>
+                   <div class="col-md-8">
+                     <input type="text" name="subject" class="form-control" placeholder="Email Subject Line" required>
+                   </div>
+                 </div>
+                 <textarea name="html" class="form-control mb-3" rows="8" placeholder="HTML Content with {{template_vars}}" required></textarea>
+                 <button type="submit" class="btn btn-secondary w-100 py-2 fw-semibold">💾 Sync Template to Database</button>
+              </form>
+              <div class="table-responsive" style="max-height: 200px">
+                <table class="table table-sm align-middle" id="templatesTable">
+                  <thead><tr class="small text-muted"><th>Template Key</th><th>Subject</th><th>Action</th></tr></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: SYSTEM CONFIG -->
+    <div class="tab-pane fade" id="system" role="tabpanel">
+        <div class="row g-4 mb-4">
+            <!-- Database Connection -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 h-100">
+                    <div class="card-header bg-transparent fw-bold py-3"><i class="bi bi-database-fill-gear me-2 text-warning"></i>Koha DB Connectivity</div>
+                    <div class="card-body">
+                        <form id="dbForm">
+                            <div class="mb-3">
+                                <label class="small fw-semibold text-muted">Remote Host IP/Host</label>
+                                <input type="text" name="db_host" class="form-control" placeholder="e.g., 10.0.0.1" required>
+                            </div>
+                            <div class="row g-2 mb-3">
+                                <div class="col-md-6">
+                                    <label class="small fw-semibold text-muted">DB Schema Name</label>
+                                    <input type="text" name="db_name" class="form-control" placeholder="koha_library" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small fw-semibold text-muted">Username</label>
+                                    <input type="text" name="db_user" class="form-control" placeholder="db_admin" required>
+                                </div>
+                            </div>
+                            <div class="mb-4">
+                                <label class="small fw-semibold text-muted">Access Key/Password</label>
+                                <input type="password" name="db_pass" class="form-control" required>
+                            </div>
+                            <button type="submit" class="btn btn-warning w-100 py-2 fw-bold text-dark"><i class="bi bi-shield-check me-2"></i>Update Database Link</button>
+                        </form>
+                        <div class="alert alert-warning mt-4 small border-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Settings here only affect the <strong>primary data source</strong>. Use Super Admin to manage branch-specific connections.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bulk Operations -->
+            <div class="col-lg-6">
+                <div class="card shadow-sm border-0 mb-4">
+                    <div class="card-header bg-transparent fw-bold py-3"><i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Bulk Data Ingestion</div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <!-- Multi-purpose Bulk Forms -->
+                            <div class="col-12">
+                                <div class="mb-4 pb-3 border-bottom">
+                                    <label class="form-label small fw-bold">1. Standard User & Mapping Upload</label>
+                                    <form id="bulkUploadForm">
+                                        <div class="input-group">
+                                            <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                                            <button class="btn btn-success" type="submit"><i class="bi bi-upload"></i></button>
+                                        </div>
+                                        <small class="text-muted">Columns: ITS, Name, Email, Darajah, Role, Class Teacher</small>
+                                    </form>
+                                </div>
+                                
+                                <div class="mb-4 pb-3 border-bottom">
+                                    <label class="form-label small fw-bold">2. Teacher-Darajah Mapping Overlay</label>
+                                    <form id="teacherMappingUploadForm">
+                                        <div class="input-group">
+                                            <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                                            <button class="btn btn-dark" type="submit"><i class="bi bi-upload"></i></button>
+                                        </div>
+                                        <small class="text-muted">Overwrites existing teacher assignments. Columns: ITS, Darajah</small>
+                                    </form>
+                                </div>
+
+                                <div class="mb-0">
+                                    <label class="form-label small fw-bold">3. Book Review Marks Import</label>
+                                    <form id="bookReviewUploadForm">
+                                        <div class="input-group">
+                                            <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                                            <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i></button>
+                                        </div>
+                                        <small class="text-muted">Academic Year data. Columns: ITS, Marks, Reviews</small>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 5: BRANDING -->
+    <div class="tab-pane fade" id="branding" role="tabpanel">
+      <div class="card bg-primary text-white mb-4 border-0 shadow-sm" style="background: linear-gradient(135deg, #0f172a, #3b82f6);">
+        <div class="card-body p-4 d-flex align-items-center">
+          <i class="bi bi-brush display-4 me-4 opacity-75"></i>
+          <div>
+            <h4 class="fw-bold mb-1">Visual Identity Manager</h4>
+            <p class="mb-0 small opacity-75">Customize the dashboard appearance, organization name, and corporate brand assets.</p>
+          </div>
+        </div>
+      </div>
+      <div class="row g-4">
+        <div class="col-lg-8">
+          <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white py-3 fw-bold border-0">🎨 Global Site Aesthetics</div>
+            <div class="card-body pt-0">
+              <form id="brandingForm">
+                <div class="row g-3 mb-3">
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Organization Name</label>
+                    <input type="text" name="org_name" class="form-control bg-light" required>
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Dashboard Title</label>
+                    <input type="text" name="site_name" class="form-control bg-light" required>
+                  </div>
+                </div>
+                <div class="row g-3 mt-3">
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Primary Theme Color</label>
+                    <input type="color" name="theme_color" class="form-control form-control-color w-100" value="#004080">
+                  </div>
+                  <div class="col-md-6">
+                    <label class="form-label small fw-semibold">Footer Signature</label>
+                    <input type="text" name="footer_text" class="form-control bg-light" placeholder="© 2025 Al-Jamea tus-Saifiyah">
+                  </div>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 mt-4 py-2 fw-semibold">💾 Apply Branding Changes</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card border-0 shadow-sm h-100 text-center">
+            <div class="card-header bg-white py-3 fw-bold border-0">🖼️ Corporate Logo</div>
+            <div class="card-body pt-0">
+              <div class="logo-preview-box mb-4 p-4 rounded bg-light border border-dashed">
+                <img id="logoPreview" src="" alt="Live logo preview" class="img-fluid" style="max-height: 140px;">
+              </div>
+              <form id="logoForm" enctype="multipart/form-data">
+                <input type="file" name="logo_file" accept="image/*" class="form-control mb-3">
+                <button type="submit" class="btn btn-outline-success w-100 fw-semibold">⬆️ Upload New Logo</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 6: ACTIVITY LOG -->
+    <div class="tab-pane fade" id="audit" role="tabpanel">
+      <div class="card border-0 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center bg-dark text-white py-3">
+          <span class="fw-bold"><i class="bi bi-shield-lock-fill me-2"></i>Security Audit & Activity Monitor</span>
+          <span class="small font-monospace opacity-75">Last 100 Transactions</span>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive" style="max-height: 600px;">
+            <table class="table table-dark table-hover table-striped mb-0 align-middle" id="auditTable">
+              <thead class="bg-black">
+                <tr class="small opacity-75">
+                  <th class="ps-4">Timestamp</th>
+                  <th>Actor</th>
+                  <th>Action</th>
+                  <th class="pe-4">Details</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ================= MODALS & TOASTS ================= -->
+<div id="toastContainer" class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 2000;"></div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+{% endblock %}

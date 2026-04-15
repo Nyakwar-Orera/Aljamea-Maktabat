@@ -1,0 +1,138 @@
+{% extends "super_admin/_sa_base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>➕ Create New User</h1>
+    <p>Add a user to any campus branch with a specific role</p>
+  </div>
+  <a href="{{ url_for('super_admin_bp.manage_users') }}" class="nav-btn">
+    <i class="bi bi-arrow-left"></i> Back to Users
+  </a>
+</div>
+
+<div class="content-area">
+  <div style="max-width:600px">
+    <div class="chart-card fade-in">
+      <h3><i class="bi bi-person-plus-fill"></i> User Details</h3>
+
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+
+        <div style="display:grid;gap:16px;margin-top:8px">
+
+          <div>
+            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+              Username / ITSID *
+            </label>
+            <input type="text" name="username" required
+                   placeholder="e.g. 12345678 or admin_nairobi"
+                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s"
+                   onfocus="this.style.borderColor='var(--accent-blue)'"
+                   onblur="this.style.borderColor='var(--border-subtle)'">
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+              Full Name
+            </label>
+            <input type="text" name="teacher_name"
+                   placeholder="e.g. Mufaddal Hussain"
+                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s"
+                   onfocus="this.style.borderColor='var(--accent-blue)'"
+                   onblur="this.style.borderColor='var(--border-subtle)'">
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+              Email Address
+            </label>
+            <input type="email" name="email"
+                   placeholder="e.g. user@jameasaifiyah.org"
+                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s"
+                   onfocus="this.style.borderColor='var(--accent-blue)'"
+                   onblur="this.style.borderColor='var(--border-subtle)'">
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+                Role *
+              </label>
+              <select name="role" required
+                      style="width:100%;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);cursor:pointer">
+                <option value="admin">🔵 Admin</option>
+                <option value="hod">🟣 Head of Department</option>
+                <option value="teacher" selected>🟢 Teacher</option>
+                <option value="super_admin">👑 Super Admin</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+                Campus Branch *
+              </label>
+              <select name="branch_code" required
+                      style="width:100%;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);cursor:pointer">
+                <option value="">🌐 All Branches (Global)</option>
+                {% for code in branch_order %}
+                  {% set cfg = campus_registry.get(code, {}) %}
+                  <option value="{{ code }}">{{ cfg.flag }} {{ cfg.short_name }} ({{ code }})</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+              Password (leave blank for auto-generated)
+            </label>
+            <input type="text" name="password"
+                   placeholder="Leave blank to auto-generate a secure password"
+                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s"
+                   onfocus="this.style.borderColor='var(--accent-blue)'"
+                   onblur="this.style.borderColor='var(--border-subtle)'">
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
+              ⚠️ The password will be shown once after creation. Save it securely.
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;padding-top:8px">
+            <button type="submit" class="nav-btn primary" style="flex:1;justify-content:center;padding:12px">
+              <i class="bi bi-check2-circle"></i> Create User
+            </button>
+            <a href="{{ url_for('super_admin_bp.manage_users') }}" class="nav-btn" style="padding:12px 20px">
+              Cancel
+            </a>
+          </div>
+
+        </div>
+      </form>
+    </div>
+
+    <!-- Role Guide -->
+    <div class="chart-card fade-in delay-2" style="margin-top:16px">
+      <h3><i class="bi bi-info-circle"></i> Role Reference Guide</h3>
+      <div style="display:grid;gap:10px;margin-top:4px">
+        <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px">
+          <span style="color:#FBBF24;font-size:16px">👑</span>
+          <div><strong>Super Admin</strong> — Full access to all branches and the God Eye dashboard. No branch restriction.</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px">
+          <span style="color:#38BDF8;font-size:16px">🔵</span>
+          <div><strong>Admin</strong> — Full control over their assigned branch: settings, reports, marks, users.</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px">
+          <span style="color:#A78BFA;font-size:16px">🟣</span>
+          <div><strong>Head of Department (HOD)</strong> — Views their marhala (department) data and reports.</div>
+        </div>
+        <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px">
+          <span style="color:#34D399;font-size:16px">🟢</span>
+          <div><strong>Teacher</strong> — Accesses their assigned darajah (class) dashboard and student reports.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,212 @@
+{% extends "super_admin/_sa_base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🔑 Generate Login Token</h1>
+    <p>Create a signed, time-limited login link for any user</p>
+  </div>
+  <a href="{{ url_for('super_admin_bp.manage_users') }}" class="nav-btn">
+    <i class="bi bi-arrow-left"></i> Back to Users
+  </a>
+</div>
+
+<div class="content-area">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px">
+
+    <!-- Form -->
+    <div class="chart-card fade-in">
+      <h3><i class="bi bi-key-fill"></i> Generate Token</h3>
+
+      <form method="post" id="tokenForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+
+        <div style="display:grid;gap:16px;margin-top:12px">
+
+          <div>
+            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+              Username / User ID *
+            </label>
+            <input type="text" name="username" id="usernameInput" required
+                   placeholder="Type or pick from list below"
+                   value="{{ selected_user or '' }}"
+                   list="usersList"
+                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s;box-sizing:border-box"
+                   onfocus="this.style.borderColor='var(--accent-blue)'"
+                   onblur="this.style.borderColor='var(--border-subtle)'">
+            <datalist id="usersList">
+              {% for u in users %}
+                <option value="{{ u.username }}">{{ u.username }} — {{ u.role }}{% if u.teacher_name %} ({{ u.teacher_name }}){% endif %}</option>
+              {% endfor %}
+            </datalist>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+                Role *
+              </label>
+              <select name="role" id="roleSelect"
+                      style="width:100%;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);cursor:pointer">
+                <option value="student">🎓 Student</option>
+                <option value="teacher" selected>🟢 Teacher</option>
+                <option value="hod">🟣 Head of Department</option>
+                <option value="admin">🔵 Admin</option>
+                <option value="super_admin">👑 Super Admin</option>
+              </select>
+            </div>
+
+            <div>
+              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+                Branch *
+              </label>
+              <select name="branch_code"
+                      style="width:100%;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);cursor:pointer">
+                {% for code in branch_order %}
+                  {% set cfg = campus_registry.get(code, {}) %}
+                  <option value="{{ code }}" {% if code == 'AJSN' %}selected{% endif %}>
+                    {{ cfg.flag }} {{ cfg.short_name }} ({{ code }})
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+              Validity Duration
+            </label>
+            <select name="max_hours"
+                    style="width:100%;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);cursor:pointer">
+              <option value="1">1 hour</option>
+              <option value="6">6 hours</option>
+              <option value="24" selected>24 hours (default)</option>
+              <option value="72">3 days</option>
+              <option value="168">7 days</option>
+            </select>
+          </div>
+
+          <button type="submit" class="nav-btn primary" style="justify-content:center;padding:12px;margin-top:4px">
+            <i class="bi bi-key-fill"></i> Generate Token Link
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Result -->
+    <div class="chart-card fade-in delay-1">
+      <h3><i class="bi bi-link-45deg"></i> Generated Login Link</h3>
+
+      {% if token_url %}
+        <div style="margin-top:12px">
+          <div style="background:rgba(52,211,153,0.08);border:1px solid rgba(52,211,153,0.25);border-radius:10px;padding:14px;margin-bottom:14px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em">
+              ✅ Token for: <strong style="color:var(--accent-green)">{{ selected_user }}</strong>
+            </div>
+            <div style="word-break:break-all;font-size:11px;font-family:monospace;color:var(--text-secondary);background:rgba(0,0,0,0.2);border-radius:8px;padding:10px;line-height:1.6">
+              {{ token_url }}
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button onclick="copyUrl()" id="copyBtn"
+                    style="background:var(--accent-blue);color:#fff;border:none;border-radius:10px;padding:10px 16px;cursor:pointer;font-size:13px;font-family:var(--font-main);display:flex;align-items:center;gap:8px;justify-content:center;transition:all .2s">
+              <i class="bi bi-clipboard"></i> Copy Link to Clipboard
+            </button>
+
+            <a href="{{ token_url }}" target="_blank"
+               style="background:rgba(255,255,255,0.06);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 16px;cursor:pointer;font-size:13px;font-family:var(--font-main);display:flex;align-items:center;gap:8px;justify-content:center;text-decoration:none;transition:all .2s">
+              <i class="bi bi-box-arrow-up-right"></i> Test Link in New Tab
+            </a>
+          </div>
+
+          <div style="margin-top:14px;padding:10px 14px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.2);border-radius:8px;font-size:11px;color:var(--text-muted)">
+            ⚠️ This token is single-use and expires based on the selected duration. Share only with the intended user.
+          </div>
+        </div>
+      {% else %}
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--text-muted);gap:12px">
+          <i class="bi bi-key" style="font-size:40px;opacity:0.3"></i>
+          <p style="font-size:13px;text-align:center">Fill in the form and click <strong>Generate Token Link</strong><br>to create a login URL for the selected user.</p>
+        </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- User Quick-Select Table -->
+  <div class="chart-card fade-in delay-2" style="max-width:900px;margin-top:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <h3><i class="bi bi-people-fill"></i> All Users</h3>
+      <input type="text" id="userSearch" placeholder="🔍 Filter users..."
+             oninput="filterUsers()"
+             style="background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:8px;padding:6px 12px;font-size:12px;font-family:var(--font-main);outline:none;width:200px">
+    </div>
+    <div style="overflow-x:auto">
+      <table id="usersTable" style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border-subtle)">
+            <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-weight:500">Username</th>
+            <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-weight:500">Role</th>
+            <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-weight:500">Branch</th>
+            <th style="text-align:left;padding:8px 12px;color:var(--text-muted);font-weight:500">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in users %}
+          <tr class="user-row" style="border-bottom:1px solid rgba(255,255,255,0.03)" data-name="{{ u.username|lower }} {{ (u.teacher_name or '')|lower }}">
+            <td style="padding:8px 12px;color:var(--text-primary);font-family:monospace">{{ u.username }}</td>
+            <td style="padding:8px 12px">
+              <span style="background:{% if u.role == 'super_admin' %}rgba(251,191,36,0.15){% elif u.role == 'admin' %}rgba(56,189,248,0.15){% elif u.role == 'hod' %}rgba(167,139,250,0.15){% elif u.role == 'student' %}rgba(34,197,94,0.12){% else %}rgba(52,211,153,0.12){% endif %};color:{% if u.role == 'super_admin' %}#FBBF24{% elif u.role == 'admin' %}#38BDF8{% elif u.role == 'hod' %}#A78BFA{% elif u.role == 'student' %}#4ADE80{% else %}#34D399{% endif %};padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600;text-transform:uppercase">
+                {{ u.role }}
+              </span>
+            </td>
+            <td style="padding:8px 12px;color:var(--text-muted)">{{ u.branch_code or 'N/A' }}</td>
+            <td style="padding:8px 12px">
+              <button onclick="selectUser('{{ u.username }}', '{{ u.role }}')"
+                      style="background:rgba(255,255,255,0.06);color:var(--text-primary);border:1px solid var(--border-subtle);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:11px;font-family:var(--font-main);transition:all .15s"
+                      onmouseover="this.style.background='rgba(255,255,255,0.12)'"
+                      onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+                Use →
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function selectUser(username, role) {
+  document.getElementById('usernameInput').value = username;
+  const sel = document.getElementById('roleSelect');
+  for (let opt of sel.options) {
+    if (opt.value === role) { opt.selected = true; break; }
+  }
+  document.getElementById('tokenForm').scrollIntoView({behavior:'smooth'});
+}
+
+function copyUrl() {
+  const url = "{{ token_url or '' }}";
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.innerHTML = '<i class="bi bi-check2"></i> Copied!';
+    btn.style.background = '#34D399';
+    setTimeout(() => {
+      btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy Link to Clipboard';
+      btn.style.background = '';
+    }, 2000);
+  });
+}
+
+function filterUsers() {
+  const q = document.getElementById('userSearch').value.toLowerCase();
+  document.querySelectorAll('.user-row').forEach(row => {
+    row.style.display = row.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block title %}🔍 Search Results — {{ darajah_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- Heading -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      {% if parsed_darajah.display and parsed_darajah.display != parsed_darajah.original %}
+      <h2 class="mb-1">🔍 Search Results — {{ parsed_darajah.display }}</h2>
+      {% else %}
+      <h2 class="mb-1">🔍 Search Results — {{ darajah_name }}</h2>
+      {% endif %}
+      <p class="text-muted mb-0">
+        Search query: <strong>{{ query }}</strong>
+        {% if session.get('role') == 'admin' and request.args.get('darajah_name') %}
+        <span class="badge bg-info ms-2">Admin view</span>
+        {% endif %}
+      </p>
+    </div>
+
+    <div>
+      {# Role-aware back link #}
+      {% if session.get('role')|lower == 'admin' %}
+        <a href="{{ url_for('dashboard_bp.dashboard') }}" class="btn btn-outline-secondary shadow-sm">
+          <i class="fas fa-arrow-left me-1"></i> Back to KPI Dashboard
+        </a>
+      {% elif session.get('role')|lower == 'hod' %}
+        <a href="{{ url_for('hod_dashboard_bp.dashboard') }}" class="btn btn-outline-secondary shadow-sm">
+          <i class="fas fa-arrow-left me-1"></i> Back to HOD
+        </a>
+      {% else %}
+        <a href="{{ url_for('teacher_dashboard_bp.dashboard') }}" class="btn btn-outline-secondary shadow-sm">
+          <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+        </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Search bar -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" action="{{ url_for('teacher_dashboard_bp.search_student') }}" class="row g-3">
+        {% if session.get('role') == 'admin' and request.args.get('darajah_name') %}
+        <input type="hidden" name="darajah_name" value="{{ request.args.get('darajah_name') }}">
+        {% endif %}
+
+        <div class="col-md-8">
+          <div class="input-group">
+            <span class="input-group-text bg-primary text-white">
+              <i class="fas fa-search"></i>
+            </span>
+            <input type="text" name="q" value="{{ query }}" class="form-control shadow-sm"
+              placeholder="Search by TR Number or student name..." autofocus required>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <div class="d-grid gap-2 d-md-flex">
+            <button type="submit" class="btn btn-primary shadow-sm flex-grow-1">
+              <i class="fas fa-search me-1"></i> Search
+            </button>
+            {% if results %}
+            <span class="btn btn-outline-success disabled">
+              <i class="fas fa-users me-1"></i> {{ results|length }} found
+            </span>
+            {% endif %}
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if results %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white">
+      <h5 class="mb-0">
+        <i class="fas fa-list-check me-2"></i> Search Results
+      </h5>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">TR Number</th>
+              <th>Student Name</th>
+              <th>Email</th>
+              <th class="text-center">Books Issued (AY)</th>
+              <th class="text-center">Overdues (AY)</th>
+              <th class="text-center">Fees Paid (AY)</th>
+              <th class="text-center pe-3">Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {% for s in results %}
+            <tr>
+              <td class="ps-3">
+                <span class="badge bg-secondary">{{ s.TRNumber|default('—') }}</span>
+              </td>
+
+              <td>
+                <a href="{{ url_for('students.student', identifier=s.TRNumber) }}"
+                  class="link-primary text-decoration-none">
+                  <strong>{{ s.FullName|default('Name not available') }}</strong>
+                </a>
+              </td>
+
+              <td>
+                {% if s.EduEmail and s.EduEmail != 'None' and s.EduEmail|trim != '' %}
+                <a href="mailto:{{ s.EduEmail }}" class="link-secondary text-decoration-none">
+                  {{ s.EduEmail|truncate(25) }}
+                </a>
+                {% else %}
+                <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+
+              <td class="text-center">
+                <span
+                  class="badge {% if s.Issues_AY and s.Issues_AY > 0 %}bg-success-subtle text-success-emphasis{% else %}bg-light text-muted{% endif %} px-3">
+                  {{ s.Issues_AY|default(0) }}
+                </span>
+              </td>
+
+              <td class="text-center">
+                {% if s.Overdues and s.Overdues > 0 %}
+                <span class="badge bg-warning-subtle text-warning-emphasis px-3">
+                  {{ s.Overdues|default(0) }}
+                </span>
+                {% else %}
+                <span class="text-muted">0</span>
+                {% endif %}
+              </td>
+
+              <td class="text-center">
+                {% if s.FeesPaid_AY and s.FeesPaid_AY > 0 %}
+                <span class="badge bg-info-subtle text-info-emphasis px-3">
+                  {{ "%.2f"|format(s.FeesPaid_AY|default(0.0)) }}
+                </span>
+                {% else %}
+                <span class="text-muted">0.00</span>
+                {% endif %}
+              </td>
+
+              <td class="text-center pe-3">
+                <div class="btn-group btn-group-sm" role="group">
+                  <a href="{{ url_for('students.student', identifier=s.TRNumber) }}" class="btn btn-outline-primary"
+                    title="View student profile">
+                    <i class="fas fa-user"></i>
+                  </a>
+
+                  <a href="{{ url_for('teacher_dashboard_bp.download_report', scope='student:' ~ s.TRNumber, fmt='pdf') }}"
+                    class="btn btn-outline-danger" title="Download PDF report">
+                    <i class="fas fa-download"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if results|length > 10 %}
+    <div class="card-footer bg-white">
+      <div class="text-muted small">
+        <i class="fas fa-info-circle me-1"></i> Showing {{ results|length }} results for "{{ query }}"
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  {% else %}
+  <div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+      <div class="mb-3">
+        <i class="fas fa-search fa-3x text-muted mb-3"></i>
+      </div>
+      <h4 class="text-muted mb-3">No results found</h4>
+      <p class="text-muted mb-0">
+        No students found for "<strong>{{ query }}</strong>" in {{ darajah_name }}.
+      </p>
+      <p class="text-muted small mt-2">
+        Try searching by TR Number (e.g., "TR00123") or student name.
+      </p>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.05);
+  }
+
+  .btn-group-sm>.btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+  }
+</style>
+{% endblock %}

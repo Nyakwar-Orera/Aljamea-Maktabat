@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}God Eye{% endblock %} | Aljamea Library — Super Admin</title>
+    <meta name="description" content="Aljamea-tus-Saifiyah God Eye — Global Super Admin Command Center">
+    <meta name="theme-color" content="#a45a26">
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- Core CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* ═══════════════════════════════════════════════════════════
+           GOLDEN-BROWN DESIGN SYSTEM — Persistent across all SA pages
+           Mirrors exactly the color system in base.html + dashboard.html
+        ═══════════════════════════════════════════════════════════ */
+        :root {
+            /* Primary golden-brown — same as main site */
+            --primary-color: #a45a26;
+            --primary-hover: #8c4519;
+            --primary-accent: #a45a26;
+            --primary-soft: rgba(164, 90, 38, 0.1);
+            --primary-light: rgba(164, 90, 38, 0.15);
+            --primary-glow:  rgba(164, 90, 38, 0.25);
+
+            /* Branch accent (overridden per branch) */
+            --branch-color: {{ current_branch_cfg.color if current_branch_cfg else '#a45a26' }};
+
+            /* Backgrounds */
+            --bg-body:   #fcf9f5;
+            --bg-cream:  #fff8ef;
+            --bg-card:   #ffffff;
+            --bg-glass:  rgba(255, 255, 255, 0.85);
+
+            /* Borders */
+            --border-soft:   rgba(164, 90, 38, 0.15);
+            --border-subtle: rgba(164, 90, 38, 0.1);
+
+            /* Text */
+            --text-main:  #1E293B;
+            --text-dark:  #3a2a1a;
+            --text-muted: #64748B;
+
+            /* Shadows */
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-lg: 0 10px 30px rgba(0,0,0,0.1);
+
+            /* Layout */
+            --nav-h: 68px;
+            --radius-lg: 20px;
+            --radius-md: 12px;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            min-height: 100%;
+            margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+        }
+
+        body {
+            padding-top: var(--nav-h);
+        }
+
+        /* ─────── NAVBAR ─────── */
+        .sa-navbar {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 2px solid var(--border-soft);
+            padding: 0 2rem;
+            height: var(--nav-h);
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .sa-navbar-left {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .sa-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            font-weight: 800;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+            text-decoration: none !important;
+            letter-spacing: -0.02em;
+        }
+
+        .sa-logo-icon {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary-color), #d97706);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.1rem;
+            box-shadow: 0 4px 10px var(--primary-glow);
+        }
+
+        .sa-logo-text {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #d97706 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* ─────── NAV LINKS ─────── */
+        .sa-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .sa-nav-link {
+            padding: 0.45rem 0.9rem;
+            border-radius: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-decoration: none !important;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            white-space: nowrap;
+        }
+
+        .sa-nav-link:hover {
+            color: var(--primary-color);
+            background: var(--primary-soft);
+        }
+
+        .sa-nav-link.active {
+            background: var(--primary-color);
+            color: white !important;
+            box-shadow: 0 4px 10px var(--primary-glow);
+        }
+
+        /* ─────── BRANCH SWITCHER ─────── */
+        .sa-branch-switcher {
+            background: white;
+            border: 1px solid var(--border-soft);
+            color: var(--text-main);
+            padding: 0.45rem 0.85rem;
+            border-radius: 10px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            outline: none;
+            box-shadow: var(--shadow-sm);
+            transition: all 0.2s;
+        }
+
+        .sa-branch-switcher:hover {
+            border-color: var(--primary-color);
+        }
+
+        /* ─────── SUPER ADMIN BADGE ─────── */
+        .sa-user-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding-left: 1rem;
+            border-left: 1px solid var(--border-soft);
+        }
+
+        .sa-avatar {
+            width: 36px;
+            height: 36px;
+            background: linear-gradient(135deg, var(--primary-soft), var(--bg-card));
+            border: 1px solid var(--border-soft);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        /* ─────── GOD EYE COMMAND BANNER (same as base.html) ─────── */
+        .god-eye-banner {
+            background: linear-gradient(90deg, #2c3e50 0%, #34495e 100%);
+            border-bottom: 2px solid var(--primary-color);
+            padding: 7px 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #ecf0f1;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            z-index: 1200;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        /* MAIN CONTENT */
+        .sa-main {
+            padding: 2rem;
+            min-height: calc(100vh - var(--nav-h));
+        }
+
+        /* ─────── CARDS ─────── */
+        .sa-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow 0.3s ease, transform 0.2s;
+            margin-bottom: 1.5rem;
+        }
+
+        .sa-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        /* ─────── KPI CARDS ─────── */
+        .kpi-card-fancy {
+            border-radius: var(--radius-lg);
+            border: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+            color: white;
+        }
+
+        .kpi-card-fancy:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 30px rgba(0,0,0,0.12) !important;
+        }
+
+        .kpi-card-fancy .card-body {
+            padding: 1.75rem;
+            z-index: 2;
+            position: relative;
+        }
+
+        .icon-wrapper {
+            width: 50px; height: 50px;
+            border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.4rem;
+            margin-bottom: 1.25rem;
+            background: rgba(255,255,255,0.2);
+            backdrop-filter: blur(5px);
+        }
+
+        .kpi-label  { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.9; }
+        .kpi-value  { font-size: 2.2rem; font-weight: 800; line-height: 1; margin: 0.4rem 0; color: white !important; }
+        .kpi-subtext{ font-size: 0.77rem; opacity: 0.8; font-weight: 500; color: white !important; }
+
+        .vibrant-blue   { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important; }
+        .vibrant-green  { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; }
+        .vibrant-purple { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important; }
+        .vibrant-orange { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; }
+        .vibrant-red    { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important; }
+        .vibrant-gold   { background: linear-gradient(135deg, #a45a26 0%, #d97706 100%) !important; }
+
+        /* ─────── CHART CARD ─────── */
+        .chart-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-soft);
+            padding: 1.75rem;
+            height: 100%;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .chart-title {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--text-main);
+        }
+
+        /* ─────── TABLES ─────── */
+        .sa-table { width: 100%; border-collapse: collapse; }
+        .sa-table th {
+            background: #f9f7f4;
+            color: var(--text-muted);
+            padding: 1rem;
+            font-size: 0.73rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .sa-table td { padding: 1.1rem 1rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: 0.9rem; }
+        .sa-table tr:hover { background: #faf7f3; }
+        .sa-table tr:last-child td { border-bottom: none; }
+
+        /* ─────── BRANCH EXPLORER (matching darajah/marhala explorers) ─────── */
+        .branch-explorer-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border-soft);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .branch-explorer-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 32px rgba(0,0,0,0.10);
+        }
+
+        .branch-explorer-card .branch-header {
+            padding: 1.5rem 1.5rem 1rem;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        .branch-explorer-card .branch-body {
+            padding: 1rem 1.5rem 1.5rem;
+        }
+
+        /* ─────── GRADIENT TEXT ─────── */
+        .gradient-text {
+            background: linear-gradient(135deg, var(--primary-color) 0%, #d97706 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* ─────── INSIGHT PILL ─────── */
+        .insight-pill {
+            padding: 1rem;
+            background: #faf7f3;
+            border-radius: 14px;
+            border-left: 4px solid var(--primary-color);
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        .insight-pill:hover {
+            background: #f1ebe0;
+            transform: scale(1.01);
+        }
+
+        /* ─────── BADGES ─────── */
+        .status-live   { background: rgba(16,185,129,0.12); color: #059669; border: 1px solid rgba(16,185,129,0.3); border-radius: 20px; padding: 3px 12px; font-weight: 800; font-size: 10px; }
+        .status-offline{ background: rgba(239,68,68,0.12);  color: #dc2626; border: 1px solid rgba(239,68,68,0.3);  border-radius: 20px; padding: 3px 12px; font-weight: 800; font-size: 10px; }
+
+        /* ─────── AY TOGGLE ─────── */
+        .ay-toggle-wrapper {
+            display: flex;
+            align-items: center;
+            background: rgba(164,90,38,0.06);
+            border-radius: 50px;
+            padding: 4px;
+            border: 1px solid var(--border-soft);
+        }
+
+        .ay-toggle-btn {
+            border: none;
+            background: transparent;
+            padding: 6px 16px;
+            border-radius: 50px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .ay-toggle-btn.active {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 2px 8px var(--primary-glow);
+        }
+
+        /* ─────── VIEW DATA BUTTON ─────── */
+        .view-data-btn {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            background: var(--primary-soft);
+            color: var(--primary-color);
+            border: none;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .view-data-btn:hover {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        /* ─────── STAR PATRON CARD ─────── */
+        .star-patron-card {
+            border-radius: 12px;
+            transition: all 0.2s;
+        }
+
+        .star-patron-card:hover {
+            background: var(--bg-cream) !important;
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* ─────── RESPONSIVE ─────── */
+        @media (max-width: 992px) {
+            .sa-navbar { padding: 0 1rem; }
+            .sa-main   { padding: 1.25rem; }
+        }
+
+        @media (max-width: 768px) {
+            .sa-nav { display: none; }
+        }
+
+        /* ─────── FADE IN ─────── */
+        .fade-in {
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ─────── FLASH MESSAGES ─────── */
+        .sa-alerts { padding: 0 2rem; margin-top: 1rem; }
+
+        {% block extra_css %}{% endblock %}
+    </style>
+</head>
+<body>
+
+    <!-- ── FIXED NAVIGATION ── -->
+    <nav class="sa-navbar">
+        <div class="sa-navbar-left">
+            <a href="{{ url_for('super_admin_bp.god_eye') }}" class="sa-logo">
+                <div class="sa-logo-icon">👁</div>
+                <span class="sa-logo-text">GOD EYE</span>
+            </a>
+
+            <nav class="sa-nav">
+                <a href="{{ url_for('super_admin_bp.god_eye') }}"
+                   class="sa-nav-link {% if request.endpoint == 'super_admin_bp.god_eye' %}active{% endif %}">
+                    <i class="bi bi-grid-fill"></i> Dashboard
+                </a>
+                <a href="{{ url_for('super_admin_bp.compare_branches') }}"
+                   class="sa-nav-link {% if request.endpoint == 'super_admin_bp.compare_branches' %}active{% endif %}">
+                    <i class="bi bi-bar-chart-fill"></i> Compare
+                </a>
+                <a href="{{ url_for('reports_bp.reports_page', scope='global') }}"
+                   class="sa-nav-link {% if request.blueprint == 'reports_bp' %}active{% endif %}">
+                    <i class="bi bi-file-earmark-spreadsheet-fill"></i> Reports
+                </a>
+                <a href="{{ url_for('super_admin_bp.manage_users') }}"
+                   class="sa-nav-link {% if request.endpoint == 'super_admin_bp.manage_users' %}active{% endif %}">
+                    <i class="bi bi-person-lines-fill"></i> Users
+                </a>
+                <a href="{{ url_for('super_admin_bp.branch_settings') }}"
+                   class="sa-nav-link {% if request.endpoint == 'super_admin_bp.branch_settings' %}active{% endif %}">
+                    <i class="bi bi-hdd-network-fill"></i> Branches
+                </a>
+                <a href="{{ url_for('super_admin_bp.audit_log') }}"
+                   class="sa-nav-link {% if request.endpoint == 'super_admin_bp.audit_log' %}active{% endif %}">
+                    <i class="bi bi-shield-check-fill"></i> Audit
+                </a>
+            </nav>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <!-- Global Branch Switcher -->
+            {% if campus_registry and branch_order %}
+            <select class="sa-branch-switcher" onchange="window.location.href=this.value">
+                <option value="{{ url_for('super_admin_bp.god_eye', branch='all') }}">🌐 All Campuses</option>
+                {% for code in branch_order %}
+                    {% set b = campus_registry.get(code, {}) %}
+                    <option value="{{ url_for('super_admin_bp.god_eye', branch=code) }}"
+                        {% if current_branch_code == code %}selected{% endif %}>
+                        {{ b.flag }} {{ b.short_name }}
+                    </option>
+                {% endfor %}
+            </select>
+            {% endif %}
+
+            <div class="sa-user-badge">
+                <div class="text-end d-none d-md-block">
+                    <div style="font-size:0.82rem; font-weight:800; color:var(--text-main)">{{ session.username }}</div>
+                    <div style="font-size:0.65rem; text-transform:uppercase; color:var(--text-muted)">Super Admin</div>
+                </div>
+                <div class="sa-avatar">👑</div>
+                <a href="{{ url_for('auth_bp.logout') }}" class="btn btn-link text-danger p-0 ms-1" title="Logout">
+                    <i class="bi bi-power fs-5"></i>
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="sa-alerts mt-3">
+            {% for cat, msg in messages %}
+                <div class="alert alert-{{ 'success' if cat == 'success' else 'danger' if cat == 'danger' else 'warning' }} border-0 shadow-sm rounded-4">
+                    {{ msg }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+    {% endwith %}
+
+    <main class="sa-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- ── FOOTER ── -->
+    <footer class="mt-auto border-top py-2" style="background:white;">
+        <div class="container-fluid px-4 d-flex flex-wrap justify-content-between align-items-center small text-muted">
+            <div>
+                <strong style="color:var(--primary-color)">👁 God Eye Command Center</strong>
+                · Aljamea-tus-Saifiyah Library Network
+            </div>
+            <div>v3.5 · Multi-Campus · Super Admin Only</div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

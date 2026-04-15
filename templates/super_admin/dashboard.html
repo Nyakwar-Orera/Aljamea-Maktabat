@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3 mb-0 text-gray-800">
+                <i class="bi bi-eye-fill me-2"></i>God's Eye Dashboard
+            </h1>
+            <p class="text-muted">Global Multi-Campus Overview</p>
+        </div>
+    </div>
+
+    <!-- KPI Aggregation Placeholder -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow mb-4 border-left-golden">
+                <div class="card-body">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-golden mb-3" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <h5>Initializing Multi-Campus Parallel Query Engine...</h5>
+                        <p class="text-muted">Connecting to 5 campuses (Nairobi, Surat, Karachi, Marol, Sidhpur)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.border-left-golden {
+    border-left: 0.25rem solid #C5A059 !important;
+}
+.text-golden {
+    color: #C5A059 !important;
+}
+</style>
+{% endblock %}

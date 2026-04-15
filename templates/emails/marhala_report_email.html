@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      color: #333;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .email-card {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 600px;
+      margin: auto;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+    }
+
+    .header {
+      background: linear-gradient(135deg, #8e44ad 0%, #9b59b6 100%);
+      color: white;
+      padding: 20px;
+      border-radius: 8px 8px 0 0;
+      margin: -30px -30px 20px -30px;
+      text-align: center;
+    }
+
+    h2 {
+      color: #8e44ad;
+      margin-bottom: 10px;
+      font-size: 1.8rem;
+    }
+
+    h3 {
+      color: #9b59b6;
+      margin: 20px 0 10px 0;
+      font-size: 1.3rem;
+    }
+
+    p {
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    .highlight-box {
+      background: #f3e5f5;
+      border-left: 4px solid #9b59b6;
+      padding: 15px;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+
+    .feature-list {
+      padding-left: 20px;
+      margin: 15px 0;
+    }
+
+    .feature-list li {
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .feature-list li:before {
+      content: "📊";
+      position: absolute;
+      left: -20px;
+    }
+
+    .btn-primary {
+      display: inline-block;
+      background: linear-gradient(135deg, #9b59b6 0%, #8e44ad 100%);
+      color: white;
+      padding: 12px 24px;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 600;
+      margin: 15px 0;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #8e44ad 0%, #7d3c98 100%);
+    }
+
+    .footer {
+      margin-top: 30px;
+      font-size: 0.85em;
+      color: #666;
+      border-top: 1px solid #eee;
+      padding-top: 15px;
+      text-align: center;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .stat-item {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      border: 1px solid #e9ecef;
+    }
+
+    .stat-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #8e44ad;
+      display: block;
+    }
+
+    .stat-label {
+      font-size: 0.85rem;
+      color: #6c757d;
+    }
+
+    .section-break {
+      border: none;
+      height: 1px;
+      background: linear-gradient(to right, transparent, #9b59b6, transparent);
+      margin: 25px 0;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="email-card">
+    <div class="header">
+      <h1 style="color: white; margin: 0;">🏢 Marhala Library Report</h1>
+      <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0 0;">Marhala {{ marhala_name }}</p>
+      <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0 0; font-size: 0.9rem;">Academic Year 1447 H</p>
+    </div>
+
+    <p>Dear {{ head_name }},</p>
+
+    <div class="highlight-box">
+      <h3 style="margin-top: 0; color: #8e44ad;">📈 Executive Summary</h3>
+      <p>Attached is the comprehensive library performance report for <strong>Marhala {{ marhala_name }}</strong>. This
+        report provides analytics across all darajahs under your supervision, including Taqeem performance and library
+        engagement metrics.</p>
+    </div>
+
+    <h3>📊 Report Contents:</h3>
+    <ul class="feature-list">
+      <li><strong>Darajah Performance Rankings</strong> – Comparative analysis across all darajahs</li>
+      <li><strong>Taqeem Analytics</strong> – Aggregate and individual scoring patterns</li>
+      <li><strong>Library Engagement Metrics</strong> – Usage trends and reading habits</li>
+      <li><strong>Financial Overview</strong> – Fees collection and outstanding balances</li>
+      <li><strong>Teacher Performance</strong> – Educator engagement and support metrics</li>
+      <li><strong>Strategic Recommendations</strong> – Actionable insights for improvement</li>
+    </ul>
+
+    <hr class="section-break">
+
+    <h3>🎯 Key Focus Areas:</h3>
+    <div class="stats-grid">
+      <div class="stat-item">
+        <span class="stat-value">Taqeem</span>
+        <span class="stat-label">Performance Scoring</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">Engagement</span>
+        <span class="stat-label">Library Usage</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">Reading</span>
+        <span class="stat-label">Habit Analysis</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">Financial</span>
+        <span class="stat-label">Management</span>
+      </div>
+    </div>
+
+    <div style="text-align: center; margin: 25px 0;">
+      <a href="{{ url_for('reports_bp.reports_page', _external=True) }}" class="btn-primary">
+        📈 Access Full Analytics Dashboard
+      </a>
+    </div>
+
+    <h3>📋 How to Use This Report:</h3>
+    <ol style="line-height: 1.6; padding-left: 20px;">
+      <li>Review darajah rankings to identify top performers and areas needing attention</li>
+      <li>Analyze Taqeem trends to understand academic performance patterns</li>
+      <li>Monitor library engagement metrics to promote reading culture</li>
+      <li>Use financial data for budget planning and resource allocation</li>
+      <li>Share insights with darajah teachers for collaborative improvement</li>
+      <li>Implement recommendations to enhance overall marhala performance</li>
+    </ol>
+
+    <div class="highlight-box">
+      <h4 style="margin-top: 0; color: #8e44ad;">💡 Strategic Insights:</h4>
+      <p>This report is designed to provide you with data-driven insights to:</p>
+      <ul style="margin: 10px 0 0 20px;">
+        <li>Enhance student learning outcomes through improved library engagement</li>
+        <li>Support teachers with actionable data for student development</li>
+        <li>Optimize resource allocation based on usage patterns</li>
+        <li>Strengthen the reading culture across your marhala</li>
+      </ul>
+    </div>
+
+    <div class="footer">
+      <p><strong>Maktabat al-Jamea Library Administration</strong></p>
+      <p>Al-Jamea tus-Saifiyah • Academic Year 1447 H</p>
+      <p>📧 <a href="mailto:library.admin@jameasaifiyah.org" style="color: #9b59b6;">library.admin@jameasaifiyah.org</a>
+        • 📞 +254 20 123 4567</p>
+      <p style="font-size: 0.8em; color: #999; margin-top: 10px;">
+        This automated report was generated on {{ now().strftime('%d %B %Y') }}.<br>
+        For customized analysis or additional data, please contact the Library Analytics Team.
+      </p>
+    </div>
+  </div>
+</body>
+
+</html>

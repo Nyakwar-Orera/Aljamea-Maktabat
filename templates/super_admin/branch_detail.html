@@ -1,0 +1,148 @@
+{% extends "super_admin/_sa_base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+      <a href="{{ url_for('super_admin_bp.god_eye') }}" class="nav-btn" style="font-size:12px">
+        <i class="bi bi-arrow-left"></i> God Eye
+      </a>
+      <span class="live-badge" style="background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.2);color:var(--accent-blue)">
+        <i class="bi bi-diagram-3"></i>
+        {{ branch_cfg.flag }} {{ branch_cfg.short_name }}
+      </span>
+    </div>
+    <h1>{{ branch_cfg.flag }} {{ branch_cfg.name }}</h1>
+    <p>{{ branch_cfg.country }} &nbsp;·&nbsp; Koha DB: <code style="color:var(--accent-blue);background:rgba(56,189,248,0.1);padding:2px 6px;border-radius:4px">{{ branch_cfg.koha_db }}</code></p>
+  </div>
+  <div class="live-badge status-{{ summary.status }}">
+    <div class="status-dot"></div>
+    {{ summary.status | title }}
+  </div>
+</div>
+
+<div class="content-area">
+
+  {% if summary.status != 'online' %}
+  <div style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:16px;padding:32px;text-align:center;margin-bottom:32px">
+    <i class="bi bi-wifi-off" style="font-size:40px;color:#F87171;opacity:0.5"></i>
+    <h3 style="margin-top:12px;color:#F87171">Branch Offline</h3>
+    <p style="color:var(--text-muted);margin-top:8px">
+      Could not connect to Koha database for <strong>{{ branch_cfg.name }}</strong>.<br>
+      Please verify the Koha connection settings.
+    </p>
+    <a href="{{ url_for('super_admin_bp.branch_settings') }}" class="nav-btn primary" style="margin-top:16px;display:inline-flex">
+      <i class="bi bi-gear"></i> Configure Connection
+    </a>
+  </div>
+  {% else %}
+
+  <!-- KPI Strip -->
+  <div class="kpi-strip fade-in">
+    <div class="kpi-card" style="--kpi-color: {{ branch_cfg.color }}">
+      <div class="kpi-label">Active Patrons</div>
+      <div class="kpi-value">{{ "{:,}".format(summary.active_patrons) }}</div>
+      <i class="bi bi-people kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color: #34D399">
+      <div class="kpi-label">Students</div>
+      <div class="kpi-value">{{ "{:,}".format(summary.student_patrons) }}</div>
+      <i class="bi bi-mortarboard kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color: #FBBF24">
+      <div class="kpi-label">Catalog</div>
+      <div class="kpi-value">{{ "{:,}".format(summary.total_titles) }}</div>
+      <i class="bi bi-book kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color: #38BDF8">
+      <div class="kpi-label">Issues (AY)</div>
+      <div class="kpi-value">{{ "{:,}".format(summary.total_issues) }}</div>
+      <i class="bi bi-arrow-left-right kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color: #F87171">
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value">{{ summary.overdue }}</div>
+      <i class="bi bi-clock-history kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color: #A78BFA">
+      <div class="kpi-label">Currently Out</div>
+      <div class="kpi-value">{{ summary.currently_issued }}</div>
+      <i class="bi bi-bookmark-check kpi-icon"></i>
+    </div>
+  </div>
+
+  <!-- Weekly Trend Chart -->
+  <div class="chart-card fade-in delay-2" style="margin-bottom:24px">
+    <h3><i class="bi bi-graph-up-arrow"></i> 8-Week Borrowing Trend</h3>
+    <div class="chart-wrap" style="height:200px">
+      <canvas id="trendChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Top Marhalas Table -->
+  {% if summary.top_marhalas %}
+  <div class="comparison-table-wrap fade-in delay-3">
+    <div class="ct-header"><h3>Top Patron Categories</h3></div>
+    <table class="god-table">
+      <thead>
+        <tr><th>#</th><th>Category</th><th>Issues</th></tr>
+      </thead>
+      <tbody>
+        {% for m in summary.top_marhalas %}
+        <tr>
+          <td><span class="rank-badge {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span></td>
+          <td>{{ m.marhala }}</td>
+          <td><strong>{{ "{:,}".format(m.issues) }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  {% endif %}
+
+  <div style="margin-top:24px">
+    <a href="{{ url_for('super_admin_bp.god_eye') }}" class="nav-btn">
+      <i class="bi bi-arrow-left"></i> Back to God Eye
+    </a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if summary.status == 'online' and summary.weekly_trend %}
+const trend = {{ summary.weekly_trend | tojson }};
+if (document.getElementById('trendChart') && trend.length) {
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels: trend.map(t => t.week_start || t.week_key || ''),
+      datasets: [{
+        label: 'Books Issued',
+        data: trend.map(t => t.issues || 0),
+        borderColor: '{{ branch_cfg.color }}',
+        backgroundColor: '{{ branch_cfg.color }}' + '18',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '{{ branch_cfg.color }}',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 10 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#64748B', font: { size: 10 } } }
+      }
+    }
+  });
+}
+{% endif %}
+</script>
+{% endblock %}

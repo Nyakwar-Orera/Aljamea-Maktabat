@@ -1,0 +1,112 @@
+{% extends "super_admin/_sa_base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🛡️ Super Admin Audit Log</h1>
+    <p>Complete record of all Super Admin actions across all campuses</p>
+  </div>
+  <a href="{{ url_for('super_admin_bp.god_eye') }}" class="nav-btn">
+    <i class="bi bi-arrow-left"></i> God Eye
+  </a>
+</div>
+
+  <div class="white-card mb-4 fade-in">
+    <div class="row align-items-center">
+        {% set actors = log_entries | map(attribute='actor') | unique | list %}
+        {% set branches_touched = log_entries | selectattr('branch_code') | map(attribute='branch_code') | unique | list %}
+        <div class="col-md-3 text-center border-end">
+            <div class="text-muted small fw-800 uppercase">Total Actions</div>
+            <div class="fs-3 fw-900 text-primary">{{ log_entries|length }}</div>
+        </div>
+        <div class="col-md-3 text-center border-end">
+            <div class="text-muted small fw-800 uppercase">Active Admins</div>
+            <div class="fs-3 fw-900 text-purple">{{ actors|length }}</div>
+        </div>
+        <div class="col-md-3 text-center border-end">
+            <div class="text-muted small fw-800 uppercase">Campuses Logged</div>
+            <div class="fs-3 fw-900 text-success">{{ branches_touched|length }}</div>
+        </div>
+        <div class="col-md-3 text-center">
+            <div class="text-muted small fw-800 uppercase">Last Activity</div>
+            <div class="fs-6 fw-900 text-main">{{ log_entries[0].ts[11:16] if log_entries else '—' }} (UTC)</div>
+        </div>
+    </div>
+  </div>
+
+  <!-- Log Table -->
+  <div class="white-card p-0 overflow-hidden fade-in">
+    <div class="p-4 border-bottom bg-light bg-opacity-50">
+      <h3 class="fw-800 fs-6 mb-0">📋 Global Administrative Logs</h3>
+    </div>
+    {% if log_entries %}
+    <div style="overflow-x:auto">
+    <table class="god-table">
+      <thead>
+        <tr>
+          <th>Time (UTC)</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Branch</th>
+          <th>Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for entry in log_entries %}
+        <tr>
+          <td style="font-size:11px;color:var(--text-muted);white-space:nowrap;font-family:monospace">
+            {{ entry.ts[:19] if entry.ts else '—' }}
+          </td>
+          <td>
+            <span style="display:inline-flex;align-items:center;gap:6px">
+              <span style="width:22px;height:22px;border-radius:50%;background:var(--primary);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:white">
+                {{ entry.actor[0].upper() if entry.actor else '?' }}
+              </span>
+              <strong style="font-size:12px">{{ entry.actor }}</strong>
+            </span>
+          </td>
+          <td>
+            {% set action_icons = {
+              'view_god_eye':    '👁',
+              'view_branch':     '🌐',
+              'view_comparison': '📊',
+              'create_user':     '👤',
+              'update_user_branch': '🔀',
+              'test_connection': '🔌',
+            } %}
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:12px">
+              <span>{{ action_icons.get(entry.action, '📋') }}</span>
+              <code style="background:rgba(56,189,248,.08);color:var(--accent-blue);padding:2px 7px;border-radius:6px;font-size:10px">
+                {{ entry.action | replace('_', ' ') | title }}
+              </code>
+            </span>
+          </td>
+          <td>
+            {% if entry.branch_code and entry.branch_code in campus_registry %}
+              {% set bc = campus_registry[entry.branch_code] %}
+              <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px">
+                {{ bc.flag }} {{ bc.short_name }}
+              </span>
+            {% elif entry.branch_code %}
+              <code style="font-size:11px;color:var(--text-muted)">{{ entry.branch_code }}</code>
+            {% else %}
+              <span style="color:var(--text-muted);font-size:11px">🌐 Global</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--text-muted);font-size:11px;max-width:300px">
+            {{ entry.details or '—' }}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:60px;color:var(--text-muted)">
+      <i class="bi bi-journal-x" style="font-size:48px;opacity:0.25;display:block;margin-bottom:12px"></i>
+      <p style="font-size:13px">No audit log entries recorded yet.</p>
+      <p style="font-size:11px;margin-top:4px">Actions taken on the God Eye dashboard will appear here.</p>
+    </div>
+  </div>
+{% endblock %}

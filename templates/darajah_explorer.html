@@ -1,0 +1,539 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+      <h1 class="h2 mb-2">
+        <i class="fas fa-search me-2"></i>
+        Darajah Explorer
+      </h1>
+      <div class="text-muted">
+        <i class="fas fa-calendar-alt me-1"></i>
+        {% if hijri_today %}
+          Today: <strong>{{ hijri_today }}</strong>
+        {% endif %}
+        | <strong>{{ total_darajahs }}</strong> darajahs available
+      </div>
+    </div>
+    
+    <div class="d-flex gap-2">
+      <div class="input-group input-group-sm" style="width: 300px;">
+        <span class="input-group-text"><i class="fas fa-search"></i></span>
+        <input type="text" id="darajahSearch" class="form-control" placeholder="Search darajahs...">
+      </div>
+      
+      {# Determine dashboard link based on role #}
+      {% if session.get('role')|lower == 'admin' %}
+        {% set back_url = url_for('dashboard_bp.dashboard') %}
+      {% elif session.get('role')|lower == 'hod' %}
+        {% set back_url = url_for('hod_dashboard_bp.dashboard') %}
+      {% else %}
+        {% set back_url = url_for('teacher_dashboard_bp.dashboard') %}
+      {% endif %}
+      
+      <a href="{{ back_url }}" class="btn btn-outline-secondary btn-sm">
+        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+      </a>
+    </div>
+  </div>
+
+  <!-- Statistics Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 bg-primary text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Total Darajahs</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold">{{ total_darajahs }}</h2>
+            </div>
+            <i class="fas fa-graduation-cap fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 bg-success text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Boys Darajahs</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold" id="boysCount">0</h2>
+            </div>
+            <i class="fas fa-male fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card shadow-sm border-0 bg-pink text-white">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <h6 class="card-subtitle mb-1 opacity-75">Girls Darajahs</h6>
+              <h2 class="card-title mb-0 display-6 fw-bold" id="girlsCount">0</h2>
+            </div>
+            <i class="fas fa-female fa-2x opacity-50"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Darajah Grid by Year -->
+  {% for darajah_year in sorted_years %}
+  <div class="card shadow-sm border-0 mb-4 darajah-year-section" data-year="{{ darajah_year }}">
+    <div class="card-header bg-white border-0">
+      <h5 class="card-title mb-0">
+        <i class="fas fa-layer-group me-2"></i>
+        Darajah {{ darajah_year }}
+        <span class="badge bg-secondary ms-2">{{ darajahs_by_year[darajah_year]|length }} darajahs</span>
+      </h5>
+    </div>
+    
+    <div class="card-body">
+      <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 row-cols-xl-4 g-3">
+        {% for darajah_info in darajahs_by_year[darajah_year] %}
+        {% set darajah_name = darajah_info.darajah_name %}
+        {% set is_arabic = 'عربي' in (darajah_name or '') %}
+        {% set total_students = darajah_info.TotalStudents %}
+        {% set ay_issues = darajah_info.books_issued %}
+        {% set issues_per_student = (ay_issues / total_students) if total_students > 0 else 0 %}
+        
+        <div class="col darajah-card" 
+             data-darajah="{{ darajah_name }}"
+             data-gender="{{ darajah_info.gender }}"
+             data-section="{{ darajah_info.section }}"
+             data-darajah-year="{{ darajah_info.year }}"
+             data-total-students="{{ total_students }}"
+             data-active-students="{{ darajah_info.ActiveStudents }}"
+             data-ay-issues="{{ ay_issues }}"
+             data-issues-per-student="{{ issues_per_student }}"
+             data-collections="">
+          <div class="card h-100 shadow-sm border hover-lift">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                  <h6 class="card-subtitle mb-1 text-muted">
+                    <i class="fas fa-{{ darajah_info.icon }} me-1"></i>
+                    {{ darajah_info.gender }}
+                    {% if darajah_info.section %}
+                      <span class="badge bg-light text-dark ms-1">Section {{ darajah_info.section }}</span>
+                    {% endif %}
+                  </h6>
+                  <h5 class="card-title mb-0 {% if is_arabic %}arabic-text{% endif %}">
+                    {{ darajah_name }}
+                    {% if darajah_info.gender and darajah_info.gender != "Mixed" %}
+                      <small class="text-muted d-block">{{ darajah_info.gender }} Section</small>
+                    {% endif %}
+                  </h5>
+                </div>
+                <span class="badge bg-primary">
+                  <i class="fas fa-users me-1"></i>
+                  {{ darajah_info.TotalStudents }}
+                </span>
+              </div>
+              
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <div class="small text-muted">Total Students</div>
+                  <div class="fw-bold">{{ darajah_info.TotalStudents }}</div>
+                </div>
+                <div class="col-6">
+                  <div class="small text-muted">AY Issues</div>
+                  <div class="fw-bold text-success">{{ darajah_info.books_issued }}</div>
+                </div>
+              </div>
+              
+              <!-- Performance Stats -->
+              {% if issues_per_student > 0 %}
+              <div class="small text-muted mb-1">
+                <i class="fas fa-chart-line me-1"></i>
+                Avg per Student: <strong class="text-dark">{{ "%.1f"|format(issues_per_student) }}</strong>
+              </div>
+              {% endif %}
+              
+              <div class="d-grid gap-2">
+                <a href="{{ url_for('teacher_dashboard_bp.dashboard', darajah=darajah_name) }}"
+                   class="btn btn-primary btn-sm">
+                  <i class="fas fa-chart-bar me-1"></i>
+                  View Dashboard
+                </a>
+                <button class="btn btn-outline-secondary btn-sm darajah-details-btn" 
+                        data-darajah-name="{{ darajah_name }}">
+                  <i class="fas fa-info-circle me-1"></i>
+                  Quick Info
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- No Results Message (hidden by default) -->
+  <div id="noResults" class="text-center py-5" style="display: none;">
+    <i class="fas fa-search fa-3x text-muted mb-3"></i>
+    <h4 class="text-muted">No darajahs found</h4>
+    <p class="text-muted">Try a different search term</p>
+  </div>
+</div>
+
+<!-- Darajah Details Modal -->
+<div class="modal fade" id="darajahDetailsModal" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalDarajahName"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Students</h6>
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-users fa-2x text-primary me-3"></i>
+                  <div>
+                    <div class="fs-4 fw-bold" id="modalActiveStudents">0</div>
+                    <div class="small text-muted">active students</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Academic Year Activity</h6>
+                <div class="d-flex align-items-center">
+                  <i class="fas fa-book fa-2x text-success me-3"></i>
+                  <div>
+                    <div class="fs-4 fw-bold" id="modalAyIssues">0</div>
+                    <div class="small text-muted">books issued</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mb-3">
+          <h6 class="text-muted mb-2">Darajah Details:</h6>
+          <div id="darajahDetailsList" class="text-muted small">
+            Loading darajah details...
+          </div>
+        </div>
+        
+        <div class="text-center">
+          <a href="#" id="modalDashboardLink" class="btn btn-primary me-2">
+            <i class="fas fa-chart-bar me-1"></i>
+            Open Full Dashboard
+          </a>
+          <a href="#" id="modalReportLink" class="btn btn-outline-danger me-2">
+            <i class="fas fa-download me-1"></i>
+            Download Report
+          </a>
+          <a href="#" id="modalStudentListLink" class="btn btn-outline-secondary">
+            <i class="fas fa-list me-1"></i>
+            View Student List
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .darajah-card .card {
+    transition: all 0.3s ease;
+    border: 1px solid #e9ecef;
+  }
+  
+  .darajah-card .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1) !important;
+    border-color: #4dabf7;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    transition: transform 0.2s ease;
+  }
+  
+  .darajah-year-section {
+    transition: all 0.3s ease;
+  }
+  
+  .bg-pink {
+    background: linear-gradient(135deg, #ec4899 0%, #db2777 100%) !important;
+  }
+  
+  .arabic-text {
+    font-family: 'Traditional Arabic', 'Arial', sans-serif;
+    font-size: 1.2rem;
+    direction: rtl;
+  }
+  
+  .badge {
+    font-weight: 500;
+  }
+  
+  .darajah-card .card-title small {
+    font-size: 0.8rem;
+    display: block;
+    margin-top: 2px;
+  }
+  
+  /* Loading animation for modal */
+  .loading-spinner {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Initialize gender counts
+  function updateGenderCounts() {
+    const boys = document.querySelectorAll('.darajah-card[data-gender="Boys"]').length;
+    const girls = document.querySelectorAll('.darajah-card[data-gender="Girls"]').length;
+    
+    document.getElementById('boysCount').textContent = boys;
+    document.getElementById('girlsCount').textContent = girls;
+  }
+  
+  // Darajah search functionality
+  document.getElementById('darajahSearch').addEventListener('input', function(e) {
+    const searchTerm = e.target.value.toLowerCase();
+    let visibleCount = 0;
+    
+    document.querySelectorAll('.darajah-card').forEach(card => {
+      const darajahName = card.getAttribute('data-darajah').toLowerCase();
+      const gender = card.getAttribute('data-gender').toLowerCase();
+      const section = card.getAttribute('data-section').toLowerCase();
+      const darajahYear = card.getAttribute('data-darajah-year').toLowerCase();
+      
+      const matches = darajahName.includes(searchTerm) || 
+                     gender.includes(searchTerm) || 
+                     section.includes(searchTerm) ||
+                     darajahYear.includes(searchTerm) ||
+                     searchTerm === '';
+      
+      card.style.display = matches ? 'block' : 'none';
+      if (matches) visibleCount++;
+    });
+    
+    // Show/hide darajah year sections based on visible cards
+    document.querySelectorAll('.darajah-year-section').forEach(section => {
+      const darajahYear = section.getAttribute('data-year');
+      const visibleInSection = section.querySelectorAll('.darajah-card[style*="block"]').length;
+      section.style.display = visibleInSection > 0 ? 'block' : 'none';
+    });
+    
+    // Show no results message if needed
+    document.getElementById('noResults').style.display = visibleCount === 0 && searchTerm !== '' ? 'block' : 'none';
+    
+    updateGenderCounts();
+  });
+  
+  // Show darajah details modal
+  async function showDarajahDetails(darajahName) {
+    try {
+      // Set modal title and basic links
+      document.getElementById('modalDarajahName').textContent = darajahName;
+      document.getElementById('modalDashboardLink').href = `/teacher_dashboard?darajah=${encodeURIComponent(darajahName)}`;
+      document.getElementById('modalReportLink').href = `/teacher_dashboard/download_darajah/pdf?darajah_name=${encodeURIComponent(darajahName)}`;
+      document.getElementById('modalStudentListLink').href = `/teacher_dashboard?darajah=${encodeURIComponent(darajahName)}&tab=students`;
+      
+      // Show loading state briefly
+      document.getElementById('modalActiveStudents').innerHTML = '<span class="loading-spinner"></span>';
+      document.getElementById('modalAyIssues').innerHTML = '<span class="loading-spinner"></span>';
+      document.getElementById('darajahDetailsList').innerHTML = '<span class="loading-spinner"></span> Loading darajah details...';
+      
+      // Find the darajah card to get data from it
+      const darajahCard = document.querySelector(`.darajah-card[data-darajah="${darajahName}"]`);
+      
+      // Small delay to show loading animation
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      if (darajahCard) {
+        // Get data from the card's data attributes
+        const gender = darajahCard.getAttribute('data-gender');
+        const section = darajahCard.getAttribute('data-section');
+        const darajahYear = darajahCard.getAttribute('data-darajah-year');
+        const totalStudents = darajahCard.getAttribute('data-total-students');
+        const activeStudents = darajahCard.getAttribute('data-active-students');
+        const ayIssues = darajahCard.getAttribute('data-ay-issues');
+        const issuesPerStudent = parseFloat(darajahCard.getAttribute('data-issues-per-student')) || 0;
+        
+        // Update modal with stats
+        document.getElementById('modalActiveStudents').textContent = activeStudents || '0';
+        document.getElementById('modalAyIssues').textContent = ayIssues || '0';
+        
+        // Update darajah details
+        const detailsList = document.getElementById('darajahDetailsList');
+        let detailsHtml = '';
+        
+        if (darajahYear) {
+          detailsHtml += `
+            <div class="row mb-2">
+              <div class="col-md-6">
+                <strong>Year:</strong> ${darajahYear}
+              </div>
+          `;
+        } else {
+          detailsHtml += `
+            <div class="row mb-2">
+              <div class="col-md-6">
+                <strong>Year:</strong> N/A
+              </div>
+          `;
+        }
+        
+        if (section) {
+          detailsHtml += `
+              <div class="col-md-6">
+                <strong>Section:</strong> ${section}
+              </div>
+            </div>
+          `;
+        } else {
+          detailsHtml += `
+              <div class="col-md-6">
+                <strong>Section:</strong> N/A
+              </div>
+            </div>
+          `;
+        }
+        
+        if (gender) {
+          detailsHtml += `
+            <div class="row mb-2">
+              <div class="col-md-6">
+                <strong>Gender:</strong> ${gender}
+              </div>
+          `;
+        } else {
+          detailsHtml += `
+            <div class="row mb-2">
+              <div class="col-md-6">
+                <strong>Gender:</strong> N/A
+              </div>
+          `;
+        }
+        
+        if (issuesPerStudent > 0) {
+          detailsHtml += `
+              <div class="col-md-6">
+                <strong>Avg Issues/Student:</strong> ${issuesPerStudent.toFixed(1)}
+              </div>
+            </div>
+          `;
+        } else {
+          detailsHtml += `
+              <div class="col-md-6">
+                <strong>Avg Issues/Student:</strong> N/A
+              </div>
+            </div>
+          `;
+        }
+        
+        // Add fees information if available (you might need to add this to your data)
+        detailsHtml += `
+          <div class="alert alert-info mt-3">
+            <i class="fas fa-info-circle me-2"></i>
+            Full darajah statistics including fees and overdues are available on the dashboard.
+          </div>
+        `;
+        
+        detailsList.innerHTML = detailsHtml || '<div class="alert alert-info">No additional details available.</div>';
+        
+      } else {
+        throw new Error('Darajah card not found');
+      }
+      
+    } catch (error) {
+      console.error('Error fetching darajah details:', error);
+      
+      // Show error message
+      document.getElementById('darajahDetailsList').innerHTML = 
+        `<div class="alert alert-danger">
+          <i class="fas fa-exclamation-triangle me-2"></i>
+          Unable to load darajah details. Please try again.
+          <br><small>Error: ${error.message}</small>
+        </div>`;
+        
+      // Set default values
+      document.getElementById('modalActiveStudents').textContent = 'Error';
+      document.getElementById('modalAyIssues').textContent = 'Error';
+    }
+    
+    // Show the modal
+    const modal = new bootstrap.Modal(document.getElementById('darajahDetailsModal'));
+    modal.show();
+  }
+  
+  // Initialize on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    // Set up darajah detail buttons
+    document.querySelectorAll('.darajah-details-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const darajahName = this.getAttribute('data-darajah-name');
+        showDarajahDetails(darajahName);
+      });
+    });
+    
+    // Add click handler for darajah cards (excluding buttons)
+    document.querySelectorAll('.darajah-card .card').forEach(card => {
+      card.addEventListener('click', function(e) {
+        // Don't trigger if clicking on buttons or links
+        if (!e.target.closest('a') && !e.target.closest('button')) {
+          const darajahName = this.closest('.darajah-card').getAttribute('data-darajah');
+          window.location.href = `/teacher_dashboard?darajah=${encodeURIComponent(darajahName)}`;
+        }
+      });
+    });
+    
+    // Update search placeholder
+    document.getElementById('darajahSearch').placeholder = "Search darajahs (name, gender, year, or section)...";
+    
+    // Initialize counters
+    updateGenderCounts();
+    
+    // Add keyboard shortcut for search (Ctrl+F)
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        e.preventDefault();
+        document.getElementById('darajahSearch').focus();
+      }
+    });
+    
+    // Focus search on page load
+    setTimeout(() => {
+      document.getElementById('darajahSearch').focus();
+    }, 100);
+  });
+</script>
+{% endblock %}

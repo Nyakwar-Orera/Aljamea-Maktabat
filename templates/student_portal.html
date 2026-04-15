@@ -1,0 +1,499 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if not found %}
+<div class="container py-5 text-center">
+    <div class="card border-0 shadow-lg p-5">
+        <i class="bi bi-person-x-fill text-danger display-1 mb-4"></i>
+        <h2 class="fw-bold">{{ message }}</h2>
+        <p class="text-muted">If you believe this is an error, please contact the library administration.</p>
+        <a href="{{ url_for('auth_bp.logout') }}" class="btn btn-primary mt-3 px-4 py-2">Return to Login</a>
+    </div>
+</div>
+{% else %}
+
+<!-- Define metrics variable at the top -->
+{% set m = info.get("Metrics", {}) %}
+{% set taqeem = info.get("Taqeem", {}) %}
+
+<style>
+  :root {
+    --primary-h: 210;
+    --primary-s: 50%;
+    --primary-l: 25%;
+    --primary: hsl(var(--primary-h), var(--primary-s), var(--primary-l));
+    --primary-light: hsl(var(--primary-h), var(--primary-s), 45%);
+    --primary-dark: hsl(var(--primary-h), var(--primary-s), 15%);
+    --gold: #ffcc00;
+    --glass-bg: rgba(255, 255, 255, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.4);
+  }
+
+  /* Portal Styling */
+  .portal-container {
+    max-width: 1300px;
+    margin: 0 auto;
+    padding-bottom: 5rem;
+  }
+
+  .portal-welcome {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
+    border-radius: 20px;
+    padding: 3rem;
+    color: white;
+    margin-bottom: 2.5rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+  }
+
+  .portal-welcome::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -10%;
+    width: 500px;
+    height: 500px;
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    border-radius: 50%;
+  }
+
+  .student-pic-portal {
+    width: 140px;
+    height: 140px;
+    border: 4px solid var(--glass-border);
+    padding: 3px;
+    background: white;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+  }
+
+  .portal-stat-card {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 18px;
+    padding: 1.5rem;
+    height: 100%;
+    transition: all 0.3s ease;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+  }
+
+  .portal-stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+    border-color: var(--primary-light);
+  }
+
+  .stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #6c757d;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--primary-dark);
+    margin: 0.25rem 0;
+  }
+
+  /* Book Recommendation Cards */
+  .rec-card {
+    border: none;
+    border-radius: 15px;
+    overflow: hidden;
+    transition: all 0.3s;
+    background: white;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+  }
+
+  .rec-card:hover {
+    transform: scale(1.03);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+  }
+
+  .rec-img-wrapper {
+    height: 200px;
+    background: #f8f9fa;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .rec-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  /* Table Customization */
+  .history-table {
+    border-radius: 15px;
+    overflow: hidden;
+    background: white;
+  }
+
+  .history-table thead th {
+    background: var(--primary-dark);
+    color: white;
+    font-weight: 600;
+    padding: 1.2rem;
+    border: none;
+  }
+
+  .history-table tbody td {
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid #f1f1f1;
+  }
+
+  .btn-portal-action {
+    border-radius: 10px;
+    padding: 0.8rem 1.5rem;
+    font-weight: 600;
+    transition: all 0.3s;
+    border: none;
+  }
+
+  .btn-portal-primary {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(var(--primary-h), 50%, 30%, 0.2);
+  }
+
+  .btn-portal-primary:hover {
+    background: var(--primary-light);
+    color: white;
+    transform: translateY(-2px);
+  }
+
+  .arabic-font {
+    font-family: 'Amiri', serif;
+    font-size: 1.1rem;
+  }
+
+  /* Responsive Fixes */
+  @media (max-width: 768px) {
+    .portal-welcome { padding: 2rem 1.5rem; }
+    .student-name-portal { font-size: 1.8rem; }
+    .student-pic-portal { width: 100px; height: 100px; }
+  }
+</style>
+
+<div class="portal-container">
+    <!-- Welcome Header -->
+    <div class="portal-welcome fade-in-up">
+        <div class="row align-items-center">
+            <div class="col-md-3 text-center mb-4 mb-md-0">
+                <img src="{{ url_for('static', filename=info.Photo) or url_for('static', filename='images/avatar.png') }}" 
+                     class="student-pic-portal rounded-circle" alt="Student Photo">
+            </div>
+            <div class="col-md-6 text-center text-md-start">
+                <h5 class="text-white-50 fw-bold text-uppercase mb-1" style="letter-spacing: 2px;">Welcome,</h5>
+                <h1 class="student-name-portal fw-800 display-5 mb-3">{{ info.FullName }}</h1>
+                <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-start">
+                    <span class="badge bg-white text-primary px-3 py-2 rounded-pill">
+                        <i class="bi bi-person-badge me-2"></i>ITS: {{ info['ITS ID'] }}
+                    </span>
+                    <span class="badge bg-white text-primary px-3 py-2 rounded-pill">
+                        <i class="bi bi-building me-2"></i>{{ info.Darajah }}
+                    </span>
+                    <span class="badge bg-white text-primary px-3 py-2 rounded-pill">
+                        <i class="bi bi-geo-alt me-2"></i>{{ info.campus_branch or 'Aljamea Nairobi' }}
+                    </span>
+                </div>
+            </div>
+            <div class="col-md-3 text-center text-md-end">
+                <div class="progress-score-badge bg-white rounded-4 p-3 shadow-lg d-inline-block">
+                    <div class="text-muted small fw-bold text-uppercase">Reading Goal</div>
+                    <div class="h2 fw-800 text-primary mb-0">Mustawā {{ m.MaxBooksAllowed or 'N/A' }}</div>
+                    <div class="small text-muted">{{ m.AYPeriodLabel }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Row -->
+    <div class="row g-4 mb-5 fade-in-up" style="animation-delay: 0.1s;">
+        <div class="col-md-3">
+            <div class="portal-stat-card">
+                <div class="stat-icon bg-primary text-white"><i class="bi bi-book"></i></div>
+                <div class="stat-label">Currently Borrowed</div>
+                <div class="stat-num">{{ m.CurrentlyIssued }}</div>
+                <div class="progress mt-2" style="height: 6px;">
+                    {% set issued_width = (m.CurrentlyIssued / 5 * 100)|round if m.CurrentlyIssued else 0 %}
+                    <div class="progress-bar bg-primary progress-bar-dynamic" data-width="{{ issued_width }}%"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="portal-stat-card">
+                <div class="stat-icon bg-success text-white"><i class="bi bi-check2-circle"></i></div>
+                <div class="stat-label">Total Books (AY)</div>
+                <div class="stat-num">{{ m.AYIssues }}</div>
+                <div class="small text-success fw-bold"><i class="bi bi-graph-up me-1"></i> Excellent Progress</div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="portal-stat-card">
+                <div class="stat-icon {{ 'bg-danger' if m.OverdueNow > 0 else 'bg-info' }} text-white">
+                    <i class="bi {{ 'bi-exclamation-triangle' if m.OverdueNow > 0 else 'bi-clock' }}"></i>
+                </div>
+                <div class="stat-label">Overdue Books</div>
+                <div class="stat-num {{ 'text-danger' if m.OverdueNow > 0 }}">{{ m.OverdueNow }}</div>
+                <div class="small {{ 'text-danger' if m.OverdueNow > 0 else 'text-muted' }}">
+                    {{ 'Please return immediately' if m.OverdueNow > 0 else 'All books are up to date' }}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="portal-stat-card">
+                <div class="stat-icon bg-warning text-dark"><i class="bi bi-cash-stack"></i></div>
+                <div class="stat-label">Library Balance</div>
+                <div class="stat-num">Ksh {{ m.OutstandingBalance|round|int }}</div>
+                <div class="small text-muted">Paid this Year: Ksh {{ m.FeesPaidAY|round|int }}</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-5">
+        <!-- Current Borrowings -->
+        <div class="col-lg-8 fade-in-up" style="animation-delay: 0.2s;">
+            <div class="modern-card">
+                <div class="modern-card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-journal-text me-2"></i>My Current Borrowings</span>
+                    <span class="badge bg-white text-primary rounded-pill">{{ m.CurrentlyIssued }} Active</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th>Book Title</th>
+                                    <th>Issued Date</th>
+                                    <th>Due Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% set active_books = [] %}
+                                {% for month, books in info.BorrowedBooksGrouped %}
+                                    {% for book in books %}
+                                        {% if not book.returned %}
+                                            {% set _ = active_books.append(book) %}
+                                            <tr>
+                                                <td>
+                                                    <div class="fw-bold">{{ book.title }}</div>
+                                                    <div class="small text-muted">{{ book.collection }} | {{ book.language }}</div>
+                                                </td>
+                                                <td>{{ book._issued_hijri }}</td>
+                                                <td class="{{ 'text-danger fw-bold' if book.overdue }}">{{ book._due_hijri }}</td>
+                                                <td>
+                                                    {% if book.overdue %}
+                                                        <span class="status-badge status-overdue"><i class="bi bi-x-circle-fill"></i> Overdue</span>
+                                                    {% else %}
+                                                        <span class="status-badge status-active"><i class="bi bi-clock-fill"></i> Active</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                                
+                                {% if not active_books %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-5">
+                                        <div class="text-muted">
+                                            <i class="bi bi-journal-plus display-1 mb-3"></i>
+                                            <p>No active books borrowed. Start reading today!</p>
+                                            <a href="{{ opac_base_url or 'https://library-nairobi.jameasaifiyah.org' }}" target="_blank" class="btn btn-outline-primary rounded-pill px-4">Browse Collection</a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reading History Accordion -->
+            <div class="accordion" id="historyAccordion">
+                <div class="accordion-item shadow-sm mb-3">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseHistory">
+                            <i class="bi bi-clock-history me-2"></i>View Reading History (Last 12 Months)
+                        </button>
+                    </h2>
+                    <div id="collapseHistory" class="accordion-collapse collapse" data-bs-parent="#historyAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Month</th>
+                                            <th>Title</th>
+                                            <th>Return Date</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for month, books in info.BorrowedBooksGrouped %}
+                                            {% for book in books %}
+                                                {% if book.returned %}
+                                                <tr>
+                                                    <td class="small">{{ month }}</td>
+                                                    <td class="small fw-semibold">{{ book.title }}</td>
+                                                    <td class="small">{{ book._issued_hijri }}</td>
+                                                </tr>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Progress & Support -->
+        <div class="col-lg-4 fade-in-up" style="animation-delay: 0.3s;">
+            <!-- Progress Summary -->
+            <div class="modern-card p-4 text-center mb-4">
+                <div class="section-title justify-content-center">
+                    <i class="bi bi-award"></i> My Progress Portfolio
+                </div>
+                
+                {% set t = taqeem.total|float if taqeem and taqeem.total else 0 %}
+                <div class="taqeem-radial-chart mx-auto mt-3" style="--books-pct: {{ t }}; --reviews-pct: 0; --progs-pct: 0; width: 160px; height: 160px;">
+                    <div class="taqeem-radial-inner" style="width: 120px; height: 120px;">
+                        <div class="h1 fw-800 mb-0">{{ t|int }}%</div>
+                        <div class="small fw-bold text-muted">A+</div>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <p class="text-muted small">You have completed <strong>{{ m.AYIssues }}</strong> books towards your annual target.</p>
+                    <div class="d-grid">
+                        <a href="{{ url_for('students.export_student_landscape_report', identifier=info.get('ITS ID')) }}" class="btn btn-portal-primary">
+                            <i class="bi bi-file-earmark-pdf me-2"></i>My Comprehensive Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Library Contact -->
+            <div class="modern-card p-4">
+                <div class="section-title">
+                    <i class="bi bi-headphones"></i> Library Support
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-3">
+                    <div class="bg-primary-light text-white rounded-circle p-2" style="width: 40px; height: 40px; display: flex; align-items:center; justify-content:center;">
+                        <i class="bi bi-envelope"></i>
+                    </div>
+                    <div>
+                        <div class="small text-muted">Email Support</div>
+                        <div class="fw-bold">library.nairobi@jameasaifiyah.org</div>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center gap-3 mb-4">
+                    <div class="bg-success text-white rounded-circle p-2" style="width: 40px; height: 40px; display: flex; align-items:center; justify-content:center;">
+                        <i class="bi bi-whatsapp"></i>
+                    </div>
+                    <div>
+                        <div class="small text-muted">WhatsApp Enquiries</div>
+                        <div class="fw-bold">+254 722 000000</div>
+                    </div>
+                </div>
+                <div class="alert alert-secondary border-0 small m-0">
+                    <i class="bi bi-info-circle me-2"></i>Library Hours: <br>Mon-Fri: 8:00 AM - 5:00 PM
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recommendations Section -->
+    <div class="row g-4 mb-5 fade-in-up" style="animation-delay: 0.4s;">
+        <div class="col-12">
+            <h3 class="fw-bold mb-4 d-flex align-items-center">
+                <span class="bg-primary text-white rounded-circle p-2 me-3" style="width: 45px; height: 45px; display: flex; align-items:center; justify-content:center;">
+                    <i class="bi bi-stars"></i>
+                </span>
+                Recommended for You
+            </h3>
+        </div>
+        
+        {% for rec in recommendations.personalized %}
+        <div class="col-md-3">
+            <div class="rec-card h-100">
+                <div class="rec-img-wrapper">
+                    <span class="rec-badge bg-primary text-white">Suggested</span>
+                    <i class="bi bi-book text-muted opacity-25" style="font-size: 5rem;"></i>
+                </div>
+                <div class="card-body">
+                    <h6 class="fw-bold text-truncate mb-1" title="{{ rec.title }}">{{ rec.title }}</h6>
+                    <p class="small text-muted mb-3">{{ rec.author or 'Unknown Author' }}</p>
+                    <a href="{{ opac_base_url }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ rec.biblionumber }}" 
+                       target="_blank" class="btn btn-sm btn-outline-primary w-100 rounded-pill">View in OPAC</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        {% if not recommendations.personalized %}
+            {% for rec in recommendations.trending[:4] %}
+            <div class="col-md-3">
+                <div class="rec-card h-100">
+                    <div class="rec-img-wrapper">
+                        <span class="rec-badge bg-warning text-dark">Trending</span>
+                        <i class="bi bi-book text-muted opacity-25" style="font-size: 5rem;"></i>
+                    </div>
+                    <div class="card-body">
+                        <h6 class="fw-bold text-truncate mb-1" title="{{ rec.title }}">{{ rec.title }}</h6>
+                        <p class="small text-muted mb-3">{{ rec.author }}</p>
+                        <a href="{{ opac_base_url }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ rec.biblionumber }}" 
+                           target="_blank" class="btn btn-sm btn-outline-primary w-100 rounded-pill">Borrow Now</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Dynamic Progress Bar Application
+    const bars = document.querySelectorAll('.progress-bar-dynamic');
+    bars.forEach(bar => {
+      const width = bar.getAttribute('data-width');
+      if (width) {
+        bar.style.width = width;
+      }
+    });
+  });
+</script>
+{% endblock %}

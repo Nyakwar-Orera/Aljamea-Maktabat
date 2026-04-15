@@ -1,0 +1,239 @@
+{% extends "super_admin/_sa_base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📊 Cross-Campus Comparison</h1>
+    <p>Side-by-side analysis of all {{ branch_summaries|length }} campuses</p>
+  </div>
+  <a href="{{ url_for('super_admin_bp.god_eye') }}" class="nav-btn">
+    <i class="bi bi-arrow-left"></i> God Eye
+  </a>
+</div>
+
+<div class="content-area">
+  <!-- Global Totals -->
+  <div class="kpi-strip fade-in">
+    <div class="kpi-card" style="--kpi-color:#38BDF8">
+      <div class="kpi-label">Global Patrons</div>
+      <div class="kpi-value">{{ "{:,}".format(global_kpis.active_patrons) }}</div>
+      <i class="bi bi-people kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#A78BFA">
+      <div class="kpi-label">Global Catalog</div>
+      <div class="kpi-value">{{ "{:,}".format(global_kpis.total_titles) }}</div>
+      <i class="bi bi-book kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#34D399">
+      <div class="kpi-label">Total Issues (AY)</div>
+      <div class="kpi-value">{{ "{:,}".format(global_kpis.total_issues) }}</div>
+      <i class="bi bi-arrow-left-right kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#F87171">
+      <div class="kpi-label">Total Overdue</div>
+      <div class="kpi-value">{{ global_kpis.overdue }}</div>
+      <i class="bi bi-clock-history kpi-icon"></i>
+    </div>
+    <div class="kpi-card" style="--kpi-color:#FBBF24">
+      <div class="kpi-label">Best Performer</div>
+      <div class="kpi-value" style="font-size:18px;padding-top:4px">{{ global_kpis.top_branch }}</div>
+      <i class="bi bi-trophy kpi-icon"></i>
+    </div>
+  </div>
+
+  <!-- Row 1: Volume vs Efficiency -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px" class="fade-in delay-1">
+    <div class="chart-card">
+      <div class="cc-header">
+        <h3><i class="bi bi-bar-chart-fill"></i> Total Issues (Volume)</h3>
+        <span class="cc-hint">Cumulative AY issues</span>
+      </div>
+      <div class="chart-wrap"><canvas id="issuesBar"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-header">
+        <h3><i class="bi bi-speedometer2"></i> Reading Velocity</h3>
+        <span class="cc-hint">Avg issues per active patron</span>
+      </div>
+      <div class="chart-wrap"><canvas id="efficiencyBar"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Row 2: Network Activity Trends -->
+  <div class="chart-card fade-in delay-2" style="margin-bottom:28px">
+    <div class="cc-header">
+      <h3><i class="bi bi-graph-up-arrow"></i> Network Activity Trends (Last 8 Weeks)</h3>
+      <span class="cc-hint">Weekly issue volume across all campuses</span>
+    </div>
+    <div class="chart-wrap" style="height:320px"><canvas id="weeklyCompareLine"></canvas></div>
+  </div>
+
+  <!-- Row 3: Catalog & Risk -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:28px" class="fade-in delay-2">
+    <div class="chart-card">
+      <div class="cc-header">
+        <h3><i class="bi bi-intersect"></i> KPI Penetration</h3>
+        <span class="cc-hint">Catalog depth vs campus size</span>
+      </div>
+      <div class="chart-wrap"><canvas id="titlesRadar"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="cc-header">
+        <h3><i class="bi bi-exclamation-octagon-fill" style="color:#F87171"></i> Overdue Risk Comparison</h3>
+        <span class="cc-hint">Current overdue book count</span>
+      </div>
+      <div class="chart-wrap"><canvas id="overdueHbar"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Comparison Table -->
+  <div class="comparison-table-wrap fade-in delay-3">
+    <div class="ct-header">
+      <h3>Detailed Campus Matrix</h3>
+      <span class="badge-count" style="background:rgba(255,255,255,0.05);color:var(--text-muted)">{{ branch_summaries|length }} branches</span>
+    </div>
+    <div style="overflow-x:auto">
+    <table class="god-table">
+      <thead>
+        <tr>
+          <th>Rank</th><th>Campus</th><th>Status</th>
+          <th>Patrons</th><th>Issues(AY)</th><th>Velocity</th>
+          <th>Catalog</th><th>Overdue</th><th>Issued</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set sorted = branch_summaries | sort(attribute='total_issues', reverse=True) %}
+        {% for b in sorted %}
+        <tr>
+          <td><span class="rank-badge {% if loop.index==1 %}gold{% elif loop.index==2 %}silver{% elif loop.index==3 %}bronze{% endif %}">{{ loop.index }}</span></td>
+          <td>
+            <a href="{{ url_for('super_admin_bp.branch_full_dashboard', branch_code=b.branch_code) }}"
+               style="display:flex;align-items:center;gap:10px;color:inherit;text-decoration:none">
+              <span style="font-size:18px">{{ b.flag }}</span>
+              <div>
+                <div style="font-weight:600;font-size:13px">{{ b.short_name }}</div>
+                <div style="font-size:10px;color:var(--text-muted)">{{ b.country }}</div>
+              </div>
+            </a>
+          </td>
+          <td>
+             {% if b.status == 'online' %}
+               <span style="color:#34D399;font-size:10px;font-weight:700;display:flex;align-items:center;gap:4px">
+                 <span style="width:6px;height:6px;border-radius:50%;background:#34D399"></span> LIVE
+               </span>
+             {% else %}
+               <span style="color:var(--text-muted);font-size:10px;font-weight:600">OFFLINE</span>
+             {% endif %}
+          </td>
+          <td><span style="font-weight:600;color:var(--text-primary)">{{ "{:,}".format(b.active_patrons) if b.status=='online' else '—' }}</span></td>
+          <td style="font-weight:700;color:{{ b.color }}">{{ "{:,}".format(b.total_issues) if b.status=='online' else '—' }}</td>
+          <td>
+            {% set v = (b.total_issues / b.active_patrons) if b.active_patrons > 0 else 0 %}
+            <span style="color:var(--text-primary);font-weight:600">{{ "%.2f"|format(v) if b.status=='online' else '—' }}</span>
+          </td>
+          <td>{{ "{:,}".format(b.total_titles) if b.status=='online' else '—' }}</td>
+          <td style="color:{{ '#F87171' if b.overdue > 0 else 'inherit' }};font-weight:{{ '700' if b.overdue > 0 else '400' }}">
+            {{ b.overdue if b.status=='online' else '—' }}
+          </td>
+          <td>{{ b.currently_issued if b.status=='online' else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const data = {{ comparison | tojson }};
+const base = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{ 
+    legend:{display:false}, 
+    tooltip:{
+        backgroundColor:'#0D1424',borderColor:'rgba(56,189,248,0.2)',borderWidth:1,padding:12,
+        titleFont:{size:13,weight:'700'},bodyFont:{size:12},cornerRadius:10
+    } 
+  },
+  scales:{
+    x:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#64748B',font:{size:10}}},
+    y:{grid:{color:'rgba(255,255,255,0.03)'},ticks:{color:'#64748B',font:{size:10}}}
+  }
+};
+
+// 1. Issues Volume
+new Chart(document.getElementById('issuesBar'), {
+  type:'bar',
+  data:{ 
+    labels:data.labels, 
+    datasets:[{ data:data.issues, backgroundColor:data.colors.map(c=>c+'33'), borderColor:data.colors, borderWidth:2, borderRadius:6 }] 
+  },
+  options:base
+});
+
+// 2. Efficiency (Velocity)
+new Chart(document.getElementById('efficiencyBar'), {
+  type:'bar',
+  data:{ 
+    labels:data.labels, 
+    datasets:[{ data:data.efficiency, backgroundColor:data.colors.map(c=>c+'22'), borderColor:data.colors, borderWidth:2, borderRadius:6, borderDash:[2,2] }] 
+  },
+  options:{ ...base, scales:{...base.scales, y:{...base.scales.y, title:{display:true, text:'Issues / Patron', color:'#475569', font:{size:10}}}} }
+});
+
+// 3. Weekly Network Trends
+new Chart(document.getElementById('weeklyCompareLine'), {
+  type:'line',
+  data:{
+    labels: data.week_labels,
+    datasets: data.weekly_overview.map(b => ({
+      label: b.label,
+      data: b.data,
+      borderColor: b.color,
+      backgroundColor: b.color + '10',
+      borderWidth: 2.5,
+      tension: 0.4,
+      pointRadius: 3,
+      fill: true
+    }))
+  },
+  options: {
+    ...base,
+    plugins: { ...base.plugins, legend: { display: true, position: 'top', align: 'end', labels: { boxWidth: 12, color: '#94A3B8', font: { size: 10 } } } }
+  }
+});
+
+// 4. Overdue Risk
+new Chart(document.getElementById('overdueHbar'), {
+  type:'bar', indexAxis:'y',
+  data:{ 
+    labels:data.labels, 
+    datasets:[{ data:data.overdues, backgroundColor:'rgba(248,113,113,0.15)', borderColor:'#F87171', borderWidth:2, borderRadius:6 }] 
+  },
+  options:{ ...base, indexAxis:'y' }
+});
+
+// 5. Radar
+new Chart(document.getElementById('titlesRadar'), {
+  type:'radar',
+  data:{
+    labels:data.labels, 
+    datasets:[{ label:'Catalog titles', data:data.titles, backgroundColor:'rgba(167,139,250,0.1)', borderColor:'#A78BFA', borderWidth:2, pointRadius:4 }]
+  },
+  options:{
+    ...base,
+    scales:{
+        r:{
+            grid:{color:'rgba(255,255,255,0.05)'},
+            angleLines:{color:'rgba(255,255,255,0.05)'},
+            pointLabels:{color:'#94A3B8',font:{size:10}},
+            ticks:{display:false}
+        }
+    }
+  }
+});
+</script>
+{% endblock %}

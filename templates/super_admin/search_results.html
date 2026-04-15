@@ -1,0 +1,116 @@
+{% extends "super_admin/_sa_base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+        <a href="{{ url_for('super_admin_bp.god_eye') }}" class="nav-btn" style="font-size:12px">
+            <i class="bi bi-arrow-left"></i> God Eye
+        </a>
+        <span class="live-badge" style="background:rgba(56,189,248,0.1);border-color:rgba(56,189,248,0.2);color:var(--accent-blue)">
+            Global Search Result
+        </span>
+    </div>
+    <h1>Search: "<span style="color:var(--accent-blue)">{{ query }}</span>"</h1>
+    <p>Filtered by: <span class="badge" style="background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-dim);text-transform:capitalize">{{ search_type }}</span></p>
+  </div>
+</div>
+
+<div class="content-area">
+    <!-- Quick Filter -->
+    <div style="display:flex;gap:12px;margin-bottom:24px" class="fade-in">
+        <a href="{{ url_for('super_admin_bp.search_all', q=query, type='all') }}" 
+           class="nav-btn {% if search_type=='all' %}primary{% endif %}">Total Results</a>
+        <a href="{{ url_for('super_admin_bp.search_all', q=query, type='patron') }}" 
+           class="nav-btn {% if search_type=='patron' %}primary{% endif %}"><i class="bi bi-people"></i> Patrons</a>
+        <a href="{{ url_for('super_admin_bp.search_all', q=query, type='book') }}" 
+           class="nav-btn {% if search_type=='book' %}primary{% endif %}"><i class="bi bi-book"></i> Books</a>
+    </div>
+
+    {% set ns = namespace(total_found=0) %}
+    
+    <div class="row">
+        {% for branch_code, results in results_by_branch.items() %}
+            {% if results %}
+                {% set ns.total_found = ns.total_found + results|length %}
+                {% set cfg = campus_registry.get(branch_code, {}) %}
+                
+                <div class="col-12 mb-4 fade-in">
+                    <div class="comparison-table-wrap" style="border-left: 4px solid {{ cfg.color }}">
+                        <div class="ct-header" style="background:rgba(255,255,255,0.01)">
+                            <h3 style="display:flex;align-items:center;gap:8px">
+                                <span>{{ cfg.flag }}</span> {{ cfg.name }}
+                                <span class="badge-count" style="margin-left:8px">{{ results|length }} match{{ 'es' if results|length > 1 else '' }}</span>
+                            </h3>
+                            <a href="{{ url_for('super_admin_bp.branch_deep_dive', branch_code=branch_code) }}" class="nav-btn" style="font-size:11px">
+                                Branch Detail <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </div>
+                        <table class="god-table">
+                            <thead>
+                                <tr>
+                                    <th width="80">Type</th>
+                                    <th>Title / Name</th>
+                                    <th>Subtitle / Category</th>
+                                    <th>Metric / Detail</th>
+                                    <th width="120">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in results %}
+                                <tr>
+                                    <td>
+                                        <span class="badge" style="background:{{ 'rgba(56,189,248,0.1)' if r.result_type=='book' else 'rgba(167,139,250,0.1)' }};
+                                              color:{{ 'var(--accent-blue)' if r.result_type=='book' else 'var(--accent-purple)' }};
+                                              text-transform:capitalize;font-size:10px">
+                                            {{ r.result_type }}
+                                        </span>
+                                    </td>
+                                    <td><strong>{{ r.title }}</strong></td>
+                                    <td><span style="color:var(--text-dim)">{{ r.subtitle or '—' }}</span></td>
+                                    <td>
+                                        {% if r.result_type == 'book' %}
+                                            <span style="font-size:11px;color:var(--text-muted)">
+                                                <i class="bi bi-layers"></i> {{ r.extra or 0 }} Copies
+                                            </span>
+                                        {% else %}
+                                            <span style="font-size:11px;color:var(--text-muted)">
+                                                <i class="bi bi-envelope"></i> {{ r.extra or 'No Email' }}
+                                            </span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if r.result_type == 'book' %}
+                                           <button class="nav-btn" style="padding:4px 10px;font-size:11px" onclick="alert('Viewing bibliographic record for ID {{ r.id }} in {{ cfg.short_name }}')">
+                                              View Bib
+                                           </button>
+                                        {% else %}
+                                           <button class="nav-btn" style="padding:4px 10px;font-size:11px" onclick="alert('Viewing patron record for {{ r.id }} in {{ cfg.short_name }}')">
+                                              View Card
+                                           </button>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    {% if ns.total_found == 0 %}
+    <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:16px;padding:64px;text-align:center" class="fade-in">
+        <i class="bi bi-search" style="font-size:48px;color:var(--text-muted);opacity:0.3"></i>
+        <h3 style="margin-top:16px;color:var(--text-dim)">No global matches found for "{{ query }}"</h3>
+        <p style="color:var(--text-muted);max-width:400px;margin:12px auto">Try searching by ITSID, Full Name, or Book title. Ensure the target branch campuses are currently online.</p>
+        <a href="{{ url_for('super_admin_bp.god_eye') }}" class="nav-btn primary" style="display:inline-flex;margin-top:12px">
+            Return to Dashboard
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

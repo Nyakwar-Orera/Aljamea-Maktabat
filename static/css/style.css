@@ -1,0 +1,603 @@
+/* ================================================
+   THEME COLORS & GLOBAL VARIABLES
+================================================= */
+:root {
+  --primary-color: #a45a26;
+  --primary-hover: #8c4519;
+  --accent-bg: #fff8ef;
+  --light-bg: #fffaf4;
+  --text-dark: #3a2a1a;
+  --text-muted: #6b3b16;
+  --border-color: #e6d8c3;
+  --shadow-color: rgba(0, 0, 0, 0.08);
+  --nav-h: 70px;
+  --footer-h: 56px;
+  --content-gap: 24px;
+
+  /* Accent tones */
+  --accent-blue: #0d6efd;
+  --accent-green: #198754;
+  --accent-gold: #ffc107;
+  --accent-teal: #0dcaf0;
+}
+
+/* ================================================
+   FONT IMPORTS
+================================================= */
+@font-face {
+  font-family: 'Al Kanz';
+  src: url('/static/fonts/alkanz.woff2') format('woff2'),
+       url('/static/fonts/alkanz.woff') format('woff'),
+       url('/static/fonts/alkanz.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ================================================
+   BASE LAYOUT
+================================================= */
+html, body {
+  min-height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--accent-bg);
+  color: var(--text-dark);
+}
+
+body {
+  padding-top: var(--nav-h);
+  padding-bottom: calc(var(--footer-h) + var(--content-gap));
+}
+
+main.container {
+  flex: 1;
+  padding-bottom: var(--content-gap);
+}
+
+/* ================================================
+   NAVBAR
+================================================= */
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1030;
+  background-color: var(--accent-bg) !important;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 2px 6px var(--shadow-color);
+}
+
+.navbar-brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: var(--primary-color) !important;
+}
+
+.nav-link {
+  color: var(--primary-color) !important;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  color: var(--primary-hover) !important;
+  border-bottom: 2px solid var(--primary-color);
+}
+
+.nav-profile-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border-color);
+}
+
+/* ================================================
+   FOOTER
+================================================= */
+footer {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 1020;
+  background-color: var(--accent-bg);
+  border-top: 1px solid var(--border-color);
+  text-align: center;
+  width: 100%;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  padding: 8px 0;
+  min-height: var(--footer-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 -1px 3px var(--shadow-color);
+}
+
+footer a {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+footer a:hover {
+  color: var(--primary-hover);
+  text-decoration: underline;
+}
+
+/* ================================================
+   ARABIC TEXT STYLING
+================================================= */
+.arabic-text {
+  font-family: 'Al Kanz', 'Traditional Arabic', 'Arial', sans-serif !important;
+  font-size: 1.1rem;
+  text-align: right;
+  direction: rtl;
+  line-height: 1.6;
+}
+
+.arabic-title {
+  font-family: 'Al Kanz', 'Traditional Arabic', 'Arial', sans-serif !important;
+  font-size: 1.1rem;
+  text-align: center !important;
+  direction: rtl;
+  line-height: 1.6;
+  display: block;
+  margin: 0 auto;
+}
+
+.english-title {
+  font-family: 'Arial', 'Helvetica', sans-serif;
+  font-size: 1rem;
+  text-align: center !important;
+  direction: ltr;
+  display: block;
+  margin: 0 auto;
+}
+
+.arabic-book-title {
+  font-family: 'Al Kanz', 'Traditional Arabic', 'Arial', sans-serif !important;
+  font-size: 1.05rem;
+  direction: rtl;
+  text-align: right;
+  line-height: 1.6;
+}
+
+/* ================================================
+   REPORTS PAGE SPECIFIC STYLES
+================================================= */
+.report-output-wrap {
+  max-height: calc(100vh - 280px);
+  overflow: auto;
+}
+
+#reportOutput table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--light-bg);
+  z-index: 2;
+  box-shadow: inset 0 -1px 0 rgba(0,0,0,.05);
+}
+
+#reportsLayout.expanded .selector-col { 
+  display: none !important; 
+}
+
+#reportsLayout.expanded .output-col { 
+  flex: 0 0 100%; 
+  max-width: 100%; 
+}
+
+#reportOutput table {
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
+.table-responsive { 
+  overflow-x: auto; 
+}
+
+/* Center all table headers and cells in reports */
+#reportOutput table thead th {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+#reportOutput table tbody td {
+  text-align: center !important;
+  vertical-align: middle !important;
+}
+
+/* Make sure links in tables are properly aligned */
+#reportOutput table a {
+  text-decoration: none;
+  color: var(--accent-blue);
+}
+
+#reportOutput table a:hover {
+  text-decoration: underline;
+  color: var(--primary-hover);
+}
+
+/* Ensure proper spacing in tables */
+#reportOutput table td, #reportOutput table th {
+  padding: 0.75rem;
+}
+
+/* Table row hover effect */
+#reportOutput table tbody tr:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+/* Hide empty names or show placeholder */
+.empty-name {
+  color: #999;
+  font-style: italic;
+}
+
+/* ================================================
+   KPI GRID (Legacy)
+================================================= */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+}
+
+.kpi-grid .kpi-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 1rem;
+  padding: 14px 10px;
+  min-height: 100px;
+  text-align: center;
+  box-shadow: 0 2px 5px var(--shadow-color);
+  border: 1px solid var(--border-color);
+  transition: transform 0.2s ease;
+}
+
+.kpi-grid .kpi-card:hover {
+  transform: translateY(-3px);
+}
+
+.kpi-grid .kpi-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: whitesmoke;
+  opacity: 0.9;
+}
+
+.kpi-grid .kpi-value {
+  font-size: 1.7rem;
+  font-weight: 700;
+  margin-top: 6px;
+  color: whitesmoke;
+}
+
+/* ================================================
+   NEW KPI CARDS (Dashboard Row/Column layout)
+================================================= */
+.card.kpi-card {
+  border-radius: 0.9rem;
+  color: #fff;
+  box-shadow: 0 4px 12px var(--shadow-color);
+  overflow: hidden;
+}
+
+.card.kpi-card .card-body {
+  padding: 1rem 1.1rem;
+}
+
+.card.kpi-card .text-muted {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+
+/* Updated KPI Color Variants */
+.kpi-card-blue {
+  background: linear-gradient(90deg, #0066D1, #007BFF);
+  color: #fff;
+}
+
+.kpi-card-green {
+  background: linear-gradient(90deg, #178A42, #28A745);
+  color: #fff;
+}
+
+.kpi-card-gold {
+  background: linear-gradient(90deg, #D89C00, #FFC107);
+  color: #fff;
+}
+
+.kpi-card-teal {
+  background: linear-gradient(90deg, #006D74, #0096A6);
+  color: #fff;
+}
+
+/* ================================================
+   CARDS & CHARTS
+================================================= */
+.card {
+  background-color: var(--light-bg);
+  box-shadow: 0 2px 6px var(--shadow-color);
+  border-radius: 1rem;
+  border: 1px solid var(--border-color);
+  margin-bottom: 1rem;
+  transition: box-shadow 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.card-header {
+  border-bottom: 1px solid var(--border-color);
+  background-color: rgba(255, 248, 239, 0.8);
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+.card-header .badge {
+  font-size: 0.75rem;
+}
+
+canvas {
+  width: 100% !important;
+  height: auto !important;
+}
+
+/* ================================================
+   TABLES
+================================================= */
+.table thead.table-light th {
+  background-color: #f7eee1;
+  border-bottom-color: var(--border-color);
+  color: var(--text-dark);
+}
+
+.table-striped tbody tr:nth-of-type(odd) {
+  background-color: rgba(255, 250, 244, 0.7);
+}
+
+.table-striped tbody tr:hover {
+  background-color: rgba(255, 244, 224, 0.9);
+}
+
+/* Center first column in top-titles tables */
+.top-titles-table th:first-child,
+.top-titles-table td:first-child {
+  text-align: center;
+}
+
+/* ================================================
+   SCROLLBAR STYLING
+================================================= */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.card-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.card-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.card-body::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.card-body::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* ================================================
+   TOASTS
+================================================= */
+#toastContainer {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2000;
+}
+
+.toast {
+  opacity: 0.95;
+  min-width: 220px;
+  border-radius: 0.5rem;
+}
+
+/* ================================================
+   RESPONSIVE & TYPOGRAPHY
+================================================= */
+@media (max-width: 767px) {
+  .card { 
+    margin-bottom: 1rem; 
+  }
+  
+  h2, h3, h6 { 
+    font-size: 90%; 
+  }
+  
+  .navbar-brand { 
+    font-size: 1rem; 
+  }
+  
+  .arabic-text, 
+  .arabic-title, 
+  .arabic-book-title {
+    font-size: 1rem;
+  }
+  
+  .english-title {
+    font-size: 0.95rem;
+  }
+  
+  .report-output-wrap {
+    max-height: calc(100vh - 220px);
+  }
+}
+
+@media (max-width: 576px) {
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .report-output-wrap {
+    max-height: calc(100vh - 200px);
+  }
+  
+  #reportOutput table {
+    font-size: 0.8rem;
+  }
+}
+
+h1, h2, h3, h4, h5 {
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
+/* ================================================
+   LINK STYLING
+================================================= */
+a.link-primary {
+  transition: all 0.2s ease;
+}
+
+a.link-primary:hover {
+  color: var(--primary-hover) !important;
+  text-decoration: underline !important;
+}
+
+/* ================================================
+   BUTTON STYLING
+================================================= */
+.btn-primary {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn-outline-primary {
+  color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+.btn-outline-primary:hover {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
+/* ================================================
+   LOGIN PAGE
+================================================= */
+.login-shell,
+.login-page-wrapper {
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 0;
+  background: radial-gradient(circle at top left,
+                              #fff4e0 0,
+                              #fbe6cf 40%,
+                              #f9e2c3 100%);
+}
+
+.login-card {
+  background-color: #fffaf4;
+  border-radius: 1.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.login-hero {
+  background: linear-gradient(145deg,
+                              rgba(164,90,38,0.08),
+                              rgba(255,248,239,0.9));
+  padding: 2.5rem !important;
+}
+
+.login-hero-img {
+  max-height: 330px;
+  border-radius: 1.5rem;
+  box-shadow: 0 8px 20px var(--shadow-color);
+  border: 3px solid rgba(255, 255, 255, 0.9);
+}
+
+.login-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--primary-color);
+  box-shadow: 0 4px 12px var(--shadow-color);
+  background-color: #fff;
+}
+
+.login-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.login-title {
+  color: var(--primary-color);
+}
+
+.login-bismillah {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.password-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.password-toggle-btn:focus {
+  outline: none;
+  box-shadow: none;
+}
+
+@media (max-width: 767.98px) {
+  .login-card {
+    border-radius: 1.25rem;
+  }
+
+  .login-hero {
+    display: none !important;
+  }
+
+  .login-shell,
+  .login-page-wrapper {
+    padding: 0.5rem;
+  }
+}

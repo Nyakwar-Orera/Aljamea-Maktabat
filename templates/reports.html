@@ -1,0 +1,1055 @@
+{% extends "super_admin/_sa_base.html" if is_super else "base.html" %}
+{% set fluid_layout = True %}
+{% block content %}
+<div class="reports-page">
+  <!-- Page Header -->
+  <div class="reports-header">
+    <div class="reports-header-content">
+      <div class="reports-title-group">
+        <div class="reports-icon-wrap">
+          <i class="bi bi-file-earmark-bar-graph"></i>
+        </div>
+        <div>
+          <h1 class="reports-title">Library Reports</h1>
+          <p class="reports-subtitle">Academic Year Data &amp; Analytics</p>
+        </div>
+      </div>
+      {% if is_admin %}
+      <div class="year-selector-wrap" id="yearSelectorWrap" style="display:none">
+        <label class="year-selector-label"><i class="bi bi-calendar3 me-1"></i>Academic Year</label>
+        <select id="yearSelector" class="year-select">
+          <option value="">Current AY (1447 H)</option>
+        </select>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Trend Chart Panel -->
+  <div class="trend-panel" id="trendPanel">
+    <div class="trend-panel-header">
+      <div class="trend-panel-title">
+        <i class="bi bi-graph-up-arrow me-2"></i>
+        <span id="trendChartTitle">Monthly Book Issues — Current Academic Year</span>
+      </div>
+      <div class="trend-actions">
+        <button class="trend-btn active" id="btnViewCurrent" onclick="loadTrend()">
+          <i class="bi bi-calendar-check me-1"></i>Current AY
+        </button>
+        {% if is_admin %}
+        <button class="trend-btn" id="btnViewPrev" onclick="loadPrevYears()">
+          <i class="bi bi-clock-history me-1"></i>Compare Years
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    <div class="trend-chart-wrap">
+      <canvas id="trendChart" height="90"></canvas>
+      <div class="trend-empty" id="trendEmpty" style="display:none">
+        <i class="bi bi-bar-chart-line display-5 text-muted mb-2"></i>
+        <p class="text-muted">No trend data yet for this period</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="reports-layout" id="reportsLayout">
+    <!-- Sidebar -->
+    <div class="reports-sidebar" id="reportsSidebar">
+      <div class="sidebar-card">
+        <div class="sidebar-card-header">
+          <i class="bi bi-sliders2 me-2"></i>Report Settings
+        </div>
+        <div class="sidebar-card-body">
+          <form id="reportForm">
+            <div class="form-group-custom">
+              <label class="form-label-custom">Report Type</label>
+              <select id="reportType" name="report_type" class="form-select-custom" required>
+                <option value="darajah_wise">📚 Darajah-wise Report</option>
+                {% if not is_hod %}
+                <option value="marhala_wise">🏫 Marhala-wise Report</option>
+                {% endif %}
+                <option value="individual">👤 Individual Student</option>
+                <option value="top_books">📖 Top 25 English Books</option>
+                <option value="top_arabic">📕 Top 25 Arabic Books</option>
+              </select>
+            </div>
+
+            <!-- Darajah selector -->
+            <div id="darajahField" class="form-group-custom d-none">
+              <label class="form-label-custom">Darajah</label>
+              <select id="darajahValue" name="darajah_value" class="form-select-custom">
+                <option value="">All Darajahs</option>
+                {% for d in darajahs %}
+                <option value="{{ d }}">{{ d }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Marhala selector (Admin only) -->
+            <div id="marhalaField" class="form-group-custom d-none">
+              <label class="form-label-custom">Marhala</label>
+              <select id="marhalaValue" name="marhala_value" class="form-select-custom">
+                <option value="">All Marhalas</option>
+                {% for m in marhalas %}
+                <option value="{{ m }}">{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <!-- Individual student search -->
+            <div id="individualField" class="form-group-custom d-none">
+              <label class="form-label-custom">Search Student</label>
+              <div class="search-input-wrap">
+                <i class="bi bi-search search-icon"></i>
+                <input id="identifier" name="identifier" class="search-input"
+                  placeholder="Card No., ITS ID, TR Number...">
+              </div>
+              <div class="form-hint">Card Number, ITS ID, TR Number, or Borrower ID</div>
+            </div>
+
+            {% if is_admin %}
+            <!-- Previous year toggle (admin only) -->
+            <div id="prevYearField" class="form-group-custom d-none">
+              <label class="form-label-custom">
+                <i class="bi bi-clock-history me-1 text-warning"></i>Previous Year Data
+              </label>
+              <select id="prevYearSelector" name="prev_year" class="form-select-custom">
+                <option value="">Loading years...</option>
+              </select>
+              <div class="form-hint text-warning">Showing historical data for selected year</div>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn-generate" id="btnGenerate">
+              <i class="bi bi-play-fill me-2"></i>Generate Report
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Info card -->
+      {% if is_hod %}
+      <div class="sidebar-info-card">
+        <i class="bi bi-shield-lock-fill me-2 text-info"></i>
+        Viewing: <strong>{{ hod_marhala }}</strong>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Output Panel -->
+    <div class="reports-output" id="reportsOutput">
+      <div class="output-card" id="reportCard">
+        <div class="output-card-header">
+          <span id="currentReportTitle" class="output-title">Report Output</span>
+          <div class="output-actions">
+            <button id="btnFullscreen" class="action-btn" title="Fullscreen">
+              <i class="bi bi-fullscreen"></i>
+            </button>
+            <div id="exportDropdown" class="dropdown d-none">
+              <button class="action-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" id="exportMenu">
+                <i class="bi bi-download me-1"></i>Export
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow" id="exportMenuItems"></ul>
+            </div>
+          </div>
+        </div>
+        <div class="output-card-body">
+          <div id="reportOutput" class="report-output-area">
+            <div class="empty-state">
+              <div class="empty-state-icon">
+                <i class="bi bi-file-earmark-bar-graph"></i>
+              </div>
+              <h5>No Report Generated Yet</h5>
+              <p>Select report options and click <strong>Generate Report</strong></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  @font-face {
+    font-family: 'Al Kanz';
+    src: url('{{ url_for("static", filename="fonts/alkanz.woff2") }}') format('woff2'),
+         url('{{ url_for("static", filename="fonts/alkanz.woff") }}') format('woff');
+    font-display: swap;
+  }
+
+  :root {
+    --rp-bg: #fcf9f5;
+    --rp-surface: #ffffff;
+    --rp-surface2: #f8fafc;
+    --rp-border: rgba(164, 90, 38, 0.12);
+    --rp-accent: {{ current_branch_cfg.color if current_branch_cfg else '#a45a26' }}; /* Aljamea Gold/Brown */
+    --rp-accent2: {{ current_branch_cfg.color if current_branch_cfg else '#d97706' }};
+    --rp-info: #3b82f6;
+    --rp-gold: #f59e0b;
+    --rp-green: #10b981;
+    --rp-red: #ef4444;
+    --rp-text: #1e293b;
+    --rp-muted: #64748b;
+    --rp-shadow: 0 10px 30px rgba(0,0,0,0.06);
+    --rp-glow: 0 4px 20px {{ (current_branch_cfg.color if current_branch_cfg else '#a45a26') }}44;
+  }
+
+  body { font-family: 'Inter', sans-serif; }
+
+  .reports-page {
+    padding: 0 0 2rem;
+    min-height: 100vh;
+  }
+
+  /* ---- HEADER ---- */
+  .reports-header {
+    background: linear-gradient(135deg, white 0%, #fff8ef 100%);
+    border-bottom: 1px solid var(--rp-border);
+    padding: 1.5rem 2rem;
+    margin-bottom: 2rem;
+  }
+  .reports-header-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+  .reports-title-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .reports-icon-wrap {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--rp-accent), var(--rp-accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.4rem; color: #fff;
+    box-shadow: var(--rp-glow);
+    flex-shrink: 0;
+  }
+  .reports-title { font-size: 1.35rem; font-weight: 700; color: var(--rp-text); margin: 0; }
+  .reports-subtitle { font-size: 0.8rem; color: var(--rp-muted); margin: 0; }
+
+  /* ---- YEAR SELECTOR ---- */
+  .year-selector-wrap { display: flex; align-items: center; gap: 0.5rem; }
+  .year-selector-label { font-size: 0.8rem; color: var(--rp-muted); white-space: nowrap; }
+  .year-select {
+    background: var(--rp-surface2);
+    border: 1px solid var(--rp-border);
+    color: var(--rp-text);
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .year-select:focus { outline: none; border-color: var(--rp-accent); }
+
+  /* ---- TREND PANEL ---- */
+  .trend-panel {
+    background: var(--rp-surface);
+    border: 1px solid var(--rp-border);
+    border-radius: 20px;
+    margin: 0 2rem 2rem;
+    overflow: hidden;
+    box-shadow: var(--rp-shadow);
+  }
+  .trend-panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.25rem 1.75rem;
+    border-bottom: 1px solid var(--rp-border);
+    background: linear-gradient(90deg, #1e293b 0%, #334155 100%);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .trend-panel-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: white;
+    display: flex; align-items: center;
+  }
+  .trend-actions { display: flex; gap: 0.5rem; }
+  .trend-btn {
+    background: transparent;
+    border: 1px solid var(--rp-border);
+    color: var(--rp-muted);
+    border-radius: 8px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+  }
+  .trend-btn:hover, .trend-btn.active {
+    background: var(--rp-accent);
+    border-color: var(--rp-accent);
+    color: #fff;
+  }
+  .trend-chart-wrap {
+    padding: 1rem 1.25rem;
+    position: relative;
+  }
+  .trend-empty {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 2rem;
+    text-align: center;
+  }
+
+  /* ---- LAYOUT ---- */
+  .reports-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 1.25rem;
+    padding: 0 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .reports-layout { grid-template-columns: 1fr; }
+    .trend-panel, .reports-header { margin-left: 0.75rem; margin-right: 0.75rem; }
+    .reports-layout { padding: 0 0.75rem; }
+  }
+  .reports-layout.expanded {
+    grid-template-columns: 0 1fr;
+  }
+  .reports-layout.expanded .reports-sidebar {
+    display: none;
+  }
+
+  /* ---- SIDEBAR ---- */
+  .sidebar-card {
+    background: var(--rp-surface);
+    border: 1px solid var(--rp-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--rp-shadow);
+    position: sticky;
+    top: 1rem;
+  }
+  .sidebar-card-header {
+    background: var(--rp-surface2);
+    border-bottom: 1px solid var(--rp-border);
+    padding: 0.875rem 1rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--rp-text);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .sidebar-collapse-btn {
+    background: transparent;
+    border: 1px solid var(--rp-border);
+    color: var(--rp-muted);
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s;
+  }
+  .sidebar-collapse-btn:hover { background: var(--rp-accent); color: white; border-color: var(--rp-accent); }
+  .sidebar-card-body { padding: 1rem; display: flex; flex-direction: column; gap: 0.875rem; }
+
+  .form-group-custom { display: flex; flex-direction: column; gap: 0.375rem; }
+  .form-label-custom {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--rp-muted);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  .form-select-custom {
+    background: var(--rp-surface2);
+    border: 1px solid var(--rp-border);
+    color: var(--rp-text);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.85rem;
+    width: 100%;
+    transition: border-color 0.2s;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .form-select-custom:focus {
+    outline: none;
+    border-color: var(--rp-accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .form-select-custom option { background: var(--rp-surface2); }
+
+  .search-input-wrap { position: relative; }
+  .search-icon {
+    position: absolute; left: 0.65rem; top: 50%;
+    transform: translateY(-50%);
+    color: var(--rp-muted); font-size: 0.85rem;
+  }
+  .search-input {
+    background: var(--rp-surface2);
+    border: 1px solid var(--rp-border);
+    color: var(--rp-text);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem 0.5rem 2.1rem;
+    font-size: 0.85rem;
+    width: 100%;
+    font-family: inherit;
+    transition: border-color 0.2s;
+  }
+  .search-input:focus {
+    outline: none;
+    border-color: var(--rp-accent);
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+  }
+  .search-input::placeholder { color: var(--rp-muted); }
+
+  .form-hint { font-size: 0.7rem; color: var(--rp-muted); margin-top: 0.2rem; }
+
+  .btn-generate {
+    background: linear-gradient(135deg, var(--rp-accent), var(--rp-accent2));
+    border: none;
+    color: #fff;
+    border-radius: 10px;
+    padding: 0.65rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.25s;
+    font-family: inherit;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 15px rgba(99,102,241,0.3);
+    margin-top: 0.25rem;
+  }
+  .btn-generate:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(99,102,241,0.45);
+  }
+  .btn-generate:active { transform: translateY(0); }
+  .btn-generate:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  .sidebar-info-card {
+    background: rgba(99,102,241,0.08);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 10px;
+    padding: 0.65rem 0.875rem;
+    font-size: 0.78rem;
+    color: var(--rp-muted);
+    margin-top: 0.75rem;
+  }
+
+  /* ---- OUTPUT PANEL ---- */
+  .output-card {
+    background: var(--rp-surface);
+    border: 1px solid var(--rp-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--rp-shadow);
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+  }
+  .output-card-header {
+    background: var(--rp-surface2);
+    border-bottom: 1px solid var(--rp-border);
+    padding: 0.875rem 1.25rem;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .output-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--rp-text);
+    min-width: 0;
+  }
+  .output-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+  .action-btn {
+    background: transparent;
+    border: 1px solid var(--rp-border);
+    color: var(--rp-muted);
+    border-radius: 8px;
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+    display: flex; align-items: center; gap: 0.25rem;
+  }
+  .action-btn:hover { background: var(--rp-accent); color: white; border-color: var(--rp-accent); }
+  .output-card-body { flex: 1; overflow: hidden; }
+
+  .report-output-area {
+    max-height: calc(100vh - 380px);
+    overflow: auto;
+    padding: 1rem;
+  }
+  @media (max-width: 900px) {
+    .report-output-area { max-height: none; }
+  }
+
+  /* Sticky table headers */
+  .report-output-area table thead th {
+    position: sticky; top: 0;
+    background: var(--rp-surface2);
+    z-index: 2;
+    box-shadow: inset 0 -1px 0 var(--rp-border);
+    color: var(--rp-muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 0.75rem 0.875rem;
+    white-space: nowrap;
+  }
+  .report-output-area table tbody td {
+    font-size: 0.85rem;
+    color: var(--rp-text);
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 0.6rem 0.875rem;
+    border-color: var(--rp-border);
+  }
+  .report-output-area table {
+    border-color: var(--rp-border) !important;
+    white-space: nowrap;
+    width: 100%;
+  }
+  .report-output-area table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: rgba(255,255,255,0.02);
+  }
+  .report-output-area table tbody tr:hover td {
+    background-color: rgba(164, 90, 38, 0.04) !important;
+  }
+  .report-output-area a {
+    color: var(--rp-accent2);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  .report-output-area a:hover { text-decoration: underline; }
+
+  /* Empty state */
+  .empty-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 4rem 1rem;
+    text-align: center;
+    color: var(--rp-muted);
+  }
+  .empty-state-icon {
+    width: 72px; height: 72px;
+    border-radius: 18px;
+    background: var(--rp-surface2);
+    border: 1px solid var(--rp-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; margin-bottom: 1rem;
+    color: var(--rp-accent);
+  }
+  .empty-state h5 { color: var(--rp-text); font-weight: 600; }
+  .empty-state p { font-size: 0.85rem; }
+
+  /* Loading spinner */
+  .loading-state {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 4rem 1rem;
+    color: var(--rp-muted);
+    gap: 1rem;
+  }
+
+  /* Arabic text */
+  .arabic-text, .arabic-title {
+    font-family: 'Al Kanz', 'Traditional Arabic', Arial, sans-serif !important;
+    font-size: 1.05rem;
+    direction: rtl;
+    line-height: 1.6;
+  }
+
+  /* Status badges */
+  .badge-overdue {
+    background: rgba(239,68,68,0.15);
+    color: #f87171;
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 6px;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  /* Dropdown styling */
+  .dropdown-menu {
+    background: var(--rp-surface2) !important;
+    border: 1px solid var(--rp-border) !important;
+    border-radius: 10px !important;
+    padding: 0.35rem !important;
+    min-width: 160px;
+  }
+  .dropdown-item {
+    color: var(--rp-text) !important;
+    border-radius: 6px;
+    padding: 0.45rem 0.75rem !important;
+    font-size: 0.83rem;
+    transition: background 0.15s;
+  }
+  .dropdown-item:hover { background: rgba(99,102,241,0.15) !important; }
+
+  /* Fullscreen fix */
+  :fullscreen .report-output-area { max-height: calc(100vh - 100px) !important; }
+  :-webkit-full-screen .report-output-area { max-height: calc(100vh - 100px) !important; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  // ─── Element refs ───────────────────────────────────────────────────
+  const reportTypeEl   = document.getElementById("reportType");
+  const darajahField   = document.getElementById("darajahField");
+  const marhalaField   = document.getElementById("marhalaField");
+  const individualField= document.getElementById("individualField");
+  const prevYearField  = document.getElementById("prevYearField");
+  const form           = document.getElementById("reportForm");
+  const output         = document.getElementById("reportOutput");
+  const exportDropdown = document.getElementById("exportDropdown");
+  const exportMenuItems= document.getElementById("exportMenuItems");
+  const titleSpan      = document.getElementById("currentReportTitle");
+  const layout         = document.getElementById("reportsLayout");
+  const fullscreenBtn  = document.getElementById("btnFullscreen");
+  const reportCard     = document.getElementById("reportCard");
+  const prevYearSel    = document.getElementById("prevYearSelector");
+  const yearSelector   = document.getElementById("yearSelector");
+  const yearSelectorWrap = document.getElementById("yearSelectorWrap");
+  const isAdmin = JSON.parse('{{ is_admin | tojson | safe }}');
+
+  // ─── Export endpoint templates ────────────────────────────────────
+  const DARAJAH_PDF     = "{{ url_for('reports_bp.export_darajah_pdf', darajah_val='__D__') }}";
+  const DARAJAH_PDFL    = "{{ url_for('reports_bp.export_darajah_pdf_landscape', darajah_val='__D__') }}";
+  const DARAJAH_XLS     = "{{ url_for('reports_bp.export_darajah_excel', darajah_val='__D__') }}";
+  const DARAJAH_CSV     = "{{ url_for('reports_bp.export_darajah_csv', darajah_val='__D__') }}";
+  const MARHALA_PDF     = "{{ url_for('reports_bp.export_marhala_pdf', marhala_val='__M__') }}";
+  const MARHALA_PDFL    = "{{ url_for('reports_bp.export_marhala_pdf_landscape', marhala_val='__M__') }}";
+  const MARHALA_XLS     = "{{ url_for('reports_bp.export_marhala_excel', marhala_val='__M__') }}";
+  const MARHALA_CSV     = "{{ url_for('reports_bp.export_marhala_csv', marhala_val='__M__') }}";
+  const TOPALL_PDF      = "{{ url_for('reports_bp.export_top_books_pdf') }}";
+  const TOPALL_XLS      = "{{ url_for('reports_bp.export_top_books_excel') }}";
+  const TOPALL_CSV      = "{{ url_for('reports_bp.export_top_books_csv') }}";
+  const TOPAR_PDF       = "{{ url_for('reports_bp.export_top_arabic_pdf') }}";
+  const TOPAR_XLS       = "{{ url_for('reports_bp.export_top_arabic_excel') }}";
+  const TOPAR_CSV       = "{{ url_for('reports_bp.export_top_arabic_csv') }}";
+  const GENERATE_URL    = "{{ url_for('reports_bp.generate_report') }}";
+  const TREND_URL       = "{{ url_for('reports_bp.api_trend_data') }}";
+  const YEARS_URL       = "{{ url_for('reports_bp.api_available_years') }}";
+
+  // ─── Trend Chart ─────────────────────────────────────────────────
+  let trendChart = null;
+  let allYearsData = {};
+
+  function linearRegression(values) {
+    const n = values.length;
+    if (n < 2) return values.map(() => null);
+    let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+    values.forEach((v, i) => { sumX += i; sumY += v; sumXY += i * v; sumX2 += i * i; });
+    const slope  = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+    const intcpt = (sumY - slope * sumX) / n;
+    return values.map((_, i) => Math.round(intcpt + slope * i));
+  }
+
+  function renderTrend(labels, values, label="Current AY", color="#a45a26") {
+    const trendEmpty  = document.getElementById("trendEmpty");
+    const trendCanvas = document.getElementById("trendChart");
+
+    if (!labels || labels.length === 0) {
+      trendCanvas.style.display = "none";
+      trendEmpty.style.display  = "flex";
+      return;
+    }
+    trendCanvas.style.display = "block";
+    trendEmpty.style.display  = "none";
+
+    const lastNonZero = values.map((v, i) => v > 0 ? i : -1).reduce((a, b) => Math.max(a, b), 0);
+    const finalLabels = labels.slice(0, lastNonZero + 1);
+    const finalValues = values.slice(0, lastNonZero + 1);
+
+    // Baseline zero
+    finalLabels.unshift("");
+    finalValues.unshift(0);
+
+    const trend = linearRegression(finalValues);
+
+    if (trendChart) { trendChart.destroy(); }
+
+    const ctx = trendCanvas.getContext("2d");
+    trendChart = new Chart(ctx, {
+      data: {
+        labels: finalLabels,
+        datasets: [
+          {
+            type: "bar",
+            label: label,
+            data: finalValues,
+            backgroundColor: color + "55",
+            borderColor: color,
+            borderWidth: 1.5,
+            borderRadius: 5,
+            order: 2
+          },
+          {
+            type: "line",
+            label: "TrendLine",
+            data: trend,
+            borderColor: "#3b82f6",
+            backgroundColor: "transparent",
+            borderWidth: 2,
+            borderDash: [6, 3],
+            pointRadius: 0,
+            tension: 0.3,
+            order: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: true,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            labels: { color: "#64748b", font: { size: 11, weight: '500' }, boxWidth: 14 }
+          },
+          tooltip: {
+            backgroundColor: "rgba(15, 23, 42, 0.9)",
+            borderColor: "rgba(164, 90, 38, 0.25)",
+            borderWidth: 1,
+            titleColor: "#e2e8f0",
+            bodyColor: "#f8fafc",
+            padding: 10,
+            callbacks: {
+              label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y?.toLocaleString() ?? ""} issues`
+            }
+          }
+        },
+        scales: {
+          x: {
+            ticks: { color: "#64748b", font: { size: 10 }, maxRotation: 45 },
+            grid: { display: false }
+          },
+          y: {
+            ticks: { color: "#64748b", font: { size: 10 } },
+            grid: { color: "rgba(0,0,0,0.05)" },
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  function renderMultiYearTrend(yearsData) {
+    const trendCanvas = document.getElementById("trendChart");
+    const trendEmpty  = document.getElementById("trendEmpty");
+    if (!yearsData || Object.keys(yearsData).length === 0) {
+      trendCanvas.style.display = "none";
+      trendEmpty.style.display = "flex";
+      return;
+    }
+    trendCanvas.style.display = "block";
+    trendEmpty.style.display = "none";
+    if (trendChart) trendChart.destroy();
+
+    const colors = ["#a45a26","#3b82f6","#10b981","#ef4444","#8b5cf6"];
+    const datasets = [];
+    let yi = 0;
+    for (const [ayLabel, {labels, values}] of Object.entries(yearsData)) {
+      const c = colors[yi % colors.length];
+      datasets.push({ type:"bar", label: ayLabel, data: values, backgroundColor: c+"44", borderColor: c, borderWidth:1.5, borderRadius:4, order:2 });
+      const trend = linearRegression(values);
+      datasets.push({ type:"line", label: `${ayLabel} Trend`, data: trend, borderColor: c, backgroundColor:"transparent", borderWidth:1.5, borderDash:[5,3], pointRadius:0, order:1 });
+      yi++;
+    }
+    // Use the longest label set
+    const allLabels = Object.values(yearsData).sort((a,b) => b.labels.length - a.labels.length)[0]?.labels || [];
+    const ctx = trendCanvas.getContext("2d");
+    trendChart = new Chart(ctx, {
+      data: { labels: allLabels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: true,
+        interaction: { mode:"index", intersect:false },
+        plugins: {
+          legend: { labels: { color:"#94a3b8", font:{size:10}, boxWidth:12 } },
+          tooltip: { backgroundColor:"#1a1d27", borderColor:"rgba(99,102,241,0.25)", borderWidth:1, titleColor:"#e2e8f0", bodyColor:"#94a3b8", padding:10 }
+        },
+        scales: {
+          x: { ticks:{color:"#64748b",font:{size:10},maxRotation:30}, grid:{color:"rgba(255,255,255,0.04)"} },
+          y: { ticks:{color:"#64748b",font:{size:10}}, grid:{color:"rgba(255,255,255,0.06)"}, beginAtZero:true }
+        }
+      }
+    });
+  }
+
+  function loadTrend(hijriYear) {
+    document.getElementById("btnViewCurrent")?.classList.add("active");
+    document.getElementById("btnViewPrev")?.classList.remove("active");
+    const url = TREND_URL + (hijriYear ? `?year=${hijriYear}` : "");
+    fetch(url)
+      .then(r => r.json())
+      .then(j => {
+        if (j.success) {
+          const label = hijriYear ? `AY ${hijriYear} H` : "Current AY";
+          document.getElementById("trendChartTitle").textContent = `Monthly Book Issues — ${label}`;
+          renderTrend(j.labels, j.values, label);
+        } else {
+          document.getElementById("trendEmpty").style.display = "flex";
+          document.getElementById("trendChart").style.display = "none";
+        }
+      })
+      .catch(() => {});
+  }
+
+  function loadPrevYears() {
+    document.getElementById("btnViewPrev")?.classList.add("active");
+    document.getElementById("btnViewCurrent")?.classList.remove("active");
+    document.getElementById("trendChartTitle").textContent = "Multi-Year Comparison";
+    // fetch all available years and render together
+    fetch(YEARS_URL)
+      .then(r => r.json())
+      .then(j => {
+        if (!j.success || !j.years?.length) return;
+        const yearsToLoad = j.years.slice(0, 4);
+        const promises = yearsToLoad.map(y =>
+          fetch(TREND_URL + `?year=${y.hijri_year}`)
+            .then(r => r.json())
+            .then(d => ({ label: `AY ${y.hijri_year} H`, labels: d.labels||[], values: d.values||[] }))
+        );
+        Promise.all(promises).then(results => {
+          const data = {};
+          results.forEach(r => { if (r.values.length) data[r.label] = r; });
+          renderMultiYearTrend(data);
+        });
+      })
+      .catch(() => {});
+  }
+
+  // Expose for onclick
+  window.loadTrend = loadTrend;
+  window.loadPrevYears = loadPrevYears;
+
+  // ─── Load available years (admin only) ────────────────────────────
+  if (isAdmin) {
+    fetch(YEARS_URL)
+      .then(r => r.json())
+      .then(j => {
+        if (j.success && j.years?.length) {
+          if (yearSelectorWrap) yearSelectorWrap.style.display = "flex";
+          if (yearSelector) {
+            yearSelector.innerHTML = '<option value="">Current AY</option>';
+            j.years.forEach(y => {
+              if (!y.is_current) {
+                const opt = document.createElement("option");
+                opt.value = y.hijri_year;
+                opt.textContent = y.label;
+                yearSelector.appendChild(opt);
+              }
+            });
+            yearSelector.addEventListener("change", function() {
+              const yr = this.value ? parseInt(this.value) : null;
+              loadTrend(yr);
+            });
+          }
+          if (prevYearSel) {
+            prevYearSel.innerHTML = '<option value="">— Current AY —</option>';
+            j.years.forEach(y => {
+              const opt = document.createElement("option");
+              opt.value = y.hijri_year;
+              opt.textContent = y.label;
+              prevYearSel.appendChild(opt);
+            });
+          }
+        }
+      })
+      .catch(() => {});
+  }
+
+  // Initial trend load
+  loadTrend();
+
+  // ─── Field visibility ─────────────────────────────────────────────
+  function toggleFields() {
+    const t = reportTypeEl.value;
+    const showDarajah = (t === "darajah_wise");
+    const showMarhala = (t === "marhala_wise");
+    const showIndiv   = (t === "individual");
+    darajahField?.classList.toggle("d-none", !showDarajah);
+    marhalaField?.classList.toggle("d-none", !showMarhala);
+    individualField?.classList.toggle("d-none", !showIndiv);
+  }
+  reportTypeEl.addEventListener("change", toggleFields);
+  toggleFields();
+
+  // Previous year field toggle
+  if (isAdmin && document.querySelector(".sidebar-card-body")) {
+    const showPrevBtn = document.createElement("div");
+    showPrevBtn.style.cssText = "margin-top:0.5rem";
+    showPrevBtn.innerHTML = `
+      <label style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.78rem;color:var(--rp-muted)">
+        <input type="checkbox" id="prevYearToggle" style="accent-color:var(--rp-gold)">
+        <i class="bi bi-clock-history" style="color:var(--rp-gold)"></i> Show previous year data
+      </label>`;
+    const genBtn = document.getElementById("btnGenerate");
+    genBtn.parentNode.insertBefore(showPrevBtn, genBtn);
+    document.getElementById("prevYearToggle")?.addEventListener("change", function() {
+      if (!prevYearField) return;
+      prevYearField.classList.toggle("d-none", !this.checked);
+    });
+  }
+
+
+  fullscreenBtn?.addEventListener("click", async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await reportCard.requestFullscreen();
+        fullscreenBtn.querySelector("i").className = "bi bi-fullscreen-exit";
+      } else {
+        await document.exitFullscreen();
+        fullscreenBtn.querySelector("i").className = "bi bi-fullscreen";
+      }
+    } catch(e) {}
+  });
+
+  // ─── Build export menu ────────────────────────────────────────────
+  function buildExport(type, darajah, marhala) {
+    exportMenuItems.innerHTML = "";
+    let items = [];
+    const dE = encodeURIComponent(darajah || "All");
+    const mE = encodeURIComponent(marhala || "All");
+
+    if (type === "darajah_wise") {
+      items = [
+        { label:"PDF (Portrait)",  url: DARAJAH_PDF.replace("__D__", dE),  icon:"bi-file-pdf",          cls:"text-danger" },
+        { label:"PDF (Landscape)", url: DARAJAH_PDFL.replace("__D__", dE), icon:"bi-file-pdf",          cls:"text-danger" },
+        { label:"Excel",           url: DARAJAH_XLS.replace("__D__", dE),  icon:"bi-file-excel",        cls:"text-success" },
+        { label:"CSV",             url: DARAJAH_CSV.replace("__D__", dE),  icon:"bi-file-earmark-text", cls:"text-primary" },
+      ];
+    } else if (type === "marhala_wise") {
+      items = [
+        { label:"PDF (Portrait)",  url: MARHALA_PDF.replace("__M__", mE),  icon:"bi-file-pdf",          cls:"text-danger" },
+        { label:"PDF (Landscape)", url: MARHALA_PDFL.replace("__M__", mE), icon:"bi-file-pdf",          cls:"text-danger" },
+        { label:"Excel",           url: MARHALA_XLS.replace("__M__", mE),  icon:"bi-file-excel",        cls:"text-success" },
+        { label:"CSV",             url: MARHALA_CSV.replace("__M__", mE),  icon:"bi-file-earmark-text", cls:"text-primary" },
+      ];
+    } else if (type === "top_books") {
+      items = [
+        { label:"PDF",             url: TOPALL_PDF, icon:"bi-file-pdf",          cls:"text-danger" },
+        { label:"Excel",           url: TOPALL_XLS, icon:"bi-file-excel",        cls:"text-success" },
+        { label:"CSV",             url: TOPALL_CSV, icon:"bi-file-earmark-text", cls:"text-primary" },
+      ];
+    } else if (type === "top_arabic") {
+      items = [
+        { label:"PDF",             url: TOPAR_PDF, icon:"bi-file-pdf",          cls:"text-danger" },
+        { label:"Excel",           url: TOPAR_XLS, icon:"bi-file-excel",        cls:"text-success" },
+        { label:"CSV",             url: TOPAR_CSV, icon:"bi-file-earmark-text", cls:"text-primary" },
+      ];
+    }
+
+    items.forEach(item => {
+      const li = document.createElement("li");
+      li.innerHTML = `<a class="dropdown-item" href="${item.url}">
+        <i class="bi ${item.icon} ${item.cls} me-2"></i>${item.label}
+      </a>`;
+      exportMenuItems.appendChild(li);
+    });
+    exportDropdown.classList.toggle("d-none", items.length === 0);
+  }
+
+  // ─── Form submit ──────────────────────────────────────────────────
+  form.addEventListener("submit", function(e) {
+    e.preventDefault();
+    const data    = new FormData(form);
+    const type    = reportTypeEl.value;
+    const darajah = document.getElementById("darajahValue")?.value || "";
+    const marhala = document.getElementById("marhalaValue")?.value || "";
+    const ident   = (document.getElementById("identifier")?.value || "").trim();
+    const prevYear= prevYearSel?.value;
+
+    // Build title
+    let niceTitle = "Report Output";
+    if (type === "darajah_wise") niceTitle = darajah ? `Darajah: ${darajah}` : "All Darajahs";
+    else if (type === "marhala_wise") niceTitle = marhala ? `Marhala: ${marhala}` : "All Marhalas";
+    else if (type === "individual") niceTitle = `Student: ${ident || "—"}`;
+    else if (type === "top_books") niceTitle = "Top 25 English Books";
+    else if (type === "top_arabic") niceTitle = "Top 25 Arabic Books";
+    titleSpan.textContent = niceTitle;
+
+    // Loading state
+    output.innerHTML = `<div class="loading-state">
+      <div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>
+      <p class="text-muted small mb-0">Generating report, please wait…</p>
+    </div>`;
+    exportDropdown.classList.add("d-none");
+
+    // Choose endpoint: previous year or current
+    let fetchUrl = GENERATE_URL;
+    let fetchOpts = { method: "POST", body: data };
+
+    if (prevYear && isAdmin && (type === "darajah_wise" || type === "marhala_wise")) {
+      fetchUrl = "{{ url_for('reports_bp.report_for_year') }}";
+      data.set("hijri_year", prevYear);
+      data.set("report_type", type);
+    }
+
+    window.csrfFetch(fetchUrl, fetchOpts)
+      .then(r => r.json())
+      .then(j => {
+        if (j.success && j.html) {
+          const totalSt = j.total_students || 0;
+          if (totalSt) titleSpan.textContent = niceTitle + ` (${totalSt.toLocaleString()} students)`;
+
+          if (type === "darajah_wise" || type === "marhala_wise" || type === "top_books" || type === "top_arabic") {
+            output.innerHTML = `<div class="table-responsive">${j.html}</div>`;
+          } else {
+            output.innerHTML = j.html;
+          }
+          applyArabicStyling();
+          buildExport(type, darajah, marhala);
+          if (window.showToast) showToast("Report generated!", "success");
+        } else {
+          output.innerHTML = `<div class="empty-state">
+            <div class="empty-state-icon" style="color:var(--rp-gold)"><i class="bi bi-exclamation-triangle"></i></div>
+            <h5>No data found</h5>
+            <p>${j.html || "Try selecting different criteria."}</p>
+          </div>`;
+          if (window.showToast) showToast("No data for this selection", "warning");
+        }
+      })
+      .catch(err => {
+        output.innerHTML = `<div class="empty-state">
+          <div class="empty-state-icon" style="color:var(--rp-red)"><i class="bi bi-x-circle"></i></div>
+          <h5>Error</h5><p>Failed to generate report. Please try again.</p>
+        </div>`;
+        if (window.showToast) showToast("Error requesting report", "danger");
+        console.error(err);
+      });
+  });
+
+  // ─── Arabic styling ───────────────────────────────────────────────
+  function applyArabicStyling() {
+    const arabicPat = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/;
+    output.querySelectorAll("td").forEach(cell => {
+      if (arabicPat.test(cell.textContent || ""))
+        cell.classList.add("arabic-text");
+    });
+    output.querySelectorAll("a").forEach(a => {
+      if (arabicPat.test(a.textContent || ""))
+        a.classList.add("arabic-title");
+    });
+  }
+});
+</script>
+{% endblock %}

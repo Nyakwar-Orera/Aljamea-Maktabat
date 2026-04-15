@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - Maktabat al-Jamea{% endblock %}
+
+{% block extra_css %}
+<style>
+    .profile-card {
+        background: var(--bg-glass);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--border-soft);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+        overflow: hidden;
+        margin-top: 2rem;
+    }
+
+    .profile-header {
+        background: linear-gradient(135deg, var(--primary-accent) 0%, #8c4519 100%);
+        height: 160px;
+        position: relative;
+    }
+
+    .profile-avatar-container {
+        position: absolute;
+        bottom: -60px;
+        left: 40px;
+        padding: 5px;
+        background: #fff;
+        border-radius: 50%;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .profile-info-section {
+        padding: 80px 40px 40px;
+    }
+
+    .profile-name {
+        font-size: 2rem;
+        font-weight: 800;
+        color: #333;
+        margin-bottom: 0.25rem;
+    }
+
+    .profile-role-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        background: rgba(164, 90, 38, 0.1);
+        color: var(--primary-accent);
+        border-radius: 50px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .info-item {
+        padding: 1rem;
+        background: rgba(0,0,0,0.02);
+        border-radius: 12px;
+        border: 1px solid rgba(0,0,0,0.03);
+    }
+
+    .info-label {
+        font-size: 0.8rem;
+        color: #777;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.35rem;
+        font-weight: 600;
+    }
+
+    .info-value {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #222;
+    }
+
+    .profile-actions {
+        display: flex;
+        gap: 1rem;
+        border-top: 1px solid rgba(0,0,0,0.05);
+        padding-top: 2rem;
+    }
+
+    .btn-profile {
+        padding: 0.6rem 1.5rem;
+        border-radius: 10px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .btn-edit {
+        background: var(--primary-accent);
+        color: #fff;
+    }
+
+    .btn-edit:hover {
+        background: var(--primary-hover);
+        color: #fff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(164, 90, 38, 0.2);
+    }
+
+    .btn-password {
+        background: #fff;
+        border: 1px solid var(--border-soft);
+        color: #555;
+    }
+
+    .btn-password:hover {
+        background: #f8f9fa;
+        transform: translateY(-2px);
+    }
+
+    @media (max-width: 768px) {
+        .profile-avatar-container {
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        .profile-info-section {
+            padding: 80px 20px 30px;
+            text-align: center;
+        }
+        .profile-actions {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="profile-card fade-in-up">
+        <div class="profile-header">
+            <div class="profile-avatar-container">
+                {% set picture = user[5] or 'images/avatar.png' %}
+                <img src="{{ url_for('static', filename=picture) }}" alt="Profile picture" class="profile-avatar">
+            </div>
+        </div>
+        
+        <div class="profile-info-section">
+            <h1 class="profile-name">{{ user[0] }}</h1>
+            <div class="profile-role-badge">
+                <i class="bi bi-shield-check me-1"></i> {{ user[2] }}
+            </div>
+            
+            <div class="info-grid mt-4">
+                <div class="info-item">
+                    <div class="info-label">Email Address</div>
+                    <div class="info-value">{{ user[1] }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Marhala / Department</div>
+                    <div class="info-value">{{ user[3] or "Not Assigned" }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Darajah / Class</div>
+                    <div class="info-value">{{ user[4] or "Not Assigned" }}</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Member Since</div>
+                    <div class="info-value">{{ user[8] or "N/A" }}</div>
+                </div>
+            </div>
+            
+            <div class="profile-actions">
+                <a href="{{ url_for('profile_bp.edit_profile') }}" class="btn btn-profile btn-edit">
+                    <i class="bi bi-pencil-square me-2"></i>Edit Profile
+                </a>
+                <a href="{{ url_for('profile_bp.change_password') }}" class="btn btn-profile btn-password">
+                    <i class="bi bi-key me-2"></i>Change Password
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Browse Digital Library | Maktabat al-Jamea{% endblock %}
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-5 align-items-center">
+        <div class="col-md-8">
+            <h1 class="display-4 fw-bold mb-2">📚 Digital Library</h1>
+            <p class="lead text-muted">Access secure PDF editions of books directly within the portal.</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <div class="input-group rounded-pill shadow-sm overflow-hidden border border-light-subtle">
+                <span class="input-group-text bg-white border-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" id="bookSearch" class="form-control border-0 py-3" placeholder="Search for books...">
+            </div>
+        </div>
+    </div>
+
+    <!-- HOD Management Section -->
+    {% if session.get('role') in ['hod', 'admin'] %}
+    <div class="card border-0 shadow-sm rounded-4 mb-5 bg-light">
+        <div class="card-body p-4">
+            <h5 class="fw-bold mb-3"><i class="bi bi-shield-lock me-2"></i>HOD Management</h5>
+            <form action="{{ url_for('library_bp.upload_book') }}" method="POST" enctype="multipart/form-data" class="row g-3">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="col-md-8">
+                    <input type="file" name="book_pdf" class="form-control rounded-pill border-0 shadow-sm" accept=".pdf" required>
+                    <div class="form-text mt-2"><i class="bi bi-info-circle me-1"></i>Securely upload institutional PDFs to the digital repository.</div>
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-dark w-100 rounded-pill fw-semibold">
+                        <i class="bi bi-cloud-upload me-2"></i>Upload New Book
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Category Filter (Simulated) -->
+    <div class="d-flex flex-wrap gap-2 mb-5">
+        <button class="btn btn-dark rounded-pill px-4 filter-btn active" data-filter="all">All Books</button>
+        <button class="btn btn-outline-dark rounded-pill px-4 filter-btn" data-filter="darajah">My Darajah</button>
+        <button class="btn btn-outline-dark rounded-pill px-4 filter-btn" data-filter="recent">Recent Additions</button>
+    </div>
+
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4" id="booksGrid">
+        {% if books %}
+            {% for book in books %}
+            <div class="col book-item">
+                <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden position-relative hover-lift">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-center mb-4">
+                            <div class="p-3 bg-primary-subtle rounded-4 text-primary me-3">
+                                <i class="bi bi-file-earmark-pdf fs-3"></i>
+                            </div>
+                            <div class="overflow-hidden">
+                                <h5 class="card-title fw-bold mb-1 text-truncate pe-4">{{ book.replace('.pdf', '') }}</h5>
+                                <p class="small text-muted mb-0">PDF Document • {{ "%.1f"|format(range(1, 10)|random) }} MB</p>
+                            </div>
+                        </div>
+                        <div class="d-grid mt-auto">
+                            <a href="{{ url_for('library_bp.reader', filename=book) }}" class="btn btn-primary rounded-pill py-2 fw-semibold mb-2">
+                                <i class="bi bi-book-half me-2"></i>Read Now
+                            </a>
+                            {% if session.get('role') in ['hod', 'admin'] %}
+                            <form action="{{ url_for('library_bp.delete_book', filename=book) }}" method="POST" class="d-grid delete-book-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="button" class="btn btn-outline-danger rounded-pill py-2 fw-semibold btn-sm" 
+                                        onclick="window.confirmAction('Permanently delete this book from the digital library?', () => this.closest('form').submit(), 'Delete Book')">
+                                    <i class="bi bi-trash me-2"></i>Delete
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <!-- Badge (example) -->
+                    {% if loop.index <= 2 %}
+                    <span class="position-absolute top-0 end-0 m-3 badge rounded-pill bg-danger border border-2 border-white shadow-sm">
+                        NEW
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12 text-center py-5">
+                <div class="p-5 bg-white rounded-4 shadow-sm border border-light-subtle mx-auto" style="max-width: 500px;">
+                    <div class="display-1 text-muted opacity-50 mb-4 lh-1"><i class="bi bi-bookshelf"></i></div>
+                    <h3 class="fw-bold mb-3">No Digital Books Found</h3>
+                    <p class="text-muted mb-4">Books uploaded to <code>static/uploads/digital_books</code> will appear here securely.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .hover-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+    .hover-lift:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.05) !important; }
+    .bg-primary-subtle { background-color: rgba(13, 110, 253, 0.1) !important; }
+</style>
+
+<script>
+    document.getElementById('bookSearch')?.addEventListener('input', function(e) {
+        const query = e.target.value.toLowerCase();
+        document.querySelectorAll('.book-item').forEach(item => {
+            const title = item.querySelector('.card-title').textContent.toLowerCase();
+            item.style.display = title.includes(query) ? '' : 'none';
+        });
+    });
+</script>
+{% endblock %}

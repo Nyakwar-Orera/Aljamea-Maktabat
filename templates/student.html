@@ -1,0 +1,728 @@
+{% extends "base.html" %}
+
+{% block content %}
+{% if error %}
+<div class="container py-5">
+    <div class="alert alert-warning animate__animated animate__fadeIn">{{ message }}</div>
+</div>
+{% else %}
+
+{% set m = info.get("Metrics", {}) %}
+{% set taqeem = info.get("Taqeem", {}) %}
+
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root {
+    --primary: #4f46e5;
+    --primary-soft: #eef2ff;
+    --secondary: #64748b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --bg-body: #f8fafc;
+    --bg-card: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --radius-lg: 28px;
+    --radius-md: 18px;
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
+    --border-light: 1px solid #f1f5f9;
+  }
+
+  /* Override standard container for full-screen feel */
+  main.container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .dashboard-container {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    background-color: var(--bg-body);
+  }
+
+  /* Sidebar - Professional Light Mode */
+  .sidebar {
+    width: 280px;
+    background: white;
+    border-right: var(--border-light);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: 2.5rem 1.75rem;
+    z-index: 100;
+    flex-shrink: 0;
+  }
+
+  .logo-area {
+    font-size: 1.15rem; /* Reduced to fit in one line */
+    font-weight: 800;
+    color: var(--primary);
+    margin-bottom: 3rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    white-space: nowrap;
+  }
+
+  /* Sidebar Profile */
+  .sidebar-profile {
+    text-align: center;
+    margin-bottom: 3.5rem;
+    padding: 2.5rem 1.75rem;
+    background: var(--primary-soft);
+    border-radius: var(--radius-lg); 
+    border: 1px solid rgba(79, 70, 229, 0.05);
+  }
+
+  .student-img-wrapper {
+    width: 100px;
+    height: 100px;
+    margin: 0 auto 1.5rem;
+    position: relative;
+    padding: 6px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .student-img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .student-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+  }
+
+  .student-role {
+    font-size: 0.7rem;
+    font-weight: 800;
+    color: var(--primary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    background: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    display: inline-block;
+  }
+
+  .nav-link-custom {
+    display: flex;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.75rem;
+    border-radius: 16px;
+    color: #334155;
+    text-decoration: none !important;
+    font-weight: 700;
+    transition: all 0.25s ease;
+    font-size: 1rem;
+  }
+
+  .nav-link-custom:hover {
+    background: #f8fafc;
+    color: var(--primary);
+    transform: translateX(6px);
+  }
+
+  .nav-link-custom.active {
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.4);
+  }
+
+  /* Main Area */
+  .main-content {
+    flex-grow: 1;
+    padding: 3rem 4rem;
+    width: 100%;
+    overflow-y: auto;
+  }
+
+  .dashboard-container {
+    display: flex;
+    min-height: 100vh;
+    background: #fdfdff;
+  }
+
+  .hover-primary {
+    transition: color 0.2s ease;
+  }
+  .hover-primary:hover {
+    color: var(--primary) !important;
+  }
+
+  .top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 3.5rem;
+  }
+
+  .welcome-text h1 {
+    font-size: 2.75rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    color: var(--text-main);
+    letter-spacing: -1px;
+  }
+
+  .welcome-text p {
+    color: var(--text-muted);
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .ay-badge {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--primary);
+    background: var(--primary-soft);
+    padding: 0.5rem 1.25rem;
+    border-radius: 50px;
+    display: inline-block;
+    margin-bottom: 1.25rem;
+  }
+
+  .teacher-badge {
+    background: white;
+    padding: 1.25rem 2rem;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    border: var(--border-light);
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+  }
+
+  .teacher-icon {
+    width: 48px;
+    height: 48px;
+    background: var(--primary-soft);
+    color: var(--primary);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+  }
+
+  /* KPI Grid */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 2rem;
+    margin-bottom: 4rem;
+  }
+
+  .kpi-card {
+    background: white;
+    padding: 2.25rem;
+    border-radius: var(--radius-lg);
+    border: var(--border-light);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .kpi-icon-box {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    margin-bottom: 1.75rem;
+  }
+
+  .kpi-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
+  }
+
+  .kpi-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    line-height: 1;
+  }
+
+  /* Analytics Section */
+  .analytics-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-bottom: 3.5rem;
+  }
+
+  .analytics-row-pro, .analytics-row-equal {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1.5rem;
+    align-items: stretch; /* Ensures cards in the same row have equal height */
+  }
+
+  .analytics-row-equal {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .glass-card {
+    background: white;
+    padding: 2.25rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: var(--border-light);
+    display: flex;
+    flex-direction: column;
+    height: 100%; /* Fill container height */
+  }
+
+  .card-title-pro {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-main);
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  /* Subject Badges */
+  .subject-list-pro {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .subject-pill {
+    display: inline-block;
+    padding: 0.75rem 1.5rem;
+    background: #f8fafc;
+    color: var(--text-main);
+    border-radius: 18px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border: 1px solid #f1f5f9;
+    transition: all 0.3s ease;
+  }
+
+  .subject-pill:hover {
+    background: var(--primary-soft);
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+
+  /* History Table */
+  .library-card {
+    background: white;
+    padding: 3rem;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    border: var(--border-light);
+    margin-bottom: 4rem;
+  }
+
+  .pro-accordion .accordion-item {
+    border: none;
+    background: #f8fafc;
+    margin-bottom: 1.25rem;
+    border-radius: var(--radius-md) !important;
+    overflow: hidden;
+  }
+
+  .pro-accordion .accordion-button {
+    background: #f8fafc !important;
+    font-weight: 800;
+    padding: 1.5rem 2rem;
+    color: var(--text-main);
+    border: none !important;
+    box-shadow: none !important;
+    font-size: 1.1rem;
+  }
+
+  .pro-accordion .accordion-button:not(.collapsed) {
+    background: var(--primary-soft) !important;
+    color: var(--primary);
+  }
+
+  .book-list-row {
+    display: grid;
+    grid-template-columns: 3fr 1.5fr 1.5fr 1.2fr;
+    padding: 1.5rem 2rem;
+    align-items: center;
+    border-top: 1px solid #f1f5f9;
+    background: white;
+    transition: background 0.2s;
+  }
+
+  .book-list-row:hover {
+    background: #fafafa;
+  }
+
+  .pro-status {
+    padding: 0.5rem 1rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-align: center;
+    letter-spacing: 0.5px;
+  }
+
+  @media (max-width: 1400px) {
+    .main-content { padding: 2.5rem 3rem; }
+  }
+
+  @media (max-width: 1200px) {
+    .analytics-row-pro, .analytics-row-equal { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 992px) {
+    .sidebar { display: none; }
+    .main-content { padding: 2rem; }
+    .top-header { flex-direction: column; align-items: flex-start; gap: 2rem; }
+  }
+</style>
+
+<div class="dashboard-container">
+  <!-- Professional Sidebar -->
+  <aside class="sidebar">
+    <div class="logo-area">
+      <i class="bi bi-person-badge"></i>
+      <span>Student Dashboard</span>
+    </div>
+
+    <div class="sidebar-profile">
+      <div class="student-img-wrapper">
+        <img src="{% if info.Photo_URL %}{{ info.Photo_URL }}{% else %}{{ url_for('static', filename=info.Photo) }}{% endif %}" 
+             class="student-img" alt="Profile">
+      </div>
+      <div class="student-name">{{ info.FullName }}</div>
+      <div class="student-role">{{ info.Darajah or 'Level' }}</div>
+      <div class="text-muted fw-bold mt-2" style="font-size: 0.7rem; letter-spacing: 0.5px;">{{ info.get("BranchName", "Nairobi") }}</div>
+    </div>
+
+    <nav class="nav-links mt-2">
+      <a href="#" class="nav-link-custom active"><i class="bi bi-house-door-fill"></i> Overview</a>
+      <a href="#analytics" class="nav-link-custom"><i class="bi bi-bar-chart-line-fill"></i> My Progress</a>
+      <a href="#history" class="nav-link-custom"><i class="bi bi-book-half"></i> Library Records</a>
+      <a href="{{ url_for('students.export_student_pdf', identifier=info.get('TRNumber') or info.get('borrowernumber')) }}" class="nav-link-custom">
+        <i class="bi bi-file-earmark-pdf-fill"></i> Download Report in PDF
+      </a>
+    </nav>
+
+    <div class="mt-auto">
+      <a href="{{ url_for('dashboard_bp.dashboard') }}" class="nav-link-custom text-danger">
+        <i class="bi bi-box-arrow-right"></i> Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main Content Space -->
+  <main class="main-content">
+    <header class="top-header">
+      <div class="welcome-text animate__animated animate__fadeIn">
+        <span class="ay-badge"><i class="bi bi-calendar3 me-2"></i>Academic Year 1447-1448H</span>
+      </div>
+      
+      <div class="d-flex align-items-center gap-4">
+        <div class="teacher-badge animate__animated animate__fadeIn">
+          <div class="teacher-icon"><i class="bi bi-person-workspace"></i></div>
+          <div class="text-start">
+            <div class="small fw-bold text-muted">CLASS TEACHER</div>
+            <div class="fw-bold text-main">{{ info.PrimaryTeacher.name if info.PrimaryTeacher else 'Unassigned' }}</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- KPI Grid -->
+    <div class="kpi-grid">
+      <!-- Active -->
+      <div class="kpi-card animate__animated animate__fadeInUp">
+        <div class="kpi-icon-box" style="background: rgba(79, 70, 229, 0.1); color: #4f46e5;">
+          <i class="bi bi-journal-text"></i>
+        </div>
+        <div class="kpi-label" style="color: #4f46e5;">Currently Issued</div>
+        <div class="kpi-value" style="color: #4f46e5;">{{ m.get("CurrentlyIssued", 0) }}</div>
+      </div>
+
+      <!-- Overdue -->
+      <div class="kpi-card animate__animated animate__fadeInUp" style="animation-delay: 100ms;">
+        <div class="kpi-icon-box" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;">
+          <i class="bi bi-alarm"></i>
+        </div>
+        <div class="kpi-label" style="color: #ef4444;">Past Due Date</div>
+        <div class="kpi-value" style="color: #ef4444;">{{ m.get("OverdueNow", 0) }}</div>
+      </div>
+
+      <!-- Target -->
+      <div class="kpi-card animate__animated animate__fadeInUp" style="animation-delay: 200ms;">
+        <div class="kpi-icon-box" style="background: rgba(16, 185, 129, 0.1); color: #10b981;">
+          <i class="bi bi-patch-check"></i>
+        </div>
+        <div class="kpi-label" style="color: #10b981; line-height: 1.2; margin-bottom: 0.5rem;">
+          Mustawā al-Matlūb
+          <div style="font-size: 0.6rem; opacity: 0.9; margin-top: 2px;">Monthly</div>
+        </div>
+        <div class="kpi-value" style="color: #10b981;">{{ m.get("MaxBooksAllowed", 0) }}</div>
+      </div>
+
+      <!-- Fines -->
+      <div class="kpi-card animate__animated animate__fadeInUp" style="animation-delay: 300ms;">
+        <div class="kpi-icon-box" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;">
+          <i class="bi bi-wallet2"></i>
+        </div>
+        <div class="kpi-label" style="color: #f59e0b;">Outstanding Fines</div>
+        <div class="kpi-value" style="color: #f59e0b;">{{ "%.2f"|format(m.get("OutstandingBalance", 0.0)) }}</div>
+      </div>
+
+      <!-- Programs -->
+      <div class="kpi-card animate__animated animate__fadeInUp" style="animation-delay: 400ms;">
+        <div class="kpi-icon-box" style="background: rgba(6, 182, 212, 0.1); color: #06b6d4;">
+          <i class="bi bi-trophy"></i>
+        </div>
+        <div class="kpi-label" style="color: #06b6d4;">Programs Attended</div>
+        <div class="kpi-value" style="color: #06b6d4;">{{ m.get("ProgramParticipationCount", 0) }}</div>
+      </div>
+    </div>
+
+    <!-- Analytics Section: Optimized Alignment -->
+    <div id="analytics" class="analytics-grid">
+      <!-- First Row: Activity & Subjects -->
+      <div class="analytics-row-pro">
+        <!-- Lending Chart -->
+        <div class="glass-card animate__animated animate__fadeInLeft">
+          <h3 class="card-title-pro mb-3"><i class="bi bi-graph-up-arrow text-primary"></i> Book Issue Overview</h3>
+          <div style="height: 300px; width: 100%; flex-grow: 1;">
+            <canvas id="readingChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Interests Card -->
+        <div class="glass-card animate__animated animate__fadeInRight">
+          <h3 class="card-title-pro mb-3"><i class="bi bi-book text-warning"></i> Subjects Profile of Books Read</h3>
+          <p class="text-muted small mb-4">Thematic distribution based on subject headings.</p>
+          <div class="subject-list-pro" style="flex-grow: 1; overflow-y: auto; max-height: 250px;">
+            {% for sub in info.SubjectOfInterest %}
+              <span class="subject-pill">{{ sub }}</span>
+            {% else %}
+              <span class="text-muted italic">Insufficient footprint for profile.</span>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Second Row: Balanced Distributions -->
+      <div class="analytics-row-equal">
+        <!-- Language Chart -->
+        <div class="glass-card animate__animated animate__fadeInUp">
+          <h3 class="card-title-pro mb-3"><i class="bi bi-translate text-success"></i> Language Distribution</h3>
+          <p class="text-muted small mb-3">Linguistic breakdown of issued resources.</p>
+          <div style="height: 250px; width: 100%; position: relative; flex-grow: 1;">
+            <canvas id="langChart"></canvas>
+          </div>
+        </div>
+
+        <!-- Collection Chart -->
+        <div class="glass-card animate__animated animate__fadeInUp" style="animation-delay: 200ms;">
+          <h3 class="card-title-pro mb-3"><i class="bi bi-collection text-info"></i> Books Read by Collection</h3>
+          <p class="text-muted small mb-3">Genre and Material classification.</p>
+          <div style="height: 250px; width: 100%; position: relative; flex-grow: 1;">
+            <canvas id="collectionChart"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detailed History -->
+    <div id="history" class="library-card animate__animated animate__fadeInUp">
+      <h3 class="card-title-pro mb-4"><i class="bi bi-clock-history text-primary"></i> Academic Year Activity</h3>
+      
+      <div class="accordion pro-accordion" id="libraryAccordion">
+        {% for month_label, books in info.BorrowedBooksGrouped %}
+        <div class="accordion-item shadow-none">
+          <h2 class="accordion-header">
+            <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" 
+                    data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}">
+              <div class="d-flex justify-content-between w-100 pe-4 align-items-center">
+                <span>{{ month_label }}</span>
+                <span class="badge bg-white text-primary border shadow-sm px-4 rounded-pill fs-7">{{ books|length }} Items</span>
+              </div>
+            </button>
+          </h2>
+          <div id="collapse{{ loop.index }}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" 
+               data-bs-parent="#libraryAccordion">
+            <div class="accordion-body p-0">
+              <div class="book-list">
+                <div class="book-list-row fw-bold text-muted small bg-light" style="border-top: none; font-size: 0.75rem;">
+                  <div>RESOURCE TITLE</div>
+                  <div>ISSUED DATE</div>
+                  <div>DUE DATE</div>
+                  <div class="text-center">STATUS</div>
+                </div>
+                {% for b in books %}
+                <div class="book-list-row">
+                  <div class="fw-bold text-main" style="font-size: 0.95rem;">
+                    {% if b.opac_url and b.opac_url != '#' %}
+                      <a href="{{ b.opac_url }}" target="_blank" class="text-decoration-none text-main hover-primary">
+                        {{ b.title }}
+                      </a>
+                    {% else %}
+                      {{ b.title }}
+                    {% endif %}
+                  </div>
+                  <div class="text-muted small">{{ b.date_issued|hijri_format if b.date_issued else 'N/A' }}</div>
+                  <div class="text-muted small">{{ b.date_due|hijri_format if b.date_due else 'N/A' }}</div>
+                  <div class="text-center">
+                    {% if b.returned %}
+                      <div class="pro-status bg-success-soft text-success" style="background: rgba(16, 185, 129, 0.1);">Returned</div>
+                    {% else %}
+                      <div class="pro-status bg-primary-soft text-primary" style="background: rgba(79, 70, 229, 0.1);">Currently Issued</div>
+                    {% endif %}
+                  </div>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  window.addEventListener('DOMContentLoaded', (event) => {
+    // Inject dynamic data
+    const monthDataRaw = {{ info.MonthStats | tojson }};
+    const mLabels = Object.keys(monthDataRaw).reverse();
+    const mCounts = mLabels.map(l => monthDataRaw[l].count);
+
+    const ctx = document.getElementById('readingChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: mLabels,
+        datasets: [{
+          label: 'Resources Issued',
+          data: mCounts,
+          backgroundColor: '#4f46e5',
+          borderRadius: 12,
+          barThickness: 32,
+          hoverBackgroundColor: '#6366f1'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            backgroundColor: '#1e293b',
+            titleFont: { size: 14, family: 'Inter', weight: '800' },
+            padding: 16,
+            cornerRadius: 12,
+            displayColors: false
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            grid: { color: '#f1f5f9', drawBorder: false },
+            ticks: { color: '#94a3b8', font: { size: 12, weight: '600' } }
+          },
+          x: {
+            grid: { display: false },
+            ticks: { color: '#64748b', font: { size: 12, weight: '600' } }
+          }
+        }
+      }
+    });
+
+    // Language Distribution Logic
+    const langStats = {};
+    const collStats = {};
+
+    {% for month, books in info.BorrowedBooksGrouped %}
+      {% for b in books %}
+        (function() {
+          const l = "{{ b.language or 'Unknown' }}";
+          const c = "{{ b.collection or 'Other' }}";
+          langStats[l] = (langStats[l] || 0) + 1;
+          collStats[c] = (collStats[c] || 0) + 1;
+        })();
+      {% endfor %}
+    {% endfor %}
+
+    const LANG_CTX = document.getElementById('langChart').getContext('2d');
+    new Chart(LANG_CTX, {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(langStats),
+        datasets: [{
+          data: Object.values(langStats),
+          backgroundColor: ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#06b6d4'],
+          borderWidth: 0,
+          hoverOffset: 12
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 10, bottom: 10 } },
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 10, weight: '700' }, boxWidth: 12 } }
+        },
+        cutout: '70%'
+      }
+    });
+
+    const COLL_CTX = document.getElementById('collectionChart').getContext('2d');
+    new Chart(COLL_CTX, {
+      type: 'pie',
+      data: {
+        labels: Object.keys(collStats),
+        datasets: [{
+          data: Object.values(collStats),
+          backgroundColor: ['#6366f1', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#22c55e'],
+          borderWidth: 2,
+          borderColor: '#ffffff'
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        layout: { padding: { top: 10, bottom: 10 } },
+        plugins: {
+          legend: { position: 'right', labels: { font: { size: 10, weight: '700' }, boxWidth: 12, padding: 15 } }
+        }
+      }
+    });
+  });
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,1302 @@
+{% extends "base.html" %}
+{% block title %}📚 Library program and progress report{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ===== Page-level theme ===== */
+  .page-hero {
+    background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%);
+    border-radius: 16px;
+    color: #fff;
+    padding: 1.75rem 2.25rem;
+    margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+  }
+  .page-hero::after {
+    content: '📚';
+    position: absolute;
+    right: 2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 6rem;
+    opacity: .12;
+    pointer-events: none;
+  }
+  .page-hero h2 { font-weight: 800; margin-bottom: .25rem; }
+  .page-hero p  { opacity: .85; margin-bottom: 0; }
+
+  /* ===== KPI Cards ===== */
+  .kpi-row { margin-bottom: 1.75rem; }
+  .kpi-card-inner {
+    border-radius: 14px;
+    padding: 1.5rem 1.75rem;
+    position: relative;
+    overflow: hidden;
+    height: 100%;
+    box-shadow: 0 6px 20px rgba(0,0,0,.10);
+    transition: transform .3s ease, box-shadow .3s ease;
+  }
+  .kpi-card-inner:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 14px 30px rgba(0,0,0,.15);
+  }
+  .kpi-card-inner .kpi-icon-bg {
+    position: absolute;
+    right: -12px;
+    bottom: -12px;
+    font-size: 5.5rem;
+    opacity: .14;
+    transition: opacity .3s;
+  }
+  .kpi-card-inner:hover .kpi-icon-bg { opacity: .22; }
+  .kpi-card-label  { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; opacity: .85; }
+  .kpi-card-value  { font-size: 2.4rem; font-weight: 800; line-height: 1.1; margin: .4rem 0; }
+  .kpi-card-sub    { font-size: .78rem; opacity: .8; }
+  .kpi-blue   { background: linear-gradient(135deg,#339af0,#1c7ed6); color:#fff; }
+  .kpi-orange { background: linear-gradient(135deg,#ffa94d,#e8590c); color:#fff; }
+  .kpi-green  { background: linear-gradient(135deg,#51cf66,#2b8a3e); color:#fff; }
+
+  /* ===== Progress bar card ===== */
+  .pool-card {
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    background: #fff;
+    border: 1px solid rgba(164,90,38,.12);
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    margin-bottom: 1.75rem;
+  }
+  .pool-progress { height: 16px; border-radius: 10px; overflow: hidden; background: #f0f2f5; }
+  .pool-bar { height: 100%; border-radius: 10px; transition: width .9s cubic-bezier(.4,0,.2,1); }
+
+  /* ===== Section header row ===== */
+  .section-header {
+    background: #fff;
+    border-radius: 14px 14px 0 0;
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(164,90,38,.1);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+  .section-header h5 { font-weight: 700; margin: 0; }
+
+  /* ===== Program Table ===== */
+  .prog-table-wrap { background:#fff; border-radius: 0 0 14px 14px; box-shadow: 0 4px 16px rgba(0,0,0,.07); }
+  .prog-table thead th {
+    background: #f8f9fb;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: #6b7280;
+    padding: .85rem 1rem;
+    border-bottom: 1px solid #e9ecef;
+    white-space: nowrap;
+  }
+  .prog-table tbody td {
+    padding: .9rem 1rem;
+    vertical-align: middle;
+    font-size: .88rem;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  .prog-table tbody tr:last-child td { border-bottom: none; }
+  .prog-table tbody tr:hover td { background: rgba(164,90,38,.03); }
+
+  .marks-pill {
+    background: linear-gradient(135deg,#339af0,#1c7ed6);
+    color: #fff;
+    padding: 3px 12px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: .85rem;
+    white-space: nowrap;
+  }
+  .marhala-chip {
+    display: inline-block;
+    font-size: .68rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: #f0f2f5;
+    color: #495057;
+    border: 1px solid #dee2e6;
+    margin: 1px;
+  }
+  .status-past {
+    background: #fff3cd; color: #856404;
+    border: 1px solid #ffeaaa;
+    border-radius: 20px; padding: 3px 10px;
+    font-size: .72rem; font-weight: 600; white-space:nowrap;
+  }
+  .status-upcoming {
+    background: #d1e7dd; color: #0f5132;
+    border: 1px solid #a3cfbb;
+    border-radius: 20px; padding: 3px 10px;
+    font-size: .72rem; font-weight: 600; white-space:nowrap;
+  }
+
+  /* ===== Upload Taqeem cards ===== */
+  .taqeem-upload-card {
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 3px 12px rgba(0,0,0,.08);
+    height: 100%;
+  }
+  .taqeem-upload-card .card-header {
+    font-weight: 700;
+    font-size: .9rem;
+    padding: 1rem 1.25rem;
+  }
+
+  /* ===== Modal tweaks ===== */
+  .modal-header-primary {
+    background: linear-gradient(135deg, #4f46e5, #312e81);
+    color: #fff;
+  }
+  .modal-header-success { background: linear-gradient(135deg,#2b8a3e,#2f9e44); color:#fff; }
+  .modal-header-warning { background: linear-gradient(135deg,#e67700,#fd7e14); color:#fff; }
+
+  /* ===== Responsive ===== */
+  @media(max-width:576px) {
+    .page-hero { padding: 1.25rem 1.25rem 1.75rem; }
+    .kpi-card-value { font-size: 1.8rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+
+  <!-- ===== Page Hero ===== -->
+  <div class="page-hero d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div>
+      <h2 class="mb-1">📚 Library program and progress report</h2>
+      <p>Manage Progress Report programs, allocate points, and upload student scores.</p>
+    </div>
+    <button class="btn btn-light fw-bold px-4 shadow-sm" id="addProgramBtn"
+            data-bs-toggle="modal" data-bs-target="#addProgramModal">
+      <i class="bi bi-plus-circle me-2"></i>Add New Program
+    </button>
+  </div>
+
+  <!-- ===== KPI Cards ===== -->
+  <div class="row g-3 kpi-row">
+    <div class="col-md-4 col-6">
+      <div class="kpi-card-inner kpi-blue">
+        <div class="kpi-card-label">Total Marks Pool</div>
+        <div class="kpi-card-value">100%</div>
+        <div class="kpi-card-sub">Maximum allowable allotment</div>
+        <i class="bi bi-award-fill kpi-icon-bg"></i>
+      </div>
+    </div>
+    <div class="col-md-4 col-6">
+      <div class="kpi-card-inner kpi-orange">
+        <div class="kpi-card-label">Marks Allotted</div>
+        <div class="kpi-card-value" id="kpi-allotted">0%</div>
+        <div class="kpi-card-sub">Assigned to programs</div>
+        <i class="bi bi-bar-chart-fill kpi-icon-bg"></i>
+      </div>
+    </div>
+    <div class="col-md-4 col-12">
+      <div class="kpi-card-inner kpi-green">
+        <div class="kpi-card-label">Marks Remaining</div>
+        <div class="kpi-card-value" id="kpi-remaining">100%</div>
+        <div class="kpi-card-sub">Available for new programs</div>
+        <i class="bi bi-check-circle-fill kpi-icon-bg"></i>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Pool Progress Bar ===== -->
+  <div class="pool-card">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <span class="fw-semibold text-muted" style="font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;">Marks Pool Usage</span>
+      <span class="fw-bold small" id="pool-label">0 / 100%</span>
+    </div>
+    <div class="pool-progress">
+      <div class="pool-bar" id="pool-bar" style="width:0%; background:linear-gradient(90deg,#339af0,#1c7ed6);"></div>
+    </div>
+    <div class="d-flex justify-content-between mt-1">
+      <small class="text-muted">0%</small>
+      <small class="text-danger fw-bold d-none" id="pool-full-warning">⚠ Marks pool is full!</small>
+      <small class="text-muted">100%</small>
+    </div>
+  </div>
+
+  <!-- ===== Programs Table ===== -->
+  <div class="mb-4">
+    <div class="section-header">
+      <h5><i class="bi bi-list-ul me-2 text-primary"></i>Program Register</h5>
+      <div class="d-flex align-items-center gap-2">
+        <span class="badge bg-secondary" id="prog-count-badge">0 programs</span>
+      </div>
+    </div>
+    <div class="prog-table-wrap">
+      <div class="table-responsive">
+        <table class="table prog-table mb-0" id="programsTable">
+          <thead>
+            <tr>
+              <th style="width:40px;">#</th>
+              <th>Program Title</th>
+              <th>Date</th>
+              <th>Allotment</th>
+              <th>Category</th>
+              <th>Target Groups</th>
+              <th>Branch</th>
+              <th>Status</th>
+              <th class="text-end pe-3">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="prog-tbody">
+            <tr>
+              <td colspan="8" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status"></div>
+                <div class="text-muted mt-2 small">Loading programs…</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== Taqeem Uploads Section ===== -->
+  <div class="mb-2">
+    <h5 class="fw-bold mb-3">
+      <i class="bi bi-cloud-upload me-2 text-primary"></i>Upload Taqeem Marks
+    </h5>
+  </div>
+  <div class="row g-3 mb-5">
+
+    <!-- Book Review Marks -->
+    <div class="col-md-6">
+      <div class="taqeem-upload-card card border-0">
+        <div class="card-header bg-primary text-white">
+          <i class="bi bi-pencil-square me-2"></i>Upload Book Review Marks
+        </div>
+        <div class="card-body">
+          <form id="bookReviewUploadForm" enctype="multipart/form-data">
+            <div class="row g-2 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Academic Year</label>
+                <input type="text" name="academic_year" class="form-control form-control-sm"
+                       value="{{ current_academic_year }}" required>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label small fw-semibold">File Type</label>
+                <select name="file_type" class="form-select form-select-sm">
+                  <option value="">Auto-detect</option>
+                  <option value="csv">CSV</option>
+                  <option value="excel">Excel</option>
+                </select>
+              </div>
+            </div>
+              <label class="form-label small fw-semibold">Select File</label>
+              <input type="file" name="csv_file" class="form-control form-control-sm" accept=".csv,.xlsx,.xls" required>
+              <div class="mt-2 d-flex justify-content-between align-items-center">
+                  <div class="form-text">Required columns: <strong>Trno</strong>, <strong>Marks</strong>, <strong>Remarks</strong></div>
+                  <a href="{{ url_for('static', filename='templates/book_reviews_template.csv') }}" class="btn btn-outline-primary btn-sm rounded-pill" style="font-size: .7rem;">
+                    <i class="bi bi-download me-1"></i>Template (CSV)
+                  </a>
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary btn-sm flex-grow-1">
+                <i class="bi bi-upload me-1"></i>Upload &amp; Calculate
+              </button>
+              <button type="button" id="exportBookReviewsBtn" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-download me-1"></i>Export
+              </button>
+            </div>
+          </form>
+          <div id="bookReviewResult" class="mt-3"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Program Attendance -->
+    <div class="col-md-6">
+      <div class="taqeem-upload-card card border-0">
+        <div class="card-header bg-success text-white">
+          <i class="bi bi-people-fill me-2"></i>Upload Program Attendance
+        </div>
+        <div class="card-body">
+          <form id="attendanceUploadForm" enctype="multipart/form-data">
+              <label class="form-label small fw-semibold">Select Attendance File (CSV)</label>
+              <input type="file" name="csv_file" class="form-control form-control-sm" accept=".csv" required>
+              <div class="mt-2 d-flex justify-content-between align-items-center">
+                  <div class="form-text">Required columns: <strong>ITSID</strong>, <strong>Name</strong>, <strong>ClassName</strong>, <strong>ProgramName</strong>, <strong>Date</strong>, <strong>Marks</strong></div>
+                  <a href="{{ url_for('static', filename='templates/program_attendance_template.csv') }}" class="btn btn-outline-success btn-sm rounded-pill" style="font-size: .7rem;">
+                    <i class="bi bi-download me-1"></i>Template (CSV)
+                  </a>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success btn-sm w-100">
+              <i class="bi bi-upload me-1"></i>Upload Attendance
+            </button>
+          </form>
+          <div id="attendanceResult" class="mt-3"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /uploads row -->
+
+  <!-- Student Progress Overview -->
+  <div class="card shadow-sm border-0 mb-5" style="border-radius: 12px; overflow: hidden;">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0 fw-bold"><i class="bi bi-people-fill me-2 text-success"></i>Student Progress Overview</h5>
+          <div class="d-flex gap-2">
+              <button class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="loadTaqeemOverviewLocal()">
+                  <i class="bi bi-arrow-clockwise me-1"></i> Load
+              </button>
+              <button id="recalcBtn" class="btn btn-warning text-dark btn-sm rounded-pill px-3 shadow-sm" onclick="recalcAllTaqeemLocal()">
+                  <i class="bi bi-calculator me-2"></i>Recalc All
+              </button>
+              <button class="btn btn-success btn-sm rounded-pill px-3" onclick="window.open('/api/export_taqeem', '_blank')">
+                  <i class="bi bi-file-spreadsheet me-1"></i> Export CSV
+              </button>
+          </div>
+      </div>
+      <div class="card-body p-0">
+          <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0" id="taqeemOverviewTable">
+                  <thead class="table-light text-muted">
+                      <tr>
+                          <th class="ps-4">Student</th>
+                          <th>Class</th>
+                          <th>Books P/D</th>
+                          <th>Reviews</th>
+                          <th>Programs</th>
+                          <th class="fw-bold text-dark">Total %</th>
+                          <th class="text-end pe-4">Actions</th>
+                      </tr>
+                  </thead>
+                  <tbody id="taqeem-overview-tbody">
+                      <tr><td colspan="7" class="text-center text-muted py-5">Click "Load" to build overview table.</td></tr>
+                  </tbody>
+              </table>
+          </div>
+      </div>
+  </div>
+
+</div><!-- /container-fluid -->
+<!-- ============================================================
+     ADD PROGRAM MODAL
+     ============================================================ -->
+<div class="modal fade" id="addProgramModal" tabindex="-1" aria-labelledby="addProgramModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header modal-header-primary">
+        <h5 class="modal-title" id="addProgramModalLabel">
+          <i class="bi bi-plus-circle me-2"></i>Create Library Program
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="addProgramForm">
+        <div class="modal-body p-4">
+          <div class="alert alert-info py-2 mb-3" id="modal-marks-alert">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong id="modal-marks-remaining-text">100%</strong> marks remaining in pool.
+          </div>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Program Title *</label>
+              <input type="text" name="title" class="form-control" placeholder="e.g. Book Fair – Spring Edition" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Date *</label>
+              <input type="date" name="date" class="form-control" required>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Marks Allotment (%) *</label>
+              <div class="input-group">
+                <input type="number" name="marks" id="marksInput" class="form-control"
+                       min="0.5" max="100" step="0.5" placeholder="e.g. 10" required>
+                <span class="input-group-text">%</span>
+              </div>
+              <small class="text-muted" id="marksHint">Enter value between 0.5 and available %</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Marks Category</label>
+              <select name="marks_category" class="form-select">
+                <option value="Manual">Manual Upload</option>
+                <option value="Automatic">Automatic (Book Issues)</option>
+                <option value="Attendance">Attendance Based</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Frequency</label>
+              <select name="frequency" class="form-select">
+                <option value="once">Once (Event)</option>
+                <option value="monthly">Monthly</option>
+                <option value="annually">Annually</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Campus Branch</label>
+              <select name="campus_branch" class="form-select">
+                {% for branch in campus_branches %}
+                <option value="{{ branch }}">{{ branch }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-12 mt-3">
+              <label class="form-label fw-semibold d-block d-flex justify-content-between">
+                <span>Target Darajahs (Classes)</span>
+                <span class="small text-primary" style="cursor:pointer" onclick="toggleAllDarajahs('#addProgramModal', true)">Select All</span>
+              </label>
+              <div class="d-flex flex-wrap gap-2 darajah-container border rounded p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
+                {% for d in all_darajahs %}
+                <div class="form-check" style="min-width: 140px;">
+                  <input class="form-check-input darajah-check" type="checkbox" value="{{ d }}" id="d_add_{{ loop.index }}">
+                  <label class="form-check-label small" for="d_add_{{ loop.index }}">{{ d }}</label>
+                </div>
+                {% endfor %}
+              </div>
+              <div class="form-text mt-1">Leave all unchecked to target <strong>All Darajahs</strong> in the selected Marhalas.</div>
+            </div>
+          </div>
+
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Venue / Location</label>
+              <input type="text" name="venue" class="form-control" placeholder="e.g. Main Hall / Digital Portal">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Conductor / Speaker</label>
+              <input type="text" name="conductor" class="form-control" placeholder="Name of person in charge">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Department Notes</label>
+              <textarea name="department_note" class="form-control" rows="2"
+                        placeholder="Internal instructions or remarks…"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 pt-0 px-4 pb-4">
+          <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning text-white fw-bold px-5" id="submitProgramBtn">
+            <i class="bi bi-check2-circle me-2"></i>Create Program
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     EDIT MARKS MODAL
+     ============================================================ -->
+<div class="modal fade" id="editMarksModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header modal-header-warning">
+        <h5 class="modal-title"><i class="bi bi-pencil-square me-2"></i>Edit Program Marks</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-4">
+        <input type="hidden" id="editProgramId">
+        <div class="mb-3">
+          <label class="form-label text-muted small fw-semibold text-uppercase">Program</label>
+          <div class="fw-bold fs-6" id="editProgramTitle">—</div>
+        </div>
+        <div class="alert alert-warning py-2 d-none" id="pastProgramAlert">
+          <i class="bi bi-lock-fill me-2"></i>
+          <strong>Past Program:</strong> Marks can only be <em>increased</em>, not reduced.
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">New Marks Allotment (%)</label>
+          <div class="input-group">
+            <input type="number" id="editMarksInput" class="form-control" min="0.5" max="100" step="0.5" required>
+            <span class="input-group-text">%</span>
+          </div>
+          <div class="mt-2 d-flex justify-content-between">
+            <small class="text-muted">Current: <strong id="editCurrentMarks">—</strong></small>
+            <small class="text-muted">Pool remaining: <strong id="editPoolRemaining">—</strong></small>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer border-0">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-warning fw-bold px-4" id="saveEditMarksBtn">
+          <i class="bi bi-save me-2"></i>Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     UPLOAD MARKS MODAL
+     ============================================================ -->
+<div class="modal fade" id="uploadMarksModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header modal-header-success">
+        <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Upload Program Marks</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="uploadMarksForm">
+        <input type="hidden" name="program_id" id="uploadProgramId">
+        <div class="modal-body p-4">
+          <div class="alert alert-info py-2 mb-3">
+            <i class="bi bi-info-circle me-2"></i>
+            Upload a <strong>CSV or Excel</strong> file with student <strong>ITS</strong> and <strong>Marks</strong> columns.
+          </div>
+          <p class="fw-semibold mb-1">Program: <span id="uploadProgramTitle" class="text-primary">—</span></p>
+          <div class="mb-3 text-center">
+            <a href="{{ url_for('static', filename='templates/program_attendance_template.csv') }}" class="btn btn-outline-primary btn-sm rounded-pill px-3">
+              <i class="bi bi-download me-2"></i>Download Sample Template (CSV)
+            </a>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Select File</label>
+            <input type="file" name="csv_file" class="form-control" accept=".csv,.xlsx,.xls" required>
+          </div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-success fw-bold px-4">
+            <i class="bi bi-upload me-2"></i>Upload &amp; Process
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================================
+     FULL PROGRAM EDIT MODAL (title, date, venue, conductor, etc.)
+     ============================================================ -->
+<div class="modal fade" id="editProgramModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header modal-header-primary">
+        <h5 class="modal-title"><i class="bi bi-pencil-fill me-2"></i>Edit Program Details</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <form id="fullEditProgramForm">
+        <input type="hidden" id="fullEditProgramId">
+        <div class="modal-body p-4">
+          <div class="alert alert-info py-2 mb-3" id="fullEditPastAlert" style="display:none;">
+            <i class="bi bi-info-circle me-2"></i>
+            <strong>Past Program:</strong> Metadata can be updated freely. Marks can only be <em>increased</em>.
+          </div>
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label class="form-label fw-semibold">Program Title *</label>
+              <input type="text" id="fullEditTitle" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Date *</label>
+              <input type="date" id="fullEditDate" class="form-control" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Marks Allotment (%)</label>
+              <div class="input-group">
+                <input type="number" id="fullEditMarks" class="form-control" min="0.5" max="100" step="0.5">
+                <span class="input-group-text">%</span>
+              </div>
+              <small class="text-muted" id="fullEditMarksHint">Leave unchanged to keep current marks</small>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Marks Category</label>
+              <select id="fullEditCategory" class="form-select">
+                <option value="Manual">Manual Upload</option>
+                <option value="Automatic">Automatic (Book Issues)</option>
+                <option value="Attendance">Attendance Based</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Frequency</label>
+              <select id="fullEditFrequency" class="form-select">
+                <option value="once">Once (Event)</option>
+                <option value="monthly">Monthly</option>
+                <option value="annually">Annually</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold">Campus Branch</label>
+              <select id="fullEditBranch" class="form-select">
+                {% for branch in campus_branches %}
+                <option value="{{ branch }}">{{ branch }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold d-block">Target Marhalas</label>
+              <div class="d-flex flex-wrap gap-3">
+                <div class="form-check">
+                  <input class="form-check-input edit-marhala-check" type="checkbox" value="Ibtedaiyah" id="em1">
+                  <label class="form-check-label" for="em1">Ibtedaiyah</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input edit-marhala-check" type="checkbox" value="Sanawiyah" id="em2">
+                  <label class="form-check-label" for="em2">Sanawiyah</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input edit-marhala-check" type="checkbox" value="Aaliyah" id="em3">
+                  <label class="form-check-label" for="em3">Aaliyah</label>
+                </div>
+                <div class="form-check">
+                  <input class="form-check-input edit-marhala-check" type="checkbox" value="Departmental Marhala" id="em4">
+                  <label class="form-check-label" for="em4">Departmental</label>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 mt-2">
+              <label class="form-label fw-semibold d-block d-flex justify-content-between">
+                <span>Target Darajahs</span>
+                <span class="small text-primary" style="cursor:pointer" onclick="toggleAllDarajahs('#editProgramModal', true)">Select All</span>
+              </label>
+              <div class="d-flex flex-wrap gap-2 darajah-container border rounded p-3 bg-light" style="max-height: 150px; overflow-y: auto;">
+                {% for d in all_darajahs %}
+                <div class="form-check" style="min-width: 130px;">
+                  <input class="form-check-input darajah-check-edit" type="checkbox" value="{{ d }}" id="d_edit_{{ loop.index }}">
+                  <label class="form-check-label small" for="d_edit_{{ loop.index }}">{{ d }}</label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Venue / Location</label>
+              <input type="text" id="fullEditVenue" class="form-control" placeholder="e.g. Main Hall">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold">Conductor / Speaker</label>
+              <input type="text" id="fullEditConductor" class="form-control">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Department Notes</label>
+              <textarea id="fullEditNote" class="form-control" rows="2"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer border-0 px-4 pb-4">
+          <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary fw-bold px-5" id="saveFullEditBtn">
+            <i class="bi bi-check2-circle me-2"></i>Save All Changes
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+  let totalAllotted = 0;
+
+  /* ── helpers ── */
+  function fmtPct(n) { return (parseFloat(n) || 0).toFixed(1) + '%'; }
+
+  /* ══════════════════════════════
+     BOOT
+  ══════════════════════════════ */
+  document.addEventListener('DOMContentLoaded', function () {
+    loadPrograms();
+
+    /* ---- marks input live validation ---- */
+    const marksInput = document.getElementById('marksInput');
+    if (marksInput) {
+      marksInput.addEventListener('input', function () {
+        const val = parseFloat(this.value) || 0;
+        const remaining = 100 - totalAllotted;
+        const hint = document.getElementById('marksHint');
+        if (val > remaining) {
+          this.classList.add('is-invalid');
+          hint.textContent = `⚠ Only ${fmtPct(remaining)} available!`;
+          hint.className = 'text-danger small';
+        } else {
+          this.classList.remove('is-invalid');
+          hint.textContent = `Enter value between 0.5 and ${fmtPct(remaining)}`;
+          hint.className = 'text-muted small';
+        }
+      });
+    }
+
+    /* ---- Add Program Form ---- */
+    document.getElementById('addProgramForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const fd = new FormData(this);
+      const marhalas = Array.from(this.querySelectorAll('.marhala-check:checked')).map(el => el.value);
+      const darajahs = Array.from(this.querySelectorAll('.darajah-check:checked')).map(el => el.value);
+      fd.append('marhalas', JSON.stringify(marhalas.length ? marhalas : ['All']));
+      fd.append('darajahs', JSON.stringify(darajahs.length ? darajahs : ['All']));
+      fd.append('academic_year', '{{ current_academic_year }}');
+
+      const btn = document.getElementById('submitProgramBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
+
+      window.csrfFetch('/api/add_program', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(j => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Create Program';
+          if (j.success) {
+            bootstrap.Modal.getInstance(document.getElementById('addProgramModal')).hide();
+            showToast(j.message, 'success', 'Program Created');
+            loadPrograms();
+            this.reset();
+          } else {
+            showToast(j.error || 'An error occurred.', 'danger', 'Error');
+          }
+        })
+        .catch(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Create Program';
+          showToast('Network error. Please try again.', 'danger', 'Error');
+        });
+    });
+
+    /* ---- Upload Marks Form ---- */
+    document.getElementById('uploadMarksForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      const fd = new FormData(this);
+      const btn = this.querySelector('button[type="submit"]');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing…';
+
+      window.csrfFetch('/api/upload_program_marks', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(j => {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="bi bi-upload me-2"></i>Upload &amp; Process';
+          if (j.success) {
+            bootstrap.Modal.getInstance(document.getElementById('uploadMarksModal')).hide();
+            showToast(j.message || 'Marks uploaded successfully.', 'success', 'Marks Uploaded');
+          } else {
+            showToast(j.error || 'Upload failed.', 'danger', 'Upload Failed');
+          }
+        });
+    });
+
+    /* ---- Edit Marks Save ---- */
+    document.getElementById('saveEditMarksBtn').addEventListener('click', function () {
+      const id = document.getElementById('editProgramId').value;
+      const marks = parseFloat(document.getElementById('editMarksInput').value);
+      if (!id || isNaN(marks) || marks <= 0) {
+        showToast('Please enter a valid marks value.', 'warning', 'Validation');
+        return;
+      }
+      this.disabled = true;
+      this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
+
+      window.csrfFetch('/api/edit_program_marks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: parseInt(id), marks: marks })
+      })
+        .then(r => r.json())
+        .then(j => {
+          this.disabled = false;
+          this.innerHTML = '<i class="bi bi-save me-2"></i>Save Changes';
+          if (j.success) {
+            bootstrap.Modal.getInstance(document.getElementById('editMarksModal')).hide();
+            showToast(j.message, 'success', 'Marks Updated');
+            loadPrograms();
+          } else {
+            showToast(j.error, 'danger', 'Error');
+          }
+        });
+    });
+
+    /* ---- Book Review Upload ---- */
+    const brForm = document.getElementById('bookReviewUploadForm');
+    if (brForm) {
+      brForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const fp = new FormData(this);
+        const resultDiv = document.getElementById('bookReviewResult');
+        resultDiv.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Uploading…</div>';
+        window.csrfFetch('/api/upload_book_reviews', { method: 'POST', body: fp })
+          .then(r => r.json())
+          .then(j => {
+            if (j.success) {
+              resultDiv.innerHTML = `<div class="alert alert-success py-2">✅ ${j.message}</div>`;
+            } else {
+              resultDiv.innerHTML = `<div class="alert alert-danger py-2">❌ ${j.error || 'Upload failed'}</div>`;
+            }
+          })
+          .catch(() => {
+            resultDiv.innerHTML = '<div class="alert alert-danger py-2">❌ Network error</div>';
+          });
+      });
+    }
+
+    /* ---- Attendance Upload ---- */
+    const attForm = document.getElementById('attendanceUploadForm');
+    if (attForm) {
+      attForm.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const fp = new FormData(this);
+        const resultDiv = document.getElementById('attendanceResult');
+        resultDiv.innerHTML = '<div class="alert alert-info py-2"><span class="spinner-border spinner-border-sm me-2"></span>Uploading…</div>';
+        window.csrfFetch('/api/upload_program_attendance', { method: 'POST', body: fp })
+          .then(r => r.json())
+          .then(j => {
+            if (j.success) {
+              resultDiv.innerHTML = `<div class="alert alert-success py-2">✅ ${j.message}</div>`;
+            } else {
+              resultDiv.innerHTML = `<div class="alert alert-danger py-2">❌ ${j.error || 'Upload failed'}</div>`;
+            }
+          })
+          .catch(() => {
+            resultDiv.innerHTML = '<div class="alert alert-danger py-2">❌ Network error</div>';
+          });
+      });
+    }
+
+    /* ---- Export Book Reviews ---- */
+    const expBtn = document.getElementById('exportBookReviewsBtn');
+    if (expBtn) {
+      expBtn.addEventListener('click', function () {
+        window.open('/api/export_book_reviews?format=csv&academic_year={{ current_academic_year }}', '_blank');
+      });
+    }
+  }); // end DOMContentLoaded
+
+    // Pre-calculated teacher lookup
+    const teacherMap = {};
+    {% if teacher_mappings %}
+      {% for tm in teacher_mappings %}
+        if (!teacherMap['{{ tm.darajah }}']) teacherMap['{{ tm.darajah }}'] = [];
+        teacherMap['{{ tm.darajah }}'].push('{{ tm.name }}');
+      {% endfor %}
+    {% endif %}
+
+    window.toggleAllDarajahs = function(modalId, select) {
+      const modal = document.querySelector(modalId);
+      modal.querySelectorAll('.darajah-check, .darajah-check-edit').forEach(el => el.checked = select);
+    };
+
+  /* ══════════════════════════════
+     LOAD PROGRAMS
+  ══════════════════════════════ */
+  function loadPrograms() {
+    const tbody = document.getElementById('prog-tbody');
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></td></tr>';
+
+    window.csrfFetch('/api/list_programs')
+      .then(r => r.json())
+      .then(apiData => {
+        tbody.innerHTML = '';
+        totalAllotted = 0;
+        
+        const systemPrograms = [
+          {
+            id: 'books_issued',
+            title: '📚 Books Issued (Automatic List)',
+            date: 'Ongoing',
+            frequency: 'annually',
+            marks: 40,
+            marks_category: 'Automatic',
+            marhalas: '["All"]',
+            darajahs: '["All"]',
+            venue: 'Koha System',
+            conductor: 'System',
+            department_note: 'Automatically synced. Do not delete.'
+          }
+        ];
+
+        let data = [...systemPrograms, ...(apiData || [])];
+
+        if (!data.length) {
+          tbody.innerHTML = `<tr><td colspan="9" class="text-center py-5 text-muted">
+            <i class="bi bi-calendar-x fs-2 d-block mb-2"></i>
+            No programs yet. Click "Add New Program" to start.
+          </td></tr>`;
+        } else {
+          const today = new Date().toISOString().split('T')[0];
+          
+          data.sort((a, b) => {
+            if (a.title.toLowerCase().includes('books issued')) return -1;
+            if (b.title.toLowerCase().includes('books issued')) return 1;
+            return new Date(b.date) - new Date(a.date);
+          });
+
+          data.forEach((prog, idx) => {
+            totalAllotted += parseFloat(prog.marks) || 0;
+
+            const parseMeta = (val) => {
+              if (!val || val === 'All' || val === 'null' || val === '[]') return ['All'];
+              try { 
+                const p = JSON.parse(val); 
+                return Array.isArray(p) ? p : [p];
+              } catch { return [val]; }
+            };
+
+            const marhalas = parseMeta(prog.marhalas);
+            const darajahs = parseMeta(prog.darajahs);
+
+            const isPast = prog.date !== 'Ongoing' && prog.date < today;
+            const isSystem = typeof prog.id === 'string' && (prog.id === 'books_issued' || prog.id === 'book_reviews');
+
+            const statusHtml = isSystem || !isPast
+              ? '<span class="status-upcoming"><i class="bi bi-arrow-right-circle me-1"></i>' + (prog.date === 'Ongoing' ? 'Permanent' : 'Upcoming') + '</span>'
+              : '<span class="status-past"><i class="bi bi-lock-fill me-1"></i>Past</span>';
+
+            const marhalaHtml = marhalas.map(m => `<span class="marhala-chip">${m}</span>`).join('');
+            
+            const darajahListHtml = darajahs.map(d => {
+              const teachers = teacherMap[d] ? ` <small class="text-info fw-normal">(${teacherMap[d].join(', ')})</small>` : '';
+              return `<div>${d}${teachers}</div>`;
+            }).join('');
+
+            const catColors = { Manual: 'secondary', Automatic: 'primary', Attendance: 'info' };
+            const catColor = catColors[prog.marks_category] || 'secondary';
+
+            // Action buttons
+            let editBtn = '';
+            if (isSystem) {
+              editBtn = `<button class="btn btn-sm btn-outline-secondary" disabled title="System program – automatically syncs"><i class="bi bi-gear-fill"></i></button>`;
+            } else if (!isPast) {
+              editBtn = `<button class="btn btn-sm btn-outline-warning" title="Edit Marks"
+                           onclick="openEditModal(${prog.id},'${prog.title.replace(/'/g,"\\'")}',${prog.marks},false)">
+                           <i class="bi bi-pencil"></i>
+                         </button>`;
+            } else {
+              // Past: allow increasing marks
+              editBtn = `<button class="btn btn-sm btn-outline-warning" title="Increase Marks (Past Program)"
+                           onclick="openEditModal(${prog.id},'${prog.title.replace(/'/g,"\\'")}',${prog.marks},true)">
+                           <i class="bi bi-pencil"></i>
+                         </button>`;
+            }
+
+            const uploadBtn = (prog.marks_category !== 'Automatic' && !isSystem)
+              ? `<button class="btn btn-sm btn-outline-success" title="Upload Marks"
+                   onclick="openUploadModal(${prog.id},'${prog.title.replace(/'/g,"\\'")}')">
+                   <i class="bi bi-upload"></i>
+                 </button>`
+              : '';
+
+            const deleteBtn = !isSystem 
+              ? `<button class="btn btn-sm btn-outline-danger" title="Delete Program"
+                   onclick="deleteProgram(${prog.id},'${prog.title.replace(/'/g,"\\'")}')">
+                   <i class="bi bi-trash"></i>
+                 </button>`
+              : '';
+
+            const fullEditBtn = !isSystem 
+              ? `<button class="btn btn-sm btn-outline-primary" title="Edit Full Details"
+                   onclick="openFullEditModal(${prog.id})">
+                   <i class="bi bi-pencil-square"></i>
+                 </button>`
+              : '';
+
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="text-muted fw-semibold">#${idx + 1}</td>
+              <td>
+                <div class="fw-bold">${prog.title}</div>
+                ${prog.venue || prog.conductor ? `<div class="small text-muted">${prog.venue || ''}${prog.conductor ? ' · ' + prog.conductor : ''}</div>` : ''}
+                ${prog.department_note ? `<div class="small text-info fst-italic">${prog.department_note}</div>` : ''}
+              </td>
+              <td>
+                <div class="fw-semibold">${prog.date}</div>
+                <small class="text-muted text-capitalize">${prog.frequency}</small>
+              </td>
+              <td><span class="marks-pill">${parseFloat(prog.marks).toFixed(1)}%</span></td>
+              <td>
+                <span class="badge bg-${catColors[prog.marks_category] || 'secondary'}-subtle border border-${catColors[prog.marks_category] || 'secondary'} text-${catColors[prog.marks_category] || 'secondary'} text-capitalize">
+                  ${prog.marks_category}
+                </span>
+              </td>
+              <td>
+                <div class="mb-1">${marhalaHtml}</div>
+                <div class="small fw-semibold text-secondary" style="max-height: 80px; overflow-y:auto;">
+                  ${darajahListHtml}
+                </div>
+              </td>
+              <td><span class="badge bg-light text-dark border small">${prog.campus_branch || 'Global'}</span></td>
+              <td>${statusHtml}</td>
+              <td class="text-end pe-3">
+                <div class="btn-group btn-group-sm gap-1">
+                  ${fullEditBtn}${uploadBtn}${deleteBtn}
+                </div>
+              </td>
+            `;
+            tbody.appendChild(tr);
+          });
+        }
+
+        updateKPIs(totalAllotted);
+        updateAddButton(totalAllotted);
+        document.getElementById('prog-count-badge').textContent =
+          `${data.length} program${data.length !== 1 ? 's' : ''}`;
+      })
+      .catch((err) => {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Error loading programs: ' + String(err.message || err) + '. Please refresh.</td></tr>';
+      });
+  }
+
+  function updateKPIs(allotted) {
+    const remaining = Math.max(0, 100 - allotted);
+    document.getElementById('kpi-allotted').textContent   = fmtPct(allotted);
+    document.getElementById('kpi-remaining').textContent  = fmtPct(remaining);
+    document.getElementById('pool-label').textContent     = `${fmtPct(allotted)} / 100%`;
+
+    const bar = document.getElementById('pool-bar');
+    const pct = Math.min(100, allotted);
+    bar.style.width = pct + '%';
+    bar.style.background = pct >= 100
+      ? 'linear-gradient(90deg,#ff6b6b,#e03131)'
+      : pct >= 80
+        ? 'linear-gradient(90deg,#ffd43b,#e67700)'
+        : 'linear-gradient(90deg,#339af0,#1c7ed6)';
+
+    document.getElementById('pool-full-warning').classList.toggle('d-none', pct < 100);
+    document.getElementById('modal-marks-remaining-text').textContent = fmtPct(remaining);
+  }
+
+  function updateAddButton(allotted) {
+    const btn = document.getElementById('addProgramBtn');
+    if (allotted >= 100) {
+      btn.disabled = true;
+      btn.title = 'Marks pool is full (100%). Remove or reduce existing programs first.';
+      btn.innerHTML = '<i class="bi bi-slash-circle me-2"></i>Pool Full';
+    } else {
+      btn.disabled = false;
+      btn.title = '';
+      btn.innerHTML = '<i class="bi bi-plus-circle me-2"></i>Add New Program';
+    }
+  }
+
+  function openEditModal(id, title, currentMarks, isPast) {
+    document.getElementById('editProgramId').value = id;
+    document.getElementById('editProgramTitle').textContent = title;
+    document.getElementById('editMarksInput').value = currentMarks;
+    document.getElementById('editCurrentMarks').textContent = fmtPct(currentMarks);
+    const remaining = 100 - totalAllotted + parseFloat(currentMarks);
+    document.getElementById('editPoolRemaining').textContent = fmtPct(remaining);
+    document.getElementById('editMarksInput').max = remaining;
+
+    const alertEl = document.getElementById('pastProgramAlert');
+    if (isPast) {
+      alertEl.classList.remove('d-none');
+      document.getElementById('editMarksInput').min = currentMarks; // can only increase
+    } else {
+      alertEl.classList.add('d-none');
+      document.getElementById('editMarksInput').min = 0.5;
+    }
+    new bootstrap.Modal(document.getElementById('editMarksModal')).show();
+  }
+
+  function openUploadModal(id, title) {
+    document.getElementById('uploadProgramId').value = id;
+    document.getElementById('uploadProgramTitle').textContent = title;
+    new bootstrap.Modal(document.getElementById('uploadMarksModal')).show();
+  }
+
+  function deleteProgram(id, title) {
+    window.confirmAction(`Delete "${title}"?\n\nAll recorded marks for this program will be removed and the allotment released.`, () => {
+      window.csrfFetch('/api/remove_program', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: id })
+      })
+        .then(r => r.json())
+        .then(j => {
+          if (j.success) {
+            showToast(j.message, 'info', 'Program Removed');
+            loadPrograms();
+          } else {
+            showToast(j.error, 'danger', 'Error');
+          }
+        });
+    }, 'Confirm Deletion');
+  }
+
+  /* ══════════════════════════════
+     FULL PROGRAM EDIT
+  ══════════════════════════════ */
+  function openFullEditModal(id) {
+    window.csrfFetch(`/api/get_program?id=${id}`)
+      .then(r => r.json())
+      .then(prog => {
+        if (!prog || prog.success === false) {
+          showToast(prog && prog.error ? prog.error : 'Failed to load program', 'danger', 'Error');
+          return;
+        }
+        document.getElementById('fullEditProgramId').value = id;
+        document.getElementById('fullEditTitle').value = prog.title || '';
+        document.getElementById('fullEditDate').value = prog.date || '';
+        document.getElementById('fullEditMarks').value = prog.marks || '';
+        document.getElementById('fullEditCategory').value = prog.marks_category || 'Manual';
+        document.getElementById('fullEditFrequency').value = prog.frequency || 'once';
+        document.getElementById('fullEditBranch').value = prog.campus_branch || 'Global';
+        document.getElementById('fullEditVenue').value = prog.venue || '';
+        document.getElementById('fullEditConductor').value = prog.conductor || '';
+        document.getElementById('fullEditNote').value = prog.department_note || '';
+
+        // Parse marhalas
+        let marhalas = [];
+        try { marhalas = JSON.parse(prog.marhalas); } catch { marhalas = prog.marhalas ? [prog.marhalas] : []; }
+        document.querySelectorAll('.edit-marhala-check').forEach(cb => {
+          cb.checked = marhalas.includes(cb.value);
+        });
+
+        // Parse darajahs
+        let darajahs = [];
+        try { darajahs = JSON.parse(prog.darajahs); } catch { darajahs = prog.darajahs ? [prog.darajahs] : []; }
+        document.querySelectorAll('.darajah-check-edit').forEach(cb => {
+          cb.checked = darajahs.includes(cb.value);
+        });
+
+        // Show past alert
+        const today = new Date().toISOString().split('T')[0];
+        const isPast = prog.date < today;
+        const alertEl = document.getElementById('fullEditPastAlert');
+        alertEl.style.display = isPast ? 'block' : 'none';
+        const marksInput = document.getElementById('fullEditMarks');
+        if (isPast) {
+          marksInput.min = prog.marks; // can only increase
+          document.getElementById('fullEditMarksHint').textContent =
+            `Past program: min. ${prog.marks}% (can only increase marks)`;
+        } else {
+          marksInput.min = '0.5';
+          document.getElementById('fullEditMarksHint').textContent = 'Leave unchanged to keep current';
+        }
+
+        new bootstrap.Modal(document.getElementById('editProgramModal')).show();
+      })
+      .catch(() => showToast('Network error loading program details', 'danger', 'Error'));
+  }
+
+  document.getElementById('fullEditProgramForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const id = document.getElementById('fullEditProgramId').value;
+    const marhalas = Array.from(document.querySelectorAll('.edit-marhala-check:checked')).map(cb => cb.value);
+    const darajahs = Array.from(document.querySelectorAll('.darajah-check-edit:checked')).map(cb => cb.value);
+    const marksVal = document.getElementById('fullEditMarks').value;
+
+    const payload = {
+      id: parseInt(id),
+      title: document.getElementById('fullEditTitle').value.trim(),
+      date: document.getElementById('fullEditDate').value,
+      marks: marksVal ? parseFloat(marksVal) : 0,
+      marks_category: document.getElementById('fullEditCategory').value,
+      frequency: document.getElementById('fullEditFrequency').value,
+      campus_branch: document.getElementById('fullEditBranch').value,
+      marhalas: JSON.stringify(marhalas.length ? marhalas : ['All']),
+      darajahs: JSON.stringify(darajahs.length ? darajahs : ['All']),
+      venue: document.getElementById('fullEditVenue').value.trim(),
+      conductor: document.getElementById('fullEditConductor').value.trim(),
+      note: document.getElementById('fullEditNote').value.trim()
+    };
+
+    const btn = document.getElementById('saveFullEditBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Saving…';
+
+    window.csrfFetch('/api/edit_program', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+      .then(r => r.json())
+      .then(j => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Save All Changes';
+        if (j.success) {
+          bootstrap.Modal.getInstance(document.getElementById('editProgramModal')).hide();
+          showToast(j.message, 'success', 'Program Updated');
+          loadPrograms();
+        } else {
+          showToast(j.error, 'danger', 'Error');
+        }
+      })
+      .catch(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-check2-circle me-2"></i>Save All Changes';
+        showToast('Network error. Please try again.', 'danger', 'Error');
+      });
+  });
+
+  /* ══════════════════════════════
+     STUDENT PROGRESS OVERVIEW
+  ══════════════════════════════ */
+  function loadTaqeemOverviewLocal() {
+    showToast('Loading Progress Overview...', 'info', '');
+    window.csrfFetch('/api/get_taqeem_overview')
+      .then(r => r.json())
+      .then(res => {
+        const tbody = document.getElementById('taqeem-overview-tbody');
+        if (!res.success) throw new Error(res.error || 'Failed');
+        if (!res.data || res.data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">No students found</td></tr>';
+          return;
+        }
+
+        const getBadgeClass = (val) => {
+          const lower = String(val).toLowerCase();
+          if (lower.includes('admin')) return 'bg-danger text-white';
+          if (lower.includes('student')) return 'bg-success text-white';
+          if (lower.includes('hod')) return 'bg-purple text-white';
+          if (lower.includes('teacher')) return 'bg-info text-dark';
+          return 'bg-secondary text-white';
+        };
+
+        const rows = res.data.map(row => {
+            return `<tr>
+              <td><div class="fw-bold">${row.name || 'Unknown'}</div><div class="small text-muted">${row.username}</div></td>
+              <td>${row.class_name || 'System'}</td>
+              <td>${row.total_pd_marks || 0}</td>
+              <td>${row.total_review_marks || 0}</td>
+              <td>${row.total_program_marks || 0}</td>
+              <td><span class="badge ${getBadgeClass(row.grand_total)}">${row.grand_total || 0}%</span></td>
+              <td class="text-end pe-4">
+                <a href="/student_profile/${row.username}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                  <i class="bi bi-eye me-1"></i>View
+                </a>
+              </td>
+            </tr>`;
+        });
+        tbody.innerHTML = rows.join('');
+      })
+      .catch(e => {
+        console.error(e);
+        showToast('Failed to load overview', 'danger', 'Error');
+      });
+  }
+
+  function recalcAllTaqeemLocal() {
+    if (!confirm("This will recalculate marks for ALL students based on current Koha data and uploaded reviews. Proceed?")) return;
+    
+    const btn = document.getElementById('recalcBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Calculating...';
+    
+    window.csrfFetch('/api/recalc_all_taqeem', { method: 'POST', body: JSON.stringify({}), headers: { 'Content-Type': 'application/json' } })
+      .then(r => r.json())
+      .then(res => {
+         if (res.success) {
+           showToast(res.message, 'success', 'Success');
+           loadTaqeemOverviewLocal();
+         } else {
+           showToast(res.error || 'Failed to recalc', 'danger', 'Error');
+         }
+      })
+      .catch(e => {
+         showToast('Network error during recalculation', 'danger', 'Error');
+      })
+      .finally(() => {
+         btn.disabled = false;
+         btn.innerHTML = originalText;
+      });
+  }
+</script>
+{% endblock %}

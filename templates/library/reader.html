@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Digital Reader - {{ filename }} | Maktabat al-Jamea{% endblock %}
+{% block content %}
+<div class="container-fluid py-4" style="height: calc(100vh - 100px);">
+    <div class="row h-100">
+        <!-- Sidebar: Info & Navigation -->
+        <div class="col-md-3 h-100 border-end d-none d-md-block overflow-auto pe-4">
+            <h4 class="fw-bold mb-4">📖 Reading Mode</h4>
+            <div class="card border-0 shadow-sm bg-light rounded-4 mb-4">
+                <div class="card-body p-4">
+                    <p class="small text-uppercase fw-bold text-muted mb-1">Book Title</p>
+                    <h6 class="fw-bold mb-3">{{ filename.replace('.pdf', '') }}</h6>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('library_bp.browse') }}" class="btn btn-outline-dark rounded-pill btn-sm">
+                            <i class="bi bi-arrow-left me-2"></i>Back to Library
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="alert alert-info border-0 rounded-4 shadow-sm" role="alert">
+                <i class="bi bi-info-circle me-2"></i><strong>Pro-Tip:</strong> Use the browser's native PDF controls to zoom or search within the text.
+            </div>
+        </div>
+        
+        <!-- Main: PDF Viewer -->
+        <div class="col-md-9 h-100">
+            <div class="card border-0 shadow-lg rounded-4 overflow-hidden h-100">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3 border-0">
+                    <span class="fw-bold"><i class="bi bi-file-earmark-pdf me-2"></i>{{ filename }}</span>
+                    <button class="btn btn-sm btn-outline-light rounded-pill border-0" onclick="document.getElementById('pdfFrame').requestFullscreen()">
+                        <i class="bi bi-fullscreen"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0 h-100">
+                    <iframe id="pdfFrame" src="{{ url_for('library_bp.serve_book', filename=filename) }}" 
+                            width="100%" height="100%" frameborder="0" style="min-height: 700px; border: none;">
+                    </iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    body { background-color: #f8fafc; }
+    #pdfFrame:fullscreen { width: 100vw; height: 100vh; background: #333; }
+</style>
+{% endblock %}

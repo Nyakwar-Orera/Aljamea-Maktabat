@@ -1,0 +1,1541 @@
+{% extends "base.html" %}
+{% block title %}⚙️ Admin Settings - Maktabat al-Jamea{% endblock %}
+
+{% block content %}
+<h2 class="mb-1">⚙️ Admin Settings</h2>
+<p class="text-muted mb-4">Brand your portal, manage users & darajahs, configure email automation, and run diagnostics.
+</p>
+
+<!-- CSV Upload Sections -->
+<div class="row">
+  <!-- Bulk User Upload -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-info text-white">📁 Bulk Upload Users (CSV)</div>
+      <div class="card-body">
+        <form id="csvUploadForm" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label">Upload General User CSV</label>
+            <input type="file" id="csvFile" name="csv_file" class="form-control" accept=".csv" required>
+            <div class="mt-2 d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                  CSV must have columns: ITS, Name, email, darajah, role, class teacher
+                </small>
+                <a href="{{ url_for('static', filename='templates/users_template.csv') }}" class="btn btn-outline-info btn-sm">
+                  <i class="bi bi-download me-1"></i>Template
+                </a>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-info w-100">⬆️ Upload User CSV</button>
+        </form>
+        <div id="csvUploadResult" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Teacher Import -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-success text-white">🏫 Import Teachers from CSV</div>
+      <div class="card-body">
+        <form id="teacherImportForm" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label class="form-label">Upload Teacher CSV File</label>
+            <input type="file" id="teacherCsvFile" name="csv_file" class="form-control" accept=".csv" required>
+            <div class="mt-2 d-flex justify-content-between align-items-center">
+                <small class="text-muted">
+                  CSV must have columns: ITS, name, email, darajah
+                </small>
+                <a href="{{ url_for('static', filename='templates/teachers_template.csv') }}" class="btn btn-outline-success btn-sm">
+                  <i class="bi bi-download me-1"></i>Template
+                </a>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success w-100">⬆️ Import Teachers</button>
+        </form>
+        <div id="teacherImportResult" class="mt-3"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<hr class="my-4">
+
+<!-- Progress Report – now managed on dedicated page -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card border-0 shadow-sm" style="background: linear-gradient(135deg, #a45a26, #6d3212); color:#fff; border-radius:12px;">
+      <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3 p-4">
+        <div>
+          <h5 class="mb-1 fw-bold"><i class="bi bi-award me-2"></i>Progress Report Management</h5>
+          <p class="mb-0" style="opacity:.85;">Manage library programs, allot marks, upload book reviews and program attendance — all in one dedicated page.</p>
+        </div>
+        <a href="{{ url_for('admin_bp.admin_programs') }}" class="btn btn-light fw-bold px-4 shadow-sm">
+          <i class="bi bi-arrow-right-circle me-2"></i>Go to Progress Report
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+<hr class="my-4">
+
+
+<!-- User Management (Full Width) -->
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-success text-white">👤 Manage User Accounts</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-5">
+            <form id="userForm" class="mb-3">
+              <input type="text" id="username" name="username" class="form-control mb-2" placeholder="Username *"
+                required>
+              <input type="email" id="email" name="email" class="form-control mb-2" placeholder="Email *" required>
+
+              <div class="input-group mb-2">
+                <input type="password" id="password" name="password" class="form-control" placeholder="Password *">
+                <button class="btn btn-outline-secondary" type="button" id="togglePassword" tabindex="-1">
+                  <i class="bi bi-eye"></i>
+                </button>
+              </div>
+
+              <div class="row g-2 mb-2">
+                <div class="col-md-6">
+                  <select id="role" name="role" class="form-select" required>
+                    <option value="">Select Role *</option>
+                    <option value="admin">Admin</option>
+                    <option value="hod">Head of Marhala</option>
+                    <option value="teacher">Darajah Teacher</option>
+                    <option value="student">Student</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <input type="text" id="teacherName" name="teacher_name" class="form-control d-none"
+                    placeholder="Teacher Full Name">
+                </div>
+              </div>
+
+              <input type="text" id="marhalaField" name="department_name" class="form-control mb-2 d-none"
+                placeholder="Marhala Name (Head of Marhala only)">
+              <input type="text" id="darajahField" name="class_name" class="form-control mb-2 d-none"
+                placeholder="Darajah Name (Teacher/Student only)">
+
+              <button type="submit" class="btn btn-success w-100 mb-2">➕ Add User</button>
+              <button type="button" id="removeUserBtn" class="btn btn-danger w-100">🗑️ Remove User</button>
+            </form>
+          </div>
+          <div class="col-md-7">
+            <h6>Existing Users</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped" id="usersTable">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Teacher Name</th>
+                    <th>Marhala</th>
+                    <th>Darajah</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Teacher-Darajah Mapping (Full Width) -->
+<div class="row">
+  <div class="col-md-12">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-dark text-white">🏫 Manage Teacher-Darajah Mapping</div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-5">
+            <form id="teacherMappingForm" class="mb-3">
+              <input type="text" id="teacherUsername" name="teacher_username" class="form-control mb-2"
+                placeholder="Teacher Username *" required>
+              <input type="text" id="teacherFullName" name="teacher_name" class="form-control mb-2"
+                placeholder="Teacher Full Name">
+              <input type="email" id="teacherEmail" name="teacher_email" class="form-control mb-2"
+                placeholder="Teacher Email">
+              <input type="text" id="mappingDarajah" name="darajah_name" class="form-control mb-2"
+                placeholder="Darajah Name *" required>
+
+              <select id="teacherRole" name="role" class="form-select mb-2">
+                <option value="class_teacher">Class Teacher</option>
+                <option value="masool">Masool</option>
+                <option value="assistant">Assistant Teacher</option>
+              </select>
+
+              <button type="submit" class="btn btn-dark w-100 mb-2">➕ Add Teacher Mapping</button>
+            </form>
+          </div>
+          <div class="col-md-7">
+            <h6>Teacher-Darajah Mappings</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped" id="teacherMappingTable">
+                <thead>
+                  <tr>
+                    <th>Teacher</th>
+                    <th>Darajah</th>
+                    <th>Role</th>
+                    <th>Email</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Email Settings (Schedule) -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-info text-white">📧 Configure Auto Email Reports</div>
+      <div class="card-body">
+        <form id="emailForm" class="mb-3">
+          <input type="email" id="emailSender" name="email_sender" class="form-control mb-3"
+            placeholder="Sender Email (example@domain.com)" required>
+
+          <select id="emailFrequency" name="email_frequency" class="form-select mb-3" required>
+            <option value="daily">Daily</option>
+            <option value="weekly">Weekly</option>
+            <option value="monthly" selected>Monthly</option>
+          </select>
+
+          <div id="weeklyOptions" class="mb-3 d-none">
+            <label for="dayOfWeek" class="form-label">Day of Week</label>
+            <select id="dayOfWeek" name="day_of_week" class="form-select">
+              <option value="mon">Monday</option>
+              <option value="tue">Tuesday</option>
+              <option value="wed">Wednesday</option>
+              <option value="thu">Thursday</option>
+              <option value="fri">Friday</option>
+            </select>
+          </div>
+
+          <div id="monthlyOptions" class="mb-3">
+            <label for="dayOfMonth" class="form-label">Day of Month (1–28)</label>
+            <input type="number" id="dayOfMonth" name="day_of_month" class="form-control" min="1" max="28" value="1">
+          </div>
+
+          <div class="row mb-3">
+            <div class="col">
+              <label class="form-label">Hour (0-23)</label>
+              <input type="number" id="sendHour" name="send_hour" class="form-control" min="0" max="23" value="8">
+            </div>
+            <div class="col">
+              <label class="form-label">Minute (0-59)</label>
+              <input type="number" id="sendMinute" name="send_minute" class="form-control" min="0" max="59" value="0">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-info w-100 mb-2">💾 Save Email Settings</button>
+        </form>
+
+        <div class="d-flex gap-2">
+          <form method="post" action="{{ url_for('admin_bp.run_email_reports_now') }}" class="flex-grow-1">
+            <button class="btn btn-outline-primary w-100" type="submit">🚀 Send Email Reports Now</button>
+          </form>
+          <form id="testEmailForm" class="flex-grow-1">
+            <div class="input-group">
+              <input type="email" name="to" class="form-control" placeholder="Test email to..." required>
+              <button class="btn btn-outline-secondary" type="submit">Send Test</button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Marhala Heads -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-secondary text-white">🏫 Manage Marhala Heads</div>
+      <div class="card-body">
+        <form id="marhalaHeadForm" class="mb-3">
+          <input type="text" id="marhalaName" name="department_name" class="form-control mb-2"
+            placeholder="Marhala Name *" required>
+          <input type="text" id="headName" name="head_name" class="form-control mb-2" placeholder="Head Name">
+          <input type="email" id="marhalaEmail" name="email" class="form-control mb-2" placeholder="Head Email *"
+            required>
+          <button type="submit" class="btn btn-secondary w-100 mb-2">➕ Add Marhala Head</button>
+          <button type="button" id="removeMarhalaBtn" class="btn btn-danger w-100">🗑️ Remove Marhala Head</button>
+        </form>
+
+        <h6>Existing Marhala Heads</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped" id="marhalaTable">
+            <thead>
+              <tr>
+                <th>Marhala</th>
+                <th>Head Name</th>
+                <th>Email</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Student Management -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-warning text-dark">📚 Manage Student-Darajah Mapping</div>
+      <div class="card-body">
+        <form id="studentMappingForm" class="mb-3">
+          <input type="text" id="studentUsername" name="student_username" class="form-control mb-2"
+            placeholder="Student Username *" required>
+          <input type="text" id="studentName" name="student_name" class="form-control mb-2"
+            placeholder="Student Full Name">
+          <input type="email" id="studentEmail" name="email" class="form-control mb-2" placeholder="Student Email">
+          <input type="text" id="studentDarajah" name="darajah_name" class="form-control mb-2"
+            placeholder="Darajah Name *" required>
+
+          <button type="submit" class="btn btn-warning w-100 mb-2">➕ Add Student Mapping</button>
+          <button type="button" id="removeStudentBtn" class="btn btn-danger w-100">🗑️ Remove Student Mapping</button>
+        </form>
+
+        <h6>Student-Darajah Mappings</h6>
+        <div class="table-responsive">
+          <table class="table table-sm table-striped" id="studentMappingTable">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Darajah</th>
+                <th>Academic Year</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Student Progress Management -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-info text-white">📊 Manage Student Progress</div>
+      <div class="card-body">
+        <div class="row mb-3">
+          <div class="col-md-8">
+            <input type="text" id="progressStudentFilter" class="form-control mb-2"
+              placeholder="Filter by student username">
+            <input type="text" id="progressDarajahFilter" class="form-control mb-2" placeholder="Filter by darajah">
+            <input type="text" id="progressMonthFilter" class="form-control mb-2"
+              placeholder="Filter by month (YYYY-MM)">
+          </div>
+          <div class="col-md-4">
+            <button id="progressFilterBtn" class="btn btn-info w-100 mb-2">🔍 Filter</button>
+            <button id="progressResetBtn" class="btn btn-outline-info w-100">🔄 Reset</button>
+          </div>
+        </div>
+
+        <form id="studentProgressForm" class="mb-3">
+          <input type="hidden" id="progressId" name="id">
+          <div class="row g-2 mb-2">
+            <div class="col-md-4">
+              <input type="text" id="progressStudent" name="student_username" class="form-control"
+                placeholder="Student Username *" required>
+            </div>
+            <div class="col-md-4">
+              <input type="text" id="progressDarajah" name="darajah_name" class="form-control"
+                placeholder="Darajah Name *" required>
+            </div>
+            <div class="col-md-4">
+              <input type="text" id="progressMonth" name="month_year" class="form-control"
+                placeholder="Month-Year (YYYY-MM) *" required>
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-md-3">
+              <input type="number" id="progressBooksBorrowed" name="books_borrowed" class="form-control"
+                placeholder="Books Borrowed" min="0" value="0">
+            </div>
+            <div class="col-md-3">
+              <input type="number" id="progressBooksReturned" name="books_returned" class="form-control"
+                placeholder="Books Returned" min="0" value="0">
+            </div>
+            <div class="col-md-3">
+              <input type="number" id="progressOverdue" name="overdue_books" class="form-control"
+                placeholder="Overdue Books" min="0" value="0">
+            </div>
+            <div class="col-md-3">
+              <input type="number" id="progressAttendance" name="attendance_days" class="form-control"
+                placeholder="Attendance Days" min="0" value="0">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-md-4">
+              <input type="number" id="progressTotalDays" name="total_days" class="form-control"
+                placeholder="Total Days (default: 20)" min="1" value="20">
+            </div>
+            <div class="col-md-8">
+              <input type="text" id="progressRemarks" name="remarks" class="form-control" placeholder="Remarks">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-info w-100 mb-2">💾 Save Progress Record</button>
+          <button type="button" id="progressClearBtn" class="btn btn-outline-secondary w-100">🧹 Clear Form</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Student Progress Table (Full Width) -->
+<div class="row">
+  <div class="col-md-12">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-light text-dark">📋 Student Progress Records</div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm table-striped" id="studentProgressTable">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Darajah</th>
+                <th>Month</th>
+                <th>Books</th>
+                <th>Overdue</th>
+                <th>Attendance</th>
+                <th>Remarks</th>
+                <th>Reported By</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Branding & Appearance -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-primary text-white">🎨 Branding & Appearance</div>
+      <div class="card-body">
+        <form id="brandingForm" class="mb-3">
+          <input type="text" id="orgName" name="org_name" class="form-control mb-2" placeholder="Organization Name"
+            required>
+          <input type="text" id="siteName" name="site_name" class="form-control mb-2" placeholder="Site Name" required>
+
+          <div class="row g-2">
+            <div class="col">
+              <label class="form-label">Theme Color</label>
+              <input type="color" id="themeColor" name="theme_color" class="form-control form-control-color"
+                value="#004080" title="Pick a color">
+            </div>
+            <div class="col">
+              <label class="form-label">Footer Text</label>
+              <input type="text" id="footerText" name="footer_text" class="form-control"
+                placeholder="© Maktabat al-Jamea">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 mt-3">💾 Save Branding</button>
+        </form>
+
+        <form id="logoForm" enctype="multipart/form-data">
+          <label class="form-label">Logo (PNG/JPG)</label>
+          <input type="file" id="logoFile" name="logo_file" class="form-control mb-2"
+            accept=".png,.jpg,.jpeg,.gif,.webp">
+          <button type="submit" class="btn btn-outline-primary w-100">⬆️ Upload Logo</button>
+          <div class="text-center mt-2">
+            <img id="logoPreview" src="" alt="Logo preview" style="max-height:60px;">
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Database Settings -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-warning text-dark">🗄️ Database Connection Settings</div>
+      <div class="card-body">
+        <form id="dbForm">
+          <input type="text" id="dbHost" name="db_host" class="form-control mb-2" placeholder="Host (e.g., localhost)"
+            required>
+          <input type="text" id="dbName" name="db_name" class="form-control mb-2" placeholder="Database Name *"
+            required>
+          <input type="text" id="dbUser" name="db_user" class="form-control mb-2" placeholder="DB Username *" required>
+          <input type="password" id="dbPass" name="db_pass" class="form-control mb-3" placeholder="Password *" required>
+          <button type="submit" class="btn btn-warning w-100">💾 Save DB Settings</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- Email Templates -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-dark text-white">✉️ Email Templates</div>
+      <div class="card-body">
+        <form id="templateForm" class="mb-3">
+          <div class="row g-2">
+            <div class="col-md-3">
+              <label class="form-label">Template</label>
+              <select id="templateKey" name="template_key" class="form-select" required>
+                <option value="class_report">Darajah Report</option>
+                <option value="department_report">Marhala Report</option>
+                <option value="account_created">Account Created</option>
+                <option value="student_report">Student Report</option>
+                <option value="teacher_token_login">Teacher Login Link</option>
+              </select>
+            </div>
+            <div class="col-md-9">
+              <label class="form-label">Subject</label>
+              <input type="text" id="templateSubject" name="subject" class="form-control" required>
+            </div>
+          </div>
+          <label class="form-label mt-2">HTML Body</label>
+          <textarea id="templateHtml" name="html" class="form-control" rows="4" required></textarea>
+          <small class="text-muted">
+            Available placeholders: <code>{{ "{{ class_name }}" }}</code> (Darajah),
+            <code>{{ "{{ dept }}" }}</code> (Marhala), <code>{{ "{{ head_name }}" }}</code>,
+            <code>{{ "{{ username }}" }}</code>, <code>{{ "{{ role }}" }}</code>,
+            <code>{{ "{{ password }}" }}</code>, <code>{{ "{{ login_url }}" }}</code>,
+            <code>{{ "{{ student_name }}" }}</code>, <code>{{ "{{ parent_name }}" }}</code>,
+            <code>{{ "{{ darajah_name }}" }}</code>, <code>{{ "{{ teacher_name }}" }}</code>,
+            <code>{{ "{{ teacher_email }}" }}</code>
+          </small>
+          <button type="submit" class="btn btn-dark w-100 mt-2">💾 Save Template</button>
+        </form>
+
+        <div class="table-responsive">
+          <table class="table table-sm table-striped" id="templatesTable">
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>Subject</th>
+                <th>Preview</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit Log -->
+  <div class="col-md-6">
+    <div class="card mb-3 shadow-sm">
+      <div class="card-header bg-light text-dark">🧾 Recent Activity (Audit)</div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm" id="auditTable">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Actor</th>
+                <th>Action</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // 👁️ Toggle show/hide password
+    const toggleBtn = document.getElementById("togglePassword");
+    const passwordField = document.getElementById("password");
+    if (toggleBtn && passwordField) {
+      toggleBtn.addEventListener("click", function () {
+        const isHidden = passwordField.type === "password";
+        passwordField.type = isHidden ? "text" : "password";
+        this.innerHTML = isHidden ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+      });
+    }
+
+    // Toggle weekly/monthly fields
+    const freqSel = document.getElementById("emailFrequency");
+    function toggleSched() {
+      const weekly = document.getElementById("weeklyOptions");
+      const monthly = document.getElementById("monthlyOptions");
+      if (weekly && monthly) {
+        weekly.classList.toggle("d-none", freqSel.value !== "weekly");
+        monthly.classList.toggle("d-none", freqSel.value !== "monthly");
+      }
+    }
+    if (freqSel) {
+      freqSel.addEventListener("change", toggleSched);
+      toggleSched();
+    }
+
+    // Toggle marhala/darajah/teacher name input visibility
+    const roleSelect = document.getElementById("role");
+    const marhalaField = document.getElementById("marhalaField");
+    const darajahField = document.getElementById("darajahField");
+    const teacherNameField = document.getElementById("teacherName");
+
+    if (roleSelect && marhalaField && darajahField && teacherNameField) {
+      function updateRoleFields() {
+        const role = roleSelect.value;
+        marhalaField.classList.toggle("d-none", role !== "hod");
+
+        // Show darajah field for both teachers and students
+        const showDarajah = (role === "teacher" || role === "student");
+        darajahField.classList.toggle("d-none", !showDarajah);
+
+        // Show teacher name field for teachers only
+        teacherNameField.classList.toggle("d-none", role !== "teacher");
+        teacherNameField.required = (role === "teacher");
+
+        // Make password optional for teachers
+        const passwordField = document.getElementById("password");
+        if (passwordField) {
+          if (role === "teacher") {
+            passwordField.placeholder = "Password (optional for teachers)";
+            passwordField.required = false;
+          } else {
+            passwordField.placeholder = "Password *";
+            passwordField.required = true;
+          }
+        }
+      }
+      roleSelect.addEventListener("change", updateRoleFields);
+      updateRoleFields(); // Initial call
+    }
+
+    // ---------- CSV Upload ----------
+    const csvUploadForm = document.getElementById("csvUploadForm");
+    if (csvUploadForm) {
+      csvUploadForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const resultDiv = document.getElementById("csvUploadResult");
+        resultDiv.innerHTML = '<div class="alert alert-info">Uploading CSV file...</div>';
+
+        window.csrfFetch("/api/upload_csv_users", {
+          method: "POST",
+          body: formData
+        })
+          .then(r => r.json())
+          .then(j => {
+            if (j.success) {
+              resultDiv.innerHTML = `<div class="alert alert-success">
+            <h5>✅ CSV Upload Successful</h5>
+            <p>${j.message}</p>
+            <p><strong>Statistics:</strong></p>
+            <ul>
+              <li>Total records: ${j.stats.total}</li>
+              <li>Added: ${j.stats.added}</li>
+              <li>Updated: ${j.stats.updated}</li>
+              <li>Teacher mappings: ${j.stats.teacher_mappings}</li>
+              <li>Student mappings: ${j.stats.student_mappings}</li>
+              <li>Skipped: ${j.stats.skipped}</li>
+            </ul>
+            ${j.stats.errors.length > 0 ? `<p><strong>Errors:</strong><br>${j.stats.errors.join('<br>')}</p>` : ''}
+          </div>`;
+              // Refresh users and mappings tables
+              loadUsers();
+              loadTeacherMappings();
+              loadStudentMappings();
+              loadBookReviews();
+            } else {
+              resultDiv.innerHTML = `<div class="alert alert-danger">
+            <h5>❌ CSV Upload Failed</h5>
+            <p>${j.error || 'Unknown error'}</p>
+          </div>`;
+            }
+          })
+          .catch(err => {
+            console.error("Add user error:", err);
+            resultDiv.innerHTML = `<div class="alert alert-danger">
+          <h5>❌ Upload Error</h5>
+          <p>${err.message}</p>
+        </div>`;
+          });
+      });
+    }
+
+    // ---------- Teacher Import ----------
+    const teacherImportForm = document.getElementById("teacherImportForm");
+    if (teacherImportForm) {
+      teacherImportForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const resultDiv = document.getElementById("teacherImportResult");
+        resultDiv.innerHTML = '<div class="alert alert-info">Importing teachers from CSV...</div>';
+
+        window.csrfFetch("/api/import_teachers_csv", {
+          method: "POST",
+          body: formData
+        })
+          .then(r => r.json())
+          .then(j => {
+            if (j.success) {
+              resultDiv.innerHTML = `<div class="alert alert-success">
+            <h5>✅ Teacher Import Successful</h5>
+            <p>${j.message}</p>
+            <p><strong>Statistics:</strong></p>
+            <ul>
+              <li>Total records: ${j.stats.total}</li>
+              <li>New users: ${j.stats.added}</li>
+              <li>Updated users: ${j.stats.updated}</li>
+              <li>New mappings: ${j.stats.mappings_added}</li>
+              <li>Updated mappings: ${j.stats.mappings_updated}</li>
+            </ul>
+            ${j.stats.errors.length > 0 ? `<p><strong>Errors:</strong><br>${j.stats.errors.join('<br>')}</p>` : ''}
+          </div>`;
+              // Refresh users and mappings tables
+              loadUsers();
+              loadTeacherMappings();
+            } else {
+              resultDiv.innerHTML = `<div class="alert alert-danger">
+            <h5>❌ Teacher Import Failed</h5>
+            <p>${j.error || 'Unknown error'}</p>
+          </div>`;
+            }
+          })
+          .catch(err => {
+            console.error("Teacher import error:", err);
+            resultDiv.innerHTML = `<div class="alert alert-danger">
+          <h5>❌ Import Error</h5>
+          <p>${err.message}</p>
+        </div>`;
+          });
+      });
+    }
+
+    // ---------- Branding ----------
+    function loadBranding() {
+      window.csrfFetch("/api/get_site_settings")
+        .then(r => r.json())
+        .then(s => {
+          const orgName = document.getElementById("orgName");
+          const siteName = document.getElementById("siteName");
+          const themeColor = document.getElementById("themeColor");
+          const footerText = document.getElementById("footerText");
+          const logoPreview = document.getElementById("logoPreview");
+
+          if (orgName) orgName.value = s.org_name || "";
+          if (siteName) siteName.value = s.site_name || "";
+          if (themeColor) themeColor.value = s.theme_color || "#004080";
+          if (footerText) footerText.value = s.footer_text || "";
+          if (logoPreview && s.logo_path) {
+            logoPreview.src = `/static/${s.logo_path}`;
+          }
+        });
+    }
+    loadBranding();
+
+    const brandingForm = document.getElementById("brandingForm");
+    if (brandingForm) {
+      brandingForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        window.csrfFetch("/api/save_site_settings", { method: "POST", body: new FormData(this) })
+          .then(r => r.json())
+          .then(j => showToast(j.success ? "✅ Branding saved" : "❌ Failed to save branding", j.success ? "success" : "danger"));
+      });
+    }
+
+    const logoForm = document.getElementById("logoForm");
+    if (logoForm) {
+      logoForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        window.csrfFetch("/api/upload_logo", { method: "POST", body: new FormData(this) })
+          .then(r => r.json())
+          .then(j => {
+            showToast(j.success ? "✅ Logo uploaded" : (j.error || "❌ Failed to upload"), j.success ? "success" : "danger");
+            if (j.success && j.logo_path) {
+              const logoPreview = document.getElementById("logoPreview");
+              if (logoPreview) logoPreview.src = `/static/${j.logo_path}`;
+            }
+          });
+      });
+    }
+
+    // ---------- USERS ----------
+    function loadUsers() {
+      window.csrfFetch("/api/list_users").then(r => r.json()).then(data => {
+        const tbody = document.querySelector("#usersTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        data.forEach(u => {
+          const roleColors = { admin: 'danger', hod: 'warning', teacher: 'success', student: 'info' };
+          const roleBadge = roleColors[u.role] || 'secondary';
+          tbody.innerHTML += `<tr>
+          <td><strong>${u.username}</strong></td>
+          <td>${u.email || '-'}</td>
+          <td><span class="badge bg-${roleBadge}">${u.role}</span></td>
+          <td>${u.teacher_name || '-'}</td>
+          <td>${u.department_name || "-"}</td>
+          <td>${u.darajah_name || u.class_name || "-"}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-danger" onclick="deleteUserInline('${u.username}')" title="Delete ${u.username}">
+              <i class="bi bi-trash"></i>
+            </button>
+          </td>
+        </tr>`;
+        });
+      });
+    }
+    loadUsers();
+
+    function deleteUserInline(username) {
+      if (!confirm(`Remove user '${username}'?\nThis will also remove all their mappings.`)) return;
+      fetch("/api/remove_user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username })
+      })
+        .then(r => r.json())
+        .then(j => {
+          if (j.success) {
+            showToast(`User '${username}' removed successfully.`, "success", "User Removed");
+            loadUsers();
+            loadTeacherMappings();
+            loadStudentMappings();
+          } else {
+            showToast("Failed to remove user. Please try again.", "danger", "Error");
+          }
+        });
+    }
+
+
+    const userForm = document.getElementById("userForm");
+    if (userForm) {
+      userForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+
+        const form = this;
+        const fd = new FormData(form);
+
+        fetch("/api/add_user", { method: "POST", body: fd })
+          .then(r => r.json())
+          .then(j => {
+            const username = document.getElementById("username")?.value || "user";
+
+            let msg;
+            let type;
+
+            if (j.success) {
+              msg = j.message || `✅ User '${username}' has been registered successfully.`;
+              type = "success";
+            } else {
+              msg = j.error || "❌ We could not complete this registration. Please try again.";
+              type = "danger";
+            }
+
+            showToast(msg, type);
+
+            if (j.success) {
+              form.reset();
+              // Reset role fields visibility
+              if (roleSelect) roleSelect.value = "";
+              if (marhalaField) marhalaField.classList.add("d-none");
+              if (darajahField) darajahField.classList.add("d-none");
+              if (teacherNameField) teacherNameField.classList.add("d-none");
+              loadUsers();
+              loadTeacherMappings();
+              loadStudentMappings();
+            }
+          })
+          .catch(err => {
+            console.error("Add user error:", err);
+            showToast("❌ A network error occurred. Please check your connection and try again.", "danger");
+          });
+      });
+    }
+
+    const removeUserBtn = document.getElementById("removeUserBtn");
+    if (removeUserBtn) {
+      removeUserBtn.addEventListener("click", function () {
+        const usernameInput = document.getElementById("username");
+        const username = usernameInput ? usernameInput.value : "";
+        if (!username) return showToast("Enter a username to remove", "warning");
+        if (!confirm(`Remove user '${username}'? This will also remove all their mappings.`)) return;
+        fetch("/api/remove_user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username })
+        })
+          .then(r => r.json())
+          .then(j => {
+            showToast(j.success ? `✅ User ${username} removed` : "❌ Failed to remove user", j.success ? "success" : "danger");
+            if (j.success) {
+              loadUsers();
+              loadTeacherMappings();
+              loadStudentMappings();
+              loadBookReviews();
+              loadTaqeem();
+            }
+          });
+      });
+    }
+
+    // ---------- TEACHER-DARAJAH MAPPING ----------
+    function loadTeacherMappings() {
+      fetch("/api/get_teacher_darajah_mapping").then(r => r.json()).then(data => {
+        const tbody = document.querySelector("#teacherMappingTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        data.forEach(m => {
+          const roleDisplay = m.role === 'masool' ? '<span class="badge bg-danger">Masool</span>' :
+            m.role === 'class_teacher' ? '<span class="badge bg-success">Class Teacher</span>' :
+              '<span class="badge bg-secondary">Assistant</span>';
+          tbody.innerHTML += `<tr>
+          <td><strong>${m.teacher_name || m.teacher_username}</strong><br><small class="text-muted">${m.teacher_username}</small></td>
+          <td>${m.darajah_name}</td>
+          <td>${roleDisplay}</td>
+          <td>${m.email || '-'}</td>
+          <td><button class="btn btn-sm btn-outline-danger remove-mapping-btn" data-id="${m.id}">Remove</button></td>
+        </tr>`;
+        });
+
+        // Add event listeners to remove buttons
+        document.querySelectorAll(".remove-mapping-btn").forEach(btn => {
+          btn.addEventListener("click", function () {
+            const mappingId = this.getAttribute("data-id");
+            if (confirm("Remove this teacher-darajah mapping?")) {
+              fetch("/api/remove_teacher_mapping", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mapping_id: mappingId })
+              })
+                .then(r => r.json())
+                .then(j => {
+                  showToast(j.success ? "✅ Mapping removed" : (j.error || "❌ Failed to remove mapping"), j.success ? "success" : "danger");
+                  if (j.success) loadTeacherMappings();
+                });
+            }
+          });
+        });
+      });
+    }
+    loadTeacherMappings();
+
+    const teacherMappingForm = document.getElementById("teacherMappingForm");
+    if (teacherMappingForm) {
+      teacherMappingForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        fetch("/api/add_teacher_mapping", { method: "POST", body: new FormData(this) })
+          .then(r => r.json())
+          .then(j => {
+            showToast(j.success ? "✅ Teacher-darajah mapping added" : (j.error || "❌ Failed to add mapping"), j.success ? "success" : "danger");
+            if (j.success) {
+              this.reset();
+              loadTeacherMappings();
+              loadUsers();
+            }
+          });
+      });
+    }
+
+    // ---------- STUDENT MANAGEMENT ----------
+    function loadStudentMappings() {
+      // Note: You need to create this endpoint in admin.py if it doesn't exist
+      fetch("/api/get_student_mappings").then(r => r.json()).then(data => {
+        const tbody = document.querySelector("#studentMappingTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        data.forEach(m => {
+          tbody.innerHTML += `<tr>
+          <td><strong>${m.student_name || m.student_username}</strong><br><small class="text-muted">${m.student_username}</small></td>
+          <td>${m.darajah_name}</td>
+          <td>${m.academic_year || '1447'}</td>
+          <td><button class="btn btn-sm btn-outline-danger remove-student-mapping-btn" data-id="${m.id}">Remove</button></td>
+        </tr>`;
+        });
+
+        // Add event listeners to remove buttons
+        document.querySelectorAll(".remove-student-mapping-btn").forEach(btn => {
+          btn.addEventListener("click", function () {
+            const mappingId = this.getAttribute("data-id");
+            if (confirm("Remove this student-darajah mapping?")) {
+              fetch("/api/remove_student_mapping", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ mapping_id: mappingId })
+              })
+                .then(r => r.json())
+                .then(j => {
+                  showToast(j.success ? "✅ Student mapping removed" : (j.error || "❌ Failed to remove mapping"), j.success ? "success" : "danger");
+                  if (j.success) loadStudentMappings();
+                });
+            }
+          });
+        });
+      }).catch(err => {
+        console.error("Error loading student mappings:", err);
+        // Fallback: Use existing endpoint
+        fetch("/api/get_students_for_darajah/all").then(r => r.json()).then(data => {
+          const tbody = document.querySelector("#studentMappingTable tbody");
+          if (!tbody) return;
+          tbody.innerHTML = "";
+          data.forEach(m => {
+            tbody.innerHTML += `<tr>
+            <td><strong>${m.name || m.username}</strong><br><small class="text-muted">${m.username}</small></td>
+            <td>${m.darajah_name || '-'}</td>
+            <td>${m.academic_year || '1447'}</td>
+            <td><button class="btn btn-sm btn-outline-danger" onclick="showToast('Use Remove Student Mapping button below', 'info')">Remove</button></td>
+          </tr>`;
+          });
+        });
+      });
+    }
+    loadStudentMappings();
+
+    const studentMappingForm = document.getElementById("studentMappingForm");
+    if (studentMappingForm) {
+      studentMappingForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch("/api/add_student_mapping", { method: "POST", body: formData })
+          .then(r => r.json())
+          .then(j => {
+            showToast(j.success ? "✅ Student-darajah mapping added" : (j.error || "❌ Failed to add mapping"), j.success ? "success" : "danger");
+            if (j.success) {
+              this.reset();
+              loadStudentMappings();
+              loadBookReviews();
+              loadTaqeem();
+            }
+          });
+      });
+    }
+
+    // ---------- EMAIL SETTINGS ----------
+    const emailForm = document.getElementById("emailForm");
+    if (emailForm) {
+      emailForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        fetch("/api/save_email_settings", { method: "POST", body: new FormData(this) })
+          .then(r => r.json())
+          .then(j => showToast(j.success ? "✅ Email settings saved" : "❌ Failed to save email settings", j.success ? "success" : "danger"));
+      });
+    }
+
+    // Test email
+    const testEmailForm = document.getElementById("testEmailForm");
+    if (testEmailForm) {
+      testEmailForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        fetch("/api/test_email", { method: "POST", body: new FormData(this) })
+          .then(r => r.json())
+          .then(j => showToast(j.success ? "✅ Test email sent" : (j.error || "❌ Test email failed"), j.success ? "success" : "danger"));
+      });
+    }
+
+    // ---------- DB SETTINGS ----------
+    const dbForm = document.getElementById("dbForm");
+    if (dbForm) {
+      dbForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        fetch("/api/save_db_settings", { method: "POST", body: new FormData(this) })
+          .then(r => r.json())
+          .then(j => showToast(j.success ? "✅ DB settings saved" : "❌ Failed to save DB settings", j.success ? "success" : "danger"));
+      });
+    }
+
+    // ---------- MARHALA HEADS ----------
+    function loadMarhalas() {
+      fetch("/api/list_department_heads").then(r => r.json()).then(data => {
+        const tbody = document.querySelector("#marhalaTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        data.forEach(d => {
+          tbody.innerHTML += `<tr><td><strong>${d.department_name}</strong></td><td>${d.head_name || ""}</td><td>${d.email}</td></tr>`;
+        });
+      });
+    }
+    loadMarhalas();
+
+    const marhalaHeadForm = document.getElementById("marhalaHeadForm");
+    if (marhalaHeadForm) {
+      marhalaHeadForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        fetch("/api/add_department_head", { method: "POST", body: new FormData(this) })
+          .then(r => r.json())
+          .then(j => {
+            showToast(j.success ? "✅ Marhala head added" : "❌ Failed to add marhala head", j.success ? "success" : "danger");
+            if (j.success) {
+              this.reset();
+              loadMarhalas();
+            }
+          });
+      });
+    }
+
+    const removeMarhalaBtn = document.getElementById("removeMarhalaBtn");
+    if (removeMarhalaBtn) {
+      removeMarhalaBtn.addEventListener("click", function () {
+        const marhalaNameInput = document.getElementById("marhalaName");
+        const marhala_name = marhalaNameInput ? marhalaNameInput.value : "";
+        if (!marhala_name) return showToast("Enter marhala name to remove", "warning");
+        if (!confirm(`Remove marhala head for '${marhala_name}'?`)) return;
+        fetch("/api/remove_department_head", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ department_name: marhala_name })
+        })
+          .then(r => r.json())
+          .then(j => {
+            showToast(j.success ? `✅ Marhala head for ${marhala_name} removed` : "❌ Failed to remove marhala head", j.success ? "success" : "danger");
+            if (j.success) loadMarhalas();
+          });
+      });
+    }
+
+    // ---------- STUDENT PROGRESS MANAGEMENT ----------
+    function loadStudentProgress(filters = {}) {
+      let url = "/api/get_student_progress";
+      const params = new URLSearchParams();
+      if (filters.student_username) params.append('student_username', filters.student_username);
+      if (filters.darajah_name) params.append('darajah_name', filters.darajah_name);
+      if (filters.month_year) params.append('month_year', filters.month_year);
+
+      if (params.toString()) url += '?' + params.toString();
+
+      fetch(url).then(r => r.json()).then(data => {
+        const tbody = document.querySelector("#studentProgressTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        data.forEach(p => {
+          const attendancePercent = p.total_days > 0 ? Math.round((p.attendance_days / p.total_days) * 100) : 0;
+          tbody.innerHTML += `<tr>
+          <td>${p.student_username}</td>
+          <td>${p.darajah_name}</td>
+          <td>${p.month_year}</td>
+          <td>
+            <small>Borrowed: ${p.books_borrowed}</small><br>
+            <small>Returned: ${p.books_returned}</small>
+          </td>
+          <td>${p.overdue_books}</td>
+          <td>${p.attendance_days}/${p.total_days} (${attendancePercent}%)</td>
+          <td>${p.remarks || '-'}</td>
+          <td>${p.reported_by || '-'}<br><small>${p.reported_at ? p.reported_at.split('T')[0] : ''}</small></td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary edit-progress-btn" data-id="${p.id}" data-student="${p.student_username}" data-darajah="${p.darajah_name}" data-month="${p.month_year}" data-borrowed="${p.books_borrowed}" data-returned="${p.books_returned}" data-overdue="${p.overdue_books}" data-attendance="${p.attendance_days}" data-total="${p.total_days}" data-remarks="${p.remarks || ''}">Edit</button>
+            <button class="btn btn-sm btn-outline-danger delete-progress-btn mt-1" data-id="${p.id}">Delete</button>
+          </td>
+        </tr>`;
+        });
+
+        // Add event listeners
+        document.querySelectorAll(".edit-progress-btn").forEach(btn => {
+          btn.addEventListener("click", function () {
+            document.getElementById("progressId").value = this.getAttribute("data-id");
+            document.getElementById("progressStudent").value = this.getAttribute("data-student");
+            document.getElementById("progressDarajah").value = this.getAttribute("data-darajah");
+            document.getElementById("progressMonth").value = this.getAttribute("data-month");
+            document.getElementById("progressBooksBorrowed").value = this.getAttribute("data-borrowed");
+            document.getElementById("progressBooksReturned").value = this.getAttribute("data-returned");
+            document.getElementById("progressOverdue").value = this.getAttribute("data-overdue");
+            document.getElementById("progressAttendance").value = this.getAttribute("data-attendance");
+            document.getElementById("progressTotalDays").value = this.getAttribute("data-total");
+            document.getElementById("progressRemarks").value = this.getAttribute("data-remarks");
+            showToast("Progress record loaded for editing", "info");
+          });
+        });
+
+        document.querySelectorAll(".delete-progress-btn").forEach(btn => {
+          btn.addEventListener("click", function () {
+            const progressId = this.getAttribute("data-id");
+            if (confirm("Delete this progress record?")) {
+              fetch("/api/delete_student_progress", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: progressId })
+              })
+                .then(r => r.json())
+                .then(j => {
+                  showToast(j.success ? "✅ Progress record deleted" : (j.error || "❌ Failed to delete"), j.success ? "success" : "danger");
+                  if (j.success) loadStudentProgress(filters);
+                });
+            }
+          });
+        });
+      });
+    }
+
+    // Initial load of student progress
+    loadStudentProgress();
+
+    // Student progress form submission
+    const studentProgressForm = document.getElementById("studentProgressForm");
+    if (studentProgressForm) {
+      studentProgressForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        fetch("/api/save_student_progress", { method: "POST", body: formData })
+          .then(r => r.json())
+          .then(j => {
+            showToast(j.success ? "✅ Progress record saved" : (j.error || "❌ Failed to save"), j.success ? "success" : "danger");
+            if (j.success) {
+              this.reset();
+              document.getElementById("progressId").value = "";
+              loadStudentProgress();
+            }
+          });
+      });
+    }
+
+    // Student progress filter buttons
+    const progressFilterBtn = document.getElementById("progressFilterBtn");
+    const progressResetBtn = document.getElementById("progressResetBtn");
+    const progressClearBtn = document.getElementById("progressClearBtn");
+
+    if (progressFilterBtn) {
+      progressFilterBtn.addEventListener("click", function () {
+        const filters = {
+          student_username: document.getElementById("progressStudentFilter").value,
+          darajah_name: document.getElementById("progressDarajahFilter").value,
+          month_year: document.getElementById("progressMonthFilter").value
+        };
+        loadStudentProgress(filters);
+      });
+    }
+
+    if (progressResetBtn) {
+      progressResetBtn.addEventListener("click", function () {
+        document.getElementById("progressStudentFilter").value = "";
+        document.getElementById("progressDarajahFilter").value = "";
+        document.getElementById("progressMonthFilter").value = "";
+        loadStudentProgress();
+      });
+    }
+
+    if (progressClearBtn) {
+      progressClearBtn.addEventListener("click", function () {
+        document.getElementById("progressId").value = "";
+        document.getElementById("progressStudent").value = "";
+        document.getElementById("progressDarajah").value = "";
+        document.getElementById("progressMonth").value = "";
+        document.getElementById("progressBooksBorrowed").value = "0";
+        document.getElementById("progressBooksReturned").value = "0";
+        document.getElementById("progressOverdue").value = "0";
+        document.getElementById("progressAttendance").value = "0";
+        document.getElementById("progressTotalDays").value = "20";
+        document.getElementById("progressRemarks").value = "";
+        showToast("Form cleared", "info");
+      });
+    }
+
+    // ---------- PROGRESS REPORT MANAGEMENT ----------
+    function loadBookReviews() {
+      fetch("/api/get_book_review_marks").then(r => r.json()).then(data => {
+        if (data.success) {
+          const tbody = document.querySelector("#bookReviewTable tbody");
+          if (!tbody) return;
+          tbody.innerHTML = "";
+          data.data.forEach(b => {
+            tbody.innerHTML += `<tr>
+            <td><strong>${b.Name || b.student_username}</strong><br><small>${b.Trno || b.student_trno || '-'}</small></td>
+            <td>${b.ClassName || b.darajah_name}</td>
+            <td>${b.AcademicYear}</td>
+            <td><span class="badge bg-primary">${b.Marks}</span></td>
+            <td>${b.ReviewCount || '1'}</td>
+            <td><button class="btn btn-sm btn-outline-danger delete-review-btn" data-username="${b.student_username}" data-year="${b.AcademicYear}">Delete</button></td>
+          </tr>`;
+          });
+
+          document.querySelectorAll(".delete-review-btn").forEach(btn => {
+            btn.addEventListener("click", function () {
+              const username = this.getAttribute("data-username");
+              const year = this.getAttribute("data-year");
+              if (confirm(`Delete book review marks for ${username} (${year})?`)) {
+                fetch("/api/delete_book_review_marks", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ student_username: username, academic_year: year })
+                })
+                  .then(r => r.json())
+                  .then(j => {
+                    showToast(j.success ? "✅ Book review marks deleted" : (j.error || "❌ Failed to delete"), j.success ? "success" : "danger");
+                    if (j.success) {
+                      loadBookReviews();
+                      loadTaqeem();
+                    }
+                  });
+              }
+            });
+          });
+        }
+      }).catch(err => console.error("Error loading book reviews:", err));
+    }
+    loadBookReviews();
+
+    function loadTaqeem() {
+      fetch("/api/get_student_taqeem").then(r => r.json()).then(data => {
+        if (data.success) {
+          const tbody = document.querySelector("#taqeemTable tbody");
+          if (!tbody) return;
+          tbody.innerHTML = "";
+          data.data.forEach(t => {
+            tbody.innerHTML += `<tr>
+            <td><strong>${t.Name || t.student_username}</strong><br><small>${t.Trno || '-'}</small></td>
+            <td>${t.ClassName || t.darajah_name}</td>
+            <td>${t.AcademicYear}</td>
+            <td><span class="badge bg-info">${t.book_review_marks || 0}</span></td>
+            <td><span class="badge bg-success">${t.program_attendance_marks || 0}</span></td>
+            <td><span class="badge bg-warning">${t.total_marks || 0}</span></td>
+          </tr>`;
+          });
+        }
+      }).catch(err => console.error("Error loading taqeem:", err));
+    }
+    loadTaqeem();
+
+    // Book Review Upload
+    const bookReviewForm = document.getElementById("bookReviewUploadForm");
+    if (bookReviewForm) {
+      bookReviewForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const resultDiv = document.getElementById("bookReviewResult");
+        resultDiv.innerHTML = '<div class="alert alert-info">Processing book review marks...</div>';
+
+        fetch("/api/upload_book_reviews", {
+          method: "POST",
+          body: new FormData(this)
+        })
+          .then(r => r.json())
+          .then(j => {
+            if (j.success) {
+              resultDiv.innerHTML = `<div class="alert alert-success">
+                <h5>✅ Book Review Upload Successful</h5>
+                <p>${j.message}</p>
+                <p><strong>Statistics:</strong></p>
+                <ul>
+                  <li>Processed: ${j.stats.processed || 0}</li>
+                  <li>Added: ${j.stats.added || 0}</li>
+                  <li>Updated: ${j.stats.updated || 0}</li>
+                  <li>Errors: ${j.stats.errors || 0}</li>
+                </ul>
+              </div>`;
+              loadBookReviews();
+              loadTaqeem();
+            } else {
+              resultDiv.innerHTML = `<div class="alert alert-danger">
+                <h5>❌ Book Review Upload Failed</h5>
+                <p>${j.error || 'Unknown error'}</p>
+              </div>`;
+            }
+          })
+          .catch(err => {
+            console.error("Book review upload error:", err);
+            resultDiv.innerHTML = `<div class="alert alert-danger">
+              <h5>❌ Upload Error</h5>
+              <p>${err.message}</p>
+            </div>`;
+          });
+      });
+    }
+
+    // Export Book Reviews
+    const exportBookReviewsBtn = document.getElementById("exportBookReviewsBtn");
+    if (exportBookReviewsBtn) {
+      exportBookReviewsBtn.addEventListener("click", function () {
+        const format = prompt("Export format (csv/excel):", "csv");
+        if (format && (format === 'csv' || format === 'excel')) {
+          window.open(`/api/export_book_reviews?format=${format}&academic_year=1447`, '_blank');
+        }
+      });
+    }
+
+    // Attendance Upload
+    const attendanceForm = document.getElementById("attendanceUploadForm");
+    if (attendanceForm) {
+      attendanceForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        const resultDiv = document.getElementById("attendanceResult");
+        resultDiv.innerHTML = '<div class="alert alert-info">Uploading program attendance...</div>';
+
+        fetch("/api/upload_program_attendance", {
+          method: "POST",
+          body: new FormData(this)
+        })
+          .then(r => r.json())
+          .then(j => {
+            if (j.success) {
+              resultDiv.innerHTML = `<div class="alert alert-success">✅ ${j.message}</div>`;
+              loadTaqeem();
+            } else {
+              resultDiv.innerHTML = `<div class="alert alert-danger">❌ ${j.error}</div>`;
+            }
+          })
+          .catch(err => {
+            console.error("Attendance upload error:", err);
+            resultDiv.innerHTML = `<div class="alert alert-danger">
+              <h5>❌ Upload Error</h5>
+              <p>${err.message}</p>
+            </div>`;
+          });
+      });
+    }
+
+    // Update All Taqeem
+    const updateAllTaqeemBtn = document.getElementById("updateAllTaqeemBtn");
+    if (updateAllTaqeemBtn) {
+      updateAllTaqeemBtn.addEventListener("click", function () {
+        if (confirm("Update Progress Report for all students? This may take a moment.")) {
+          const formData = new FormData();
+          formData.append('academic_year', '1447');
+
+          fetch("/api/update_all_taqeem", {
+            method: "POST",
+            body: formData
+          })
+            .then(r => r.json())
+            .then(j => {
+              showToast(j.success ? `✅ ${j.message}` : (j.error || "❌ Failed to update progress report"), j.success ? "success" : "danger");
+              if (j.success) loadTaqeem();
+            });
+        }
+      });
+    }
+
+    // Refresh Taqeem
+    const refreshTaqeemBtn = document.getElementById("refreshTaqeemBtn");
+    if (refreshTaqeemBtn) {
+      refreshTaqeemBtn.addEventListener("click", function () {
+        loadTaqeem();
+        loadBookReviews();
+        showToast("Progress report data refreshed", "info");
+      });
+    }
+
+    // ---------- Email Templates ----------
+    function loadTemplates() {
+      fetch("/api/get_email_templates").then(r => r.json()).then(rows => {
+        const tbl = document.querySelector("#templatesTable tbody");
+        if (!tbl) return;
+        tbl.innerHTML = "";
+        rows.forEach(t => {
+          tbl.innerHTML += `<tr>
+          <td><strong>${t.template_key}</strong></td>
+          <td>${t.subject}</td>
+          <td><button class="btn btn-sm btn-outline-secondary" data-key="${t.template_key}" data-subj="${encodeURIComponent(t.subject)}" data-html="${encodeURIComponent(t.html)}">Load</button></td>
+        </tr>`;
+        });
+        tbl.querySelectorAll("button").forEach(b => {
+          b.addEventListener("click", () => {
+            document.getElementById("templateKey").value = b.dataset.key;
+            document.getElementById("templateSubject").value = decodeURIComponent(b.dataset.subj);
+            document.getElementById("templateHtml").value = decodeURIComponent(b.dataset.html);
+            showToast("Template loaded into editor", "info");
+          });
+        });
+      });
+    }
+    loadTemplates();
+
+    const templateForm = document.getElementById("templateForm");
+    if (templateForm) {
+      templateForm.addEventListener("submit", function (e) {
+        e.preventDefault();
+        fetch("/api/save_email_template", { method: "POST", body: new FormData(this) })
+          .then(r => r.json())
+          .then(j => {
+            showToast(j.success ? "✅ Template saved" : (j.error || "❌ Failed to save template"), j.success ? "success" : "danger");
+            if (j.success) loadTemplates();
+          });
+      });
+    }
+
+    // ---------- Audit ----------
+    function loadAudit() {
+      fetch("/api/list_audit").then(r => r.json()).then(rows => {
+        const tbody = document.querySelector("#auditTable tbody");
+        if (!tbody) return;
+        tbody.innerHTML = "";
+        rows.forEach(a => {
+          const ts = new Date(a.ts).toLocaleString();
+          tbody.innerHTML += `<tr><td>${ts}</td><td>${a.actor || "-"}</td><td>${a.action}</td><td>${a.details || ""}</td></tr>`;
+        });
+      });
+    }
+    loadAudit();
+
+    // Helper function for toast notifications
+    function showToast(message, type = "info") {
+      // Check if toast function exists from base template
+      if (typeof window.showToast === 'function') {
+        window.showToast(message, type);
+      } else {
+        // Fallback using Bootstrap alerts
+        const toastContainer = document.getElementById('toast-container') || (() => {
+          const div = document.createElement('div');
+          div.id = 'toast-container';
+          div.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 9999;';
+          document.body.appendChild(div);
+          return div;
+        })();
+
+        const toastId = 'toast-' + Date.now();
+        const alertClass = type === 'success' ? 'alert-success' :
+          type === 'danger' ? 'alert-danger' :
+            type === 'warning' ? 'alert-warning' : 'alert-info';
+
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.className = `alert ${alertClass} alert-dismissible fade show`;
+        toast.role = 'alert';
+        toast.innerHTML = `
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+
+        toastContainer.appendChild(toast);
+
+        // Auto-remove after 5 seconds
+        setTimeout(() => {
+          const toastEl = document.getElementById(toastId);
+          if (toastEl) {
+            toastEl.remove();
+          }
+        }, 5000);
+      }
+    }
+
+    // Make showToast available globally
+    window.showToast = showToast;
+
+    // Make user management functions available globally
+    // (needed for onclick handlers in dynamically generated table rows)
+    window.deleteUserInline = deleteUserInline;
+    window.loadUsersGlobal = loadUsers;
+
+    // Initial loads
+    setTimeout(() => {
+      loadTaqeem();
+      loadBookReviews();
+    }, 1000);
+  });
+</script>
+{% endblock %}

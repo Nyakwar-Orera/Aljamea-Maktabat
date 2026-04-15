@@ -1,0 +1,681 @@
+{% extends "super_admin/_sa_base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<style>
+  /* Branch Dashboard — Full Admin View inside Super Admin layout */
+  :root {
+    --branch-color: {{ branch_cfg.color | default('#38BDF8') }};
+  }
+
+  .bd-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .bd-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .bd-breadcrumb a { color: var(--accent-blue); text-decoration: none; }
+  .bd-breadcrumb a:hover { color: var(--text-primary); }
+  .bd-breadcrumb .sep { color: var(--text-dim); }
+
+  .bd-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 4px;
+    background: linear-gradient(135deg, var(--text-primary) 30%, var(--branch-color));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .bd-subtitle { font-size: 12px; color: var(--text-muted); }
+
+  /* Tabs */
+  .bd-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 28px;
+    border-bottom: 1px solid var(--border-subtle);
+    padding-bottom: 0;
+    flex-wrap: wrap;
+  }
+
+  .bd-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    border-radius: 8px 8px 0 0;
+  }
+  .bd-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); text-decoration: none; }
+  .bd-tab.active {
+    color: var(--branch-color);
+    border-bottom-color: var(--branch-color);
+    background: rgba(255,255,255,0.03);
+  }
+
+  /* KPI Strip */
+  .bd-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+    margin-bottom: 28px;
+  }
+
+  .bd-kpi {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .bd-kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  .bd-kpi::before {
+    content:''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--kpi-c, var(--branch-color));
+  }
+
+  .bd-kpi-label { font-size: 10px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); font-weight: 600; margin-bottom:6px; }
+  .bd-kpi-value { font-size: 26px; font-weight: 700; color: var(--text-primary); line-height:1; }
+  .bd-kpi-icon { position: absolute; top:14px; right:14px; font-size:18px; opacity:.2; color: var(--kpi-c, var(--branch-color)); }
+
+  /* Section Card */
+  .bd-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    margin-bottom: 24px;
+    overflow: hidden;
+  }
+
+  .bd-card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .bd-card-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+  }
+
+  .bd-card-header h3 i { color: var(--branch-color); }
+
+  .badge-count {
+    background: rgba(56,189,248,0.12);
+    color: var(--accent-blue);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* Performance Table */
+  .perf-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .perf-table thead th {
+    padding: 11px 16px;
+    text-align: left;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    color: var(--text-muted);
+    background: rgba(255,255,255,0.02);
+    border-bottom: 1px solid var(--border-subtle);
+    white-space: nowrap;
+    font-weight: 600;
+  }
+  .perf-table thead th.text-right { text-align: right; }
+  .perf-table tbody td { padding: 13px 16px; border-bottom: 1px solid var(--border-subtle); vertical-align: middle; }
+  .perf-table tbody tr:last-child td { border-bottom: none; }
+  .perf-table tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  .marhala-name { font-weight: 600; color: var(--text-primary); font-size: 13px; }
+  .marhala-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .badge-academic { background: rgba(52,211,153,0.12); color: #34D399; border: 1px solid rgba(52,211,153,0.2); }
+  .badge-dept { background: rgba(56,189,248,0.12); color: #38BDF8; border: 1px solid rgba(56,189,248,0.2); }
+
+  .num-primary { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+  .num-muted { font-size: 12px; color: var(--text-muted); }
+
+  .issues-bar { display: flex; align-items: center; gap: 8px; }
+  .issues-bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; min-width: 60px; overflow:hidden; }
+  .issues-bar-fill { height: 100%; border-radius: 2px; background: var(--branch-color); transition: width .8s ease; }
+
+  .rank-dot {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+    background: rgba(56,189,248,0.1); color: var(--accent-blue);
+    flex-shrink: 0;
+  }
+  .rank-dot.gold   { background: rgba(251,191,36,0.12); color: #FBBF24; }
+  .rank-dot.silver { background: rgba(148,163,184,0.12); color: #94A3B8; }
+  .rank-dot.bronze { background: rgba(180,123,72,0.12); color: #B47B48; }
+
+  /* Efficiency badges */
+  .eff-badge { padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+  .eff-success { background: rgba(52,211,153,0.12); color: #34D399; border: 1px solid rgba(52,211,153,0.2); }
+  .eff-primary { background: rgba(56,189,248,0.12); color: #38BDF8; border: 1px solid rgba(56,189,248,0.2); }
+  .eff-warning { background: rgba(251,191,36,0.12); color: #FBBF24; border: 1px solid rgba(251,191,36,0.2); }
+  .eff-danger  { background: rgba(248,113,113,0.12); color: #F87171; border: 1px solid rgba(248,113,113,0.2); }
+
+  /* Top students */
+  .student-row { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--border-subtle); }
+  .student-row:last-child { border-bottom: none; }
+  .student-avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--branch-color), #38BDF8); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0; }
+  .student-info { flex: 1; }
+  .student-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .student-meta { font-size: 11px; color: var(--text-muted); }
+  .student-books { font-size: 18px; font-weight: 700; color: var(--branch-color); white-space: nowrap; }
+
+  /* Overdue table */
+  .overdue-badge { padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; }
+  .overdue-critical { background: rgba(248,113,113,0.15); color: #F87171; }
+  .overdue-warning  { background: rgba(251,191,36,0.15); color: #FBBF24; }
+  .overdue-mild     { background: rgba(148,163,184,0.15); color: #94A3B8; }
+
+  /* Two-col layout */
+  .bd-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .bd-grid-2 { grid-template-columns: 1fr; } }
+
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-muted);
+    font-size: 13px;
+  }
+  .empty-state i { font-size: 32px; opacity: .3; display: block; margin-bottom: 10px; }
+
+  /* Ambient Orb Drift */
+  @keyframes pulse-dot {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(0.95); opacity: 0.8; }
+  }
+
+  /* Branch Nav Bar Consistency */
+  .branch-nav-bar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    padding: 4px;
+    margin-bottom: 24px;
+    width: fit-content;
+    overflow-x: auto;
+  }
+  .branch-nav-pill {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-decoration: none;
+    color: var(--text-muted);
+    transition: all .2s;
+    white-space: nowrap;
+    border: none;
+  }
+  .branch-nav-pill:hover {
+    color: var(--p-c, var(--accent-blue));
+    background: rgba(255,255,255,0.05);
+    text-decoration: none;
+  }
+  .branch-nav-pill.active {
+    background: color-mix(in srgb, var(--p-c, var(--accent-blue)) 14%, transparent);
+    color: var(--p-c, var(--accent-blue));
+  }
+  .branch-nav-globe {
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    text-decoration: none;
+    color: var(--text-muted);
+    transition: all .2s;
+  }
+  .branch-nav-globe:hover { background: rgba(56,189,248,0.12); color: var(--accent-blue); text-decoration: none; }
+</style>
+
+{# ── Quick Branch Navigation ───────────────────────────────────────────── #}
+<div class="branch-nav-bar">
+  <a href="{{ url_for('super_admin_bp.god_eye') }}" 
+     class="branch-nav-globe"
+     title="Return to God Eye — Global Overview">
+    <i class="bi bi-globe"></i>
+  </a>
+  <div style="width:1px;height:14px;background:var(--border-subtle);margin:0 4px"></div>
+  {% for code in branch_order %}
+    {% set bc = campus_registry.get(code, {}) %}
+    <a href="{{ url_for('super_admin_bp.branch_full_dashboard', branch_code=code) }}"
+       class="branch-nav-pill {% if code == branch_code %}active{% endif %}"
+       style="--p-c: {{ bc.color | default('#38BDF8') }}"
+       title="{{ bc.name }} — Branch Dashboard">
+      <span>{{ bc.flag }}</span>
+      <span>{{ bc.short_name }}</span>
+    </a>
+  {% endfor %}
+</div>
+
+{# Page Header #}
+<div class="bd-header">
+  <div>
+    <div class="bd-breadcrumb">
+      <a href="{{ url_for('super_admin_bp.god_eye') }}">👁 God Eye</a>
+      <span class="sep">›</span>
+      <a href="{{ url_for('super_admin_bp.branch_deep_dive', branch_code=branch_code) }}">{{ branch_cfg.short_name }}</a>
+      <span class="sep">›</span>
+      <span>Full Dashboard</span>
+    </div>
+    <div class="bd-title">{{ branch_cfg.flag }} {{ branch_cfg.name }}</div>
+    <div class="bd-subtitle">
+      {{ branch_cfg.country }} &nbsp;·&nbsp;
+      {% if ay_period %}<i class="bi bi-calendar3"></i> {{ ay_period }}{% endif %}
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    {% if summary.status == 'online' %}
+      <span style="display:flex;align-items:center;gap:6px;background:rgba(52,211,153,0.1);border:1px solid rgba(52,211,153,0.25);border-radius:30px;padding:6px 14px;font-size:11px;color:#34D399;font-weight:700">
+        <span style="width:7px;height:7px;border-radius:50%;background:#34D399;animation:pulse-dot 1.5s infinite"></span> LIVE
+      </span>
+    {% else %}
+      <span style="display:flex;align-items:center;gap:6px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.25);border-radius:30px;padding:6px 14px;font-size:11px;color:#F87171;font-weight:700">
+        <i class="bi bi-wifi-off"></i> OFFLINE
+      </span>
+    {% endif %}
+  </div>
+</div>
+
+{# Tabs #}
+{% set active_tab = active_tab | default('overview') %}
+<nav class="bd-tabs">
+  <a href="{{ url_for('super_admin_bp.branch_full_dashboard', branch_code=branch_code) }}"
+     class="bd-tab {% if active_tab == 'overview' %}active{% endif %}">
+    <i class="bi bi-grid-1x2"></i> Overview
+  </a>
+  <a href="{{ url_for('super_admin_bp.branch_full_dashboard', branch_code=branch_code) }}#marhalas"
+     class="bd-tab {% if active_tab == 'marhalas' %}active{% endif %}">
+    <i class="bi bi-mortarboard"></i> Marhalas
+    {% if academic_marhalas or departmental_marhalas %}
+      <span class="badge-count">{{ (academic_marhalas|length) + (departmental_marhalas|length) }}</span>
+    {% endif %}
+  </a>
+  <a href="{{ url_for('super_admin_bp.branch_darajahs_view', branch_code=branch_code) }}"
+     class="bd-tab {% if active_tab == 'darajahs' %}active{% endif %}">
+    <i class="bi bi-collection"></i> Darajahs
+    {% if darajahs %}
+      <span class="badge-count">{{ darajahs|length }}</span>
+    {% endif %}
+  </a>
+</nav>
+
+{% if summary.status != 'online' %}
+<div style="background:rgba(248,113,113,0.07);border:1px solid rgba(248,113,113,0.2);border-radius:16px;padding:32px;text-align:center;margin-bottom:24px">
+  <i class="bi bi-wifi-off" style="font-size:36px;color:#F87171;opacity:.5;display:block;margin-bottom:10px"></i>
+  <h3 style="color:#F87171;font-size:16px;margin:0 0 8px">Branch Offline</h3>
+  <p style="color:var(--text-muted);font-size:13px;margin:0">Cannot connect to <strong>{{ branch_cfg.name }}</strong> Koha database.
+  <br>Verify connection settings in <a href="{{ url_for('super_admin_bp.branch_settings') }}" style="color:var(--accent-blue)">Branch Settings</a>.</p>
+</div>
+{% else %}
+
+{# ── KPI Strip ─────────────────────────────────────────────────────────── #}
+<div class="bd-kpis">
+  <div class="bd-kpi" style="--kpi-c: {{ branch_cfg.color }}">
+    <div class="bd-kpi-label">Active Patrons</div>
+    <div class="bd-kpi-value">{{ "{:,}".format(summary.active_patrons) }}</div>
+    <i class="bi bi-people bd-kpi-icon"></i>
+  </div>
+  <div class="bd-kpi" style="--kpi-c: #34D399">
+    <div class="bd-kpi-label">Students</div>
+    <div class="bd-kpi-value">{{ "{:,}".format(summary.student_patrons) }}</div>
+    <i class="bi bi-mortarboard bd-kpi-icon"></i>
+  </div>
+  <div class="bd-kpi" style="--kpi-c: #FBBF24">
+    <div class="bd-kpi-label">Catalog Titles</div>
+    <div class="bd-kpi-value">{{ "{:,}".format(summary.total_titles) }}</div>
+    <i class="bi bi-book bd-kpi-icon"></i>
+  </div>
+  <div class="bd-kpi" style="--kpi-c: #38BDF8">
+    <div class="bd-kpi-label">Issues (AY)</div>
+    <div class="bd-kpi-value">{{ "{:,}".format(summary.total_issues) }}</div>
+    <i class="bi bi-arrow-left-right bd-kpi-icon"></i>
+  </div>
+  <div class="bd-kpi" style="--kpi-c: #A78BFA">
+    <div class="bd-kpi-label">Currently Out</div>
+    <div class="bd-kpi-value">{{ "{:,}".format(summary.currently_issued) }}</div>
+    <i class="bi bi-bookmark-check bd-kpi-icon"></i>
+  </div>
+  <div class="bd-kpi" style="--kpi-c: #F87171">
+    <div class="bd-kpi-label">Overdues</div>
+    <div class="bd-kpi-value {% if summary.overdue > 0 %}{% endif %}">{{ summary.overdue }}</div>
+    <i class="bi bi-clock-history bd-kpi-icon"></i>
+  </div>
+</div>
+
+{# ── Marhalas Section ──────────────────────────────────────────────────── #}
+<div id="marhalas">
+{% if academic_marhalas %}
+{% set max_issues = academic_marhalas | map(attribute='ISSUES') | max | default(1) %}
+<div class="bd-card">
+  <div class="bd-card-header">
+    <h3><i class="bi bi-mortarboard-fill"></i> Academic Marhalas Performance</h3>
+    <span class="badge-count">{{ academic_marhalas | length }}</span>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="perf-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Marhala</th>
+          <th class="text-right">Patrons</th>
+          <th class="text-right">Issues (AY)</th>
+          <th class="text-right">Issues/Patron</th>
+          <th>Progress</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in academic_marhalas %}
+        <tr>
+          <td><span class="rank-dot {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span></td>
+          <td>
+            <div class="marhala-name">{{ m.MARHALA }}</div>
+            <span class="marhala-badge badge-academic">Academic</span>
+          </td>
+          <td style="text-align:right"><span class="num-primary">{{ m.PATRONS }}</span></td>
+          <td style="text-align:right"><span class="num-primary">{{ m.ISSUES }}</span></td>
+          <td style="text-align:right">
+            <span class="num-primary">{{ "%.2f"|format(m['ISSUES/PATRON']) }}</span>
+          </td>
+          <td style="min-width:120px">
+            <div class="issues-bar">
+              <div class="issues-bar-track">
+                <div class="issues-bar-fill" style="width:{{ [(m.ISSUES / (max_issues or 1) * 100), 100] | min | int }}%"></div>
+              </div>
+              <span class="num-muted">{{ m.ISSUES }}</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if departmental_marhalas %}
+{% set max_dept_issues = departmental_marhalas | map(attribute='ISSUES') | max | default(1) %}
+<div class="bd-card">
+  <div class="bd-card-header">
+    <h3><i class="bi bi-building"></i> Departmental Performance</h3>
+    <span class="badge-count">{{ departmental_marhalas | length }}</span>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="perf-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Department</th>
+          <th class="text-right">Members</th>
+          <th class="text-right">Issues (AY)</th>
+          <th class="text-right">Issues/Member</th>
+          <th>Progress</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in departmental_marhalas %}
+        <tr>
+          <td><span class="rank-dot {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span></td>
+          <td>
+            <div class="marhala-name">{{ m.MARHALA }}</div>
+            <span class="marhala-badge badge-dept">Staff</span>
+          </td>
+          <td style="text-align:right"><span class="num-primary">{{ m.PATRONS }}</span></td>
+          <td style="text-align:right"><span class="num-primary">{{ m.ISSUES }}</span></td>
+          <td style="text-align:right"><span class="num-primary">{{ "%.2f"|format(m['ISSUES/PATRON']) }}</span></td>
+          <td style="min-width:120px">
+            <div class="issues-bar">
+              <div class="issues-bar-track">
+                <div class="issues-bar-fill" style="width:{{ [(m.ISSUES / (max_dept_issues or 1) * 100), 100] | min | int }}%;background:#38BDF8"></div>
+              </div>
+              <span class="num-muted">{{ m.ISSUES }}</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if not academic_marhalas and not departmental_marhalas %}
+<div class="bd-card">
+  <div class="empty-state">
+    <i class="bi bi-bar-chart"></i>
+    No marhala performance data available for the current academic year.
+  </div>
+</div>
+{% endif %}
+</div>
+
+{# ── Two-column: Top Students + Darajahs ──────────────────────────────── #}
+<div class="bd-grid-2">
+
+  {# Top Students #}
+  <div class="bd-card">
+    <div class="bd-card-header">
+      <h3><i class="bi bi-trophy"></i> Top Readers (AY)</h3>
+      {% if top_students %}
+        <a href="{{ url_for('super_admin_bp.branch_full_dashboard', branch_code=branch_code) }}" style="font-size:11px;color:var(--text-muted)">View all</a>
+      {% endif %}
+    </div>
+    {% if top_students %}
+      {% for s in top_students %}
+      <div class="student-row">
+        <div class="student-avatar">{{ loop.index }}</div>
+        <div class="student-info">
+          <div class="student-name">{{ s.StudentName | default('Student') }}</div>
+          <div class="student-meta">
+            {% if s.TRNumber %}ITS {{ s.TRNumber }} &nbsp;·&nbsp;{% endif %}
+            {{ s.Marhala | truncate(25) }}
+            {% if s.Class %} &nbsp;·&nbsp; {{ s.Class }}{% endif %}
+          </div>
+        </div>
+        <div class="student-books">{{ s.BooksIssued }} <span style="font-size:10px;font-weight:400;color:var(--text-muted)">books</span></div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state"><i class="bi bi-person-x"></i>No student data available.</div>
+    {% endif %}
+  </div>
+
+  {# Darajah Summary #}
+  <div class="bd-card">
+    <div class="bd-card-header">
+      <h3><i class="bi bi-collection"></i> Darajah Summary</h3>
+      {% if darajahs %}
+        <a href="{{ url_for('super_admin_bp.branch_darajahs_view', branch_code=branch_code) }}" style="font-size:11px;color:var(--accent-blue)">Full Darajah View →</a>
+      {% endif %}
+    </div>
+    {% if darajahs %}
+    <div style="overflow-x:auto">
+      <table class="perf-table">
+        <thead>
+          <tr>
+            <th>Darajah</th>
+            <th class="text-right">Active</th>
+            <th class="text-right">Issues</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for d in darajahs[:8] %}
+          <tr>
+            <td>
+              <div style="font-weight:600;font-size:13px;color:var(--text-primary)">{{ d.Darajah }}</div>
+              <div style="font-size:11px;color:var(--text-muted)">{{ d.Marhala | truncate(22) }}</div>
+            </td>
+            <td style="text-align:right"><span class="num-primary">{{ d.ActiveStudents }}</span></td>
+            <td style="text-align:right"><span class="num-primary">{{ d.TotalIssues }}</span></td>
+            <td>
+              <span class="eff-badge eff-{{ d.EfficiencyColor | default('danger') }}">{{ d.Efficiency }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+          {% if darajahs|length > 8 %}
+          <tr>
+            <td colspan="4" style="text-align:center;padding:12px;color:var(--text-muted);font-size:12px">
+              <a href="{{ url_for('super_admin_bp.branch_darajahs_view', branch_code=branch_code) }}" style="color:var(--accent-blue)">
+                + {{ darajahs|length - 8 }} more darajahs →
+              </a>
+            </td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="empty-state"><i class="bi bi-collection"></i>No darajah data available.</div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Overdue Books Detail ──────────────────────────────────────────────── #}
+{% if overdue_detail %}
+<div class="bd-card">
+  <div class="bd-card-header">
+    <h3><i class="bi bi-clock-history"></i> Overdue Books (Current AY)</h3>
+    <span class="badge-count" style="background:rgba(248,113,113,0.12);color:#F87171">{{ overdue_detail|length }}</span>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="perf-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Marhala</th>
+          <th>Darajah</th>
+          <th>Book Title</th>
+          <th class="text-right">Days Overdue</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for od in overdue_detail %}
+        <tr>
+          <td>
+            <div style="font-weight:600;color:var(--text-primary);font-size:13px">{{ od.StudentName }}</div>
+            <div style="font-size:11px;color:var(--text-muted)">{{ od.cardnumber }}</div>
+          </td>
+          <td><span class="num-muted">{{ od.Marhala }}</span></td>
+          <td><span class="num-muted">{{ od.Darajah or '—' }}</span></td>
+          <td style="max-width:180px;font-size:12px;color:var(--text-muted)">{{ od.BookTitle | truncate(35) }}</td>
+          <td style="text-align:right">
+            {% set days = od.DaysOverdue %}
+            <span class="overdue-badge {% if days > 30 %}overdue-critical{% elif days > 14 %}overdue-warning{% else %}overdue-mild{% endif %}">
+              {{ days }}d
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Darajah Full List (when active_tab=='darajahs') ─────────────────── #}
+{% if active_tab == 'darajahs' and darajahs %}
+<div class="bd-card">
+  <div class="bd-card-header">
+    <h3><i class="bi bi-collection-fill"></i> All Darajahs — {{ branch_cfg.name }}</h3>
+    <span class="badge-count">{{ darajahs|length }}</span>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="perf-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Darajah</th>
+          <th>Marhala</th>
+          <th class="text-right">Total Students</th>
+          <th class="text-right">Active Students</th>
+          <th class="text-right">Issues (AY)</th>
+          <th class="text-right">Avg Issues/Student</th>
+          <th>Reading Level</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in darajahs %}
+        <tr>
+          <td><span class="rank-dot {% if loop.index == 1 %}gold{% elif loop.index == 2 %}silver{% elif loop.index == 3 %}bronze{% endif %}">{{ loop.index }}</span></td>
+          <td style="font-weight:600;color:var(--text-primary)">{{ d.Darajah }}</td>
+          <td style="color:var(--text-muted);font-size:12px">{{ d.Marhala | truncate(28) }}</td>
+          <td style="text-align:right"><span class="num-primary">{{ d.TotalStudents }}</span></td>
+          <td style="text-align:right"><span class="num-primary">{{ d.ActiveStudents }}</span></td>
+          <td style="text-align:right"><span class="num-primary">{{ d.TotalIssues }}</span></td>
+          <td style="text-align:right"><span class="num-primary">{{ "%.2f"|format(d.AvgIssuesPerStudent or 0) }}</span></td>
+          <td>
+            <span class="eff-badge eff-{{ d.EfficiencyColor }}">{{ d.Efficiency }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endif %} {# end if summary.status == 'online' #}
+
+{# Back Navigation #}
+<div style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
+  <a href="{{ url_for('super_admin_bp.god_eye') }}" class="nav-btn">
+    <i class="bi bi-arrow-left"></i> God Eye
+  </a>
+  <a href="{{ url_for('super_admin_bp.branch_deep_dive', branch_code=branch_code) }}" class="nav-btn">
+    <i class="bi bi-diagram-2"></i> Branch Overview
+  </a>
+  <a href="{{ url_for('super_admin_bp.branch_darajahs_view', branch_code=branch_code) }}" class="nav-btn primary">
+    <i class="bi bi-collection"></i> Darajah Explorer
+  </a>
+</div>
+
+{% endblock %}
