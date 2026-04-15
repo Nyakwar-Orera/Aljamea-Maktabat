@@ -182,6 +182,58 @@
         </div>
     </div>
 
+    <!-- Global Academic Leaderboard -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <div class="sa-kpi-card">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0" style="color: #4A3728;"><i class="bi bi-trophy-fill me-2" style="color: #C5A059;"></i>Global Student Leaderboard</h5>
+                    <button class="btn btn-sm btn-outline-golden">View Full Rankings</button>
+                </div>
+                <div class="card-body px-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr class="text-muted small uppercase">
+                                    <th class="ps-4">Rank</th>
+                                    <th>Student</th>
+                                    <th>TR Number</th>
+                                    <th>Global Bound Borrows</th>
+                                    <th class="text-end pe-4">Home Campus</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for s in top_students %}
+                                <tr>
+                                    <td class="ps-4">
+                                        {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-dark">{{ s.name }}</div>
+                                    </td>
+                                    <td><code>{{ s.trno }}</code></td>
+                                    <td><span class="badge rounded-pill bg-golden px-3">{{ s.issues }}</span></td>
+                                    <td class="text-end pe-4">
+                                        <div class="d-flex justify-content-end gap-2">
+                                            {% for br in s.branches %}
+                                                <span class="badge rounded-pill border d-flex align-items-center gap-1" 
+                                                      style="background-color: {{ br.color or '#888' }}15; border-color: {{ br.color or '#888' }}!important; color: {{ br.color or '#888' }};">
+                                                    <span>{{ br.flag }}</span>
+                                                    <span class="small fw-bold">{{ br.code }}</span>
+                                                </span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Branch Explorer Section -->
     <div class="row mb-5">
         <div class="col-12 mb-4 d-flex align-items-center justify-content-between">
