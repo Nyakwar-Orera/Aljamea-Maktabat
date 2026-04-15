@@ -3,159 +3,62 @@
 
 
 {% block extra_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard_overhaul.css') }}">
 <style>
-  /* Inherits --primary-color, --primary-light, etc. from base.html */
-
   .gradient-text {
-    background: linear-gradient(135deg, var(--primary-color) 0%, #d89c00 100%);
+    background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
   }
 
   .date-badge {
-    background: var(--primary-light);
-    color: var(--primary-color);
+    background: var(--color-gold-soft);
+    color: var(--color-gold-dark);
     padding: 0.5rem 1.25rem;
     border-radius: 50px;
     font-weight: 700;
-    box-shadow: 0 2px 4px rgba(164, 90, 38, 0.05);
   }
 
-  /* Premium Card Styles */
-  .kpi-card-fancy {
-    border-radius: 24px;
-    border: none;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    position: relative;
-    overflow: hidden;
-    cursor: pointer;
-  }
-
-  .kpi-card-fancy:hover {
-    transform: translateY(-8px) scale(1.02);
-    box-shadow: 0 20px 30px rgba(0,0,0,0.1) !important;
-  }
-
-  .kpi-card-fancy .card-body {
-    padding: 1.75rem;
-    z-index: 2;
-    position: relative;
-  }
+  /* Specific KPI Colors — Rebranded Golden-Brown Palette */
+  .vibrant-blue  { background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%) !important; color: white !important; }
+  .vibrant-green { background: linear-gradient(135deg, var(--color-gold-dark) 0%, var(--color-brown) 100%) !important; color: white !important; }
+  .vibrant-purple{ background: linear-gradient(135deg, #D4AF37 0%, #B28F4D 100%) !important; color: white !important; }
+  .vibrant-orange{ background: linear-gradient(135deg, #6B4E31 0%, #4A3728 100%) !important; color: white !important; }
 
   .icon-wrapper {
-    width: 50px;
-    height: 50px;
-    border-radius: 15px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-    margin-bottom: 1.25rem;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
     background: rgba(255,255,255,0.2);
     backdrop-filter: blur(5px);
   }
 
-  /* Specific KPI Colors — !important overrides Bootstrap card background */
-  .vibrant-blue  { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important; color: white !important; }
-  .vibrant-green { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; color: white !important; }
-  .vibrant-purple{ background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important; color: white !important; }
-  .vibrant-orange{ background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; color: white !important; }
-  .vibrant-red   { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important; color: white !important; }
-  /* Force white text inside KPI cards */
-  .kpi-card-fancy .kpi-label,
-  .kpi-card-fancy .kpi-value,
-  .kpi-card-fancy .kpi-subtext { color: white !important; }
-
-  /* Chart & Section Containers */
   .chart-card {
     background: white;
-    border-radius: 24px;
-    border: 1px solid #f1f5f9;
+    border-radius: 20px;
+    border: 1px solid var(--border-color);
     padding: 1.75rem;
     height: 100%;
-  }
-
-  .chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.5rem;
-  }
-
-  .chart-title {
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: var(--secondary-color);
-  }
-
-  /* Animation for Insight Cards */
-  @keyframes slideIn {
-    from { opacity: 0; transform: translateX(20px); }
-    to { opacity: 1; transform: translateX(0); }
+    box-shadow: var(--shadow-sm);
   }
 
   .insight-pill {
     padding: 1rem;
-    background: #f8fafc;
+    background: var(--color-cream);
     border-radius: 16px;
-    border-left: 4px solid var(--accent-orange);
+    border-left: 4px solid var(--color-gold);
     margin-bottom: 1rem;
-    animation: slideIn 0.5s ease-out forwards;
     transition: all 0.2s;
   }
 
   .insight-pill:hover {
-    background: #f1f5f9;
-    transform: scale(1.02);
-  }
-
-  .book-card img {
-    height: 180px;
-    width: 100%;
-    object-fit: contain;
-    background: #f8fafc;
-    border-radius: 6px;
-    padding: 10px;
-  }
-
-  /* Student Avatar */
-  .student-avatar {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    object-fit: cover;
-    border: 2px solid #fff;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-
-  /* Tooltip/Hint styles */
-  .view-data-btn {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.75rem;
-    border-radius: 50px;
-    background: var(--primary-light);
-    color: var(--primary-color);
-    border: none;
-    font-weight: 600;
-    transition: all 0.2s;
-  }
-
-  .view-data-btn:hover {
-    background: var(--primary-color);
-    color: white;
-  }
-  /* Override standard container for full-screen feel */
-  main.container-fluid {
-    max-width: 100% !important;
-    padding-left: 3.5rem !important;
-    padding-right: 3.5rem !important;
-    margin-top: 2rem !important;
-  }
-
-  .dashboard-header {
-    margin-bottom: 2.5rem;
+    background: var(--color-cream-deep);
+    transform: translateX(4px);
   }
 </style>
 {% endblock %}
@@ -178,35 +81,9 @@
           </div>
         </div>
         <div class="col-lg-6 mt-4 mt-lg-0">
-          <div class="d-flex flex-wrap justify-content-lg-end align-items-center gap-3">
-            <!-- Academic Year Toggle -->
-            <div class="ay-toggle-wrapper shadow-sm">
-              <form action="{{ url_for('dashboard_bp.change_ay') }}" method="POST" id="ayToggleForm">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input type="hidden" name="academic_year" id="ayValue">
-                <button type="button" class="ay-toggle-btn {% if selected_ay == 'current' %}active{% endif %}" 
-                        onclick="setAY('current')">Active Year</button>
-                {% if available_years %}
-                <div class="btn-group">
-                  <button type="button" class="ay-toggle-btn dropdown-toggle {% if selected_ay != 'current' %}active{% endif %}" 
-                          data-bs-toggle="dropdown" aria-expanded="false">
-                    {% if selected_ay == 'current' %}Past Years{% else %}AY {{ selected_ay }}H{% endif %}
-                  </button>
-                  <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="border-radius: 12px;">
-                    {% for yr in available_years %}
-                    <li>
-                      <a class="dropdown-item py-2 px-3 {% if selected_ay == yr.hijri_year|string %}active{% endif %}" 
-                         href="javascript:void(0)" onclick="setAY('{{ yr.hijri_year }}')">
-                        <i class="fas fa-history me-2 opacity-50"></i> AY {{ yr.hijri_year }}H ({{ yr.label.split('(')[1].rstrip(')') }})
-                      </a>
-                    </li>
-                    {% endfor %}
-                  </ul>
-                </div>
-                {% endif %}
-              </form>
-            </div>
-
+            <button class="btn btn-golden shadow-sm" onclick="location.reload()">
+              <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
 
             <!-- Marhala Filter -->
             <form action="{{ url_for('dashboard_bp.dashboard') }}" method="POST" class="d-flex align-items-center gap-2" id="marhalaForm">
@@ -238,7 +115,7 @@
   <div class="row g-4 mb-5">
     {% for card in kpi_cards %}
     <div class="col-md-6 col-lg-4 col-xl">
-      <div class="card kpi-card-fancy {{ card.color }} shadow-sm" 
+      <div class="sa-kpi-card {{ card.color }} shadow-sm cursor-pointer" 
            onclick="handleKPIClick('{{ card.key }}')">
         <div class="card-body">
           <div class="icon-wrapper">
@@ -636,8 +513,8 @@
         datasets: [{
           label: 'Books Issued',
           data: trendData.values,
-          borderColor: '#3b82f6',
-          backgroundColor: 'rgba(59,130,246,0.08)',
+          borderColor: '#C5A059',
+          backgroundColor: 'rgba(197, 160, 89, 0.08)',
           fill: true,
           tension: 0.4,
           pointBackgroundColor: pointColors,
@@ -671,7 +548,7 @@
       type: 'doughnut',
       data: {
         labels: languageData.labels,
-        datasets: [{ data: languageData.values, backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'], borderWidth: 2 }]
+        datasets: [{ data: languageData.values, backgroundColor: ['#C5A059', '#8B6914', '#4A3728', '#D4AF37', '#B28F4D', '#F5F0E6'], borderWidth: 2 }]
       },
       options: { ...commonOpts, cutout: '70%', plugins: { legend: { position: 'bottom' } } }
     });

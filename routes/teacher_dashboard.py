@@ -2026,13 +2026,6 @@ def dashboard():
         flash(f"Error processing data: {str(e)}", "danger")
         return _render_empty_dashboard(f"Error processing data for {darajah_name}")
 
-@bp.route("/change_ay", methods=["POST"])
-def change_ay():
-    """Update selected academic year in session for Teacher Dashboard."""
-    year = request.form.get("academic_year")
-    if year:
-        session["selected_ay"] = year
-    return redirect(url_for("teacher_dashboard_bp.dashboard"))
 
 
 # --------------------------------------------------

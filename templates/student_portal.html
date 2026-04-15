@@ -16,18 +16,7 @@
 {% set m = info.get("Metrics", {}) %}
 {% set taqeem = info.get("Taqeem", {}) %}
 
-<style>
-  :root {
-    --primary-h: 210;
-    --primary-s: 50%;
-    --primary-l: 25%;
-    --primary: hsl(var(--primary-h), var(--primary-s), var(--primary-l));
-    --primary-light: hsl(var(--primary-h), var(--primary-s), 45%);
-    --primary-dark: hsl(var(--primary-h), var(--primary-s), 15%);
-    --gold: #ffcc00;
-    --glass-bg: rgba(255, 255, 255, 0.85);
-    --glass-border: rgba(255, 255, 255, 0.4);
-  }
+  /* Inherits --color-gold, --color-brown, etc from base.html */
 
   /* Portal Styling */
   .portal-container {
@@ -37,14 +26,14 @@
   }
 
   .portal-welcome {
-    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary) 100%);
-    border-radius: 20px;
+    background: linear-gradient(135deg, var(--color-brown) 0%, var(--color-gold-dark) 100%);
+    border-radius: 24px;
     padding: 3rem;
     color: white;
     margin-bottom: 2.5rem;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+    box-shadow: var(--shadow-md);
   }
 
   .portal-welcome::before {
@@ -210,14 +199,14 @@
                 <h5 class="text-white-50 fw-bold text-uppercase mb-1" style="letter-spacing: 2px;">Welcome,</h5>
                 <h1 class="student-name-portal fw-800 display-5 mb-3">{{ info.FullName }}</h1>
                 <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-md-start">
-                    <span class="badge bg-white text-primary px-3 py-2 rounded-pill">
-                        <i class="bi bi-person-badge me-2"></i>ITS: {{ info['ITS ID'] }}
+                    <span class="badge bg-white text-dark-gold px-3 py-2 rounded-pill shadow-sm">
+                        <i class="bi bi-person-badge me-2 text-golden"></i>ITS: {{ info['ITS ID'] }}
                     </span>
-                    <span class="badge bg-white text-primary px-3 py-2 rounded-pill">
-                        <i class="bi bi-building me-2"></i>{{ info.Darajah }}
+                    <span class="badge bg-white text-dark-gold px-3 py-2 rounded-pill shadow-sm">
+                        <i class="bi bi-building me-2 text-golden"></i>{{ info.Darajah }}
                     </span>
-                    <span class="badge bg-white text-primary px-3 py-2 rounded-pill">
-                        <i class="bi bi-geo-alt me-2"></i>{{ info.campus_branch or 'Aljamea Nairobi' }}
+                    <span class="badge bg-white text-dark-gold px-3 py-2 rounded-pill shadow-sm">
+                        <i class="bi bi-geo-alt me-2 text-golden"></i>{{ info.campus_branch or 'Aljamea Nairobi' }}
                     </span>
                 </div>
             </div>
@@ -234,7 +223,7 @@
     <!-- Stats Row -->
     <div class="row g-4 mb-5 fade-in-up" style="animation-delay: 0.1s;">
         <div class="col-md-3">
-            <div class="portal-stat-card">
+            <div class="sa-kpi-card p-4 h-100">
                 <div class="stat-icon bg-primary text-white"><i class="bi bi-book"></i></div>
                 <div class="stat-label">Currently Borrowed</div>
                 <div class="stat-num">{{ m.CurrentlyIssued }}</div>
@@ -245,7 +234,7 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="portal-stat-card">
+            <div class="sa-kpi-card p-4 h-100">
                 <div class="stat-icon bg-success text-white"><i class="bi bi-check2-circle"></i></div>
                 <div class="stat-label">Total Books (AY)</div>
                 <div class="stat-num">{{ m.AYIssues }}</div>
@@ -253,7 +242,7 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="portal-stat-card">
+            <div class="sa-kpi-card p-4 h-100">
                 <div class="stat-icon {{ 'bg-danger' if m.OverdueNow > 0 else 'bg-info' }} text-white">
                     <i class="bi {{ 'bi-exclamation-triangle' if m.OverdueNow > 0 else 'bi-clock' }}"></i>
                 </div>
@@ -265,7 +254,7 @@
             </div>
         </div>
         <div class="col-md-3">
-            <div class="portal-stat-card">
+            <div class="sa-kpi-card p-4 h-100">
                 <div class="stat-icon bg-warning text-dark"><i class="bi bi-cash-stack"></i></div>
                 <div class="stat-label">Library Balance</div>
                 <div class="stat-num">Ksh {{ m.OutstandingBalance|round|int }}</div>

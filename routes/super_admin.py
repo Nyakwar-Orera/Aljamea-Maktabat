@@ -22,18 +22,25 @@ def restrict_to_super_admin():
 def god_eye():
     """Global 'God's Eye' Dashboard with real-time aggregation."""
     from services.branch_queries import get_all_branches_summary, get_global_aggregate, get_global_top_titles
+    from services.branch_queries import get_global_language_distribution, get_global_fiction_stats, get_global_top_students
+    
+    # AY Filter
+    selected_ay = session.get("selected_ay", "current")
+    hijri_year = int(selected_ay) if selected_ay != "current" else None
     
     # 1. Fetch data from all campuses in parallel
-    summaries = get_all_branches_summary()
+    summaries = get_all_branches_summary(hijri_year=hijri_year)
     
     # 2. Compute global aggregate
     aggregate = get_global_aggregate(summaries)
     
     # 3. Aggregate Top Titles & Distribution
     global_top_titles = get_global_top_titles(summaries)
-    from services.branch_queries import get_global_language_distribution, get_global_fiction_stats
     lang_dist = get_global_language_distribution(summaries)
     fiction_stats = get_global_fiction_stats(summaries)
+    global_top_students = get_global_top_students(summaries)
+    
+    available_years = KQ.get_available_academic_years()
     
     return render_template("super_admin/dashboard.html", 
                          title="God's Eye Dashboard",
@@ -41,7 +48,10 @@ def god_eye():
                          aggregate=aggregate,
                          top_titles=global_top_titles,
                          lang_dist=lang_dist,
-                         fiction_stats=fiction_stats)
+                         fiction_stats=fiction_stats,
+                         top_students=global_top_students,
+                         selected_ay=selected_ay,
+                         available_years=available_years)
 
 @bp.route("/switch/<branch_code>")
 def switch_branch(branch_code):

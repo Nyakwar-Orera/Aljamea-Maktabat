@@ -6,25 +6,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
 
-<style>
-  :root {
-    --primary: var(--primary-color);
-    --primary-soft: var(--primary-soft);
-    --secondary: #64748b;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --info: #0ea5e9;
-    --purple: #8b5cf6;
-    --bg-body: #fdfdfd;
-    --bg-card: #ffffff;
-    --text-main: #0f172a;
-    --text-muted: #64748b;
-    --radius-lg: 24px;
-    --radius-md: 16px;
-    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    --shadow-md: 0 10px 20px -5px rgba(0,0,0,0.06);
-  }
+  /* Inherits --color-gold, --color-brown, etc from base.html */
 
   /* Global Layout */
   main.container {
@@ -133,7 +115,7 @@
 
   /* Main Viewport Padding */
   .main-viewport {
-    padding: 2.5rem 4rem;
+    padding: 2.5rem 2rem;
   }
 
   /* Page Sub-Header */
@@ -171,9 +153,9 @@
     margin-bottom: 2.5rem;
   }
 
-  .kpi-card-premium {
+  .sa-kpi-card {
     padding: 1.25rem;
-    border-radius: var(--radius-md);
+    border-radius: var(--card-radius);
     color: white;
     text-decoration: none !important;
     position: relative;
@@ -506,39 +488,38 @@
       </div>
     </div>
 
-    <!-- KPI Dashboard Cards -->
     <div class="kpi-row">
-      <div class="kpi-card-premium kpi-blue animate__animated animate__fadeInUp" onclick="handleKPIClick('students')" style="cursor: pointer;">
+      <div class="sa-kpi-card bg-gradient-golden animate__animated animate__fadeInUp" onclick="handleKPIClick('students')" style="cursor: pointer;">
         <div class="kpi-tit">Total Students</div>
         <div class="kpi-val">{{ total_students }}</div>
         <div class="small opacity-75">&nbsp;</div>
       </div>
 
-      <div class="kpi-card-premium kpi-green animate__animated animate__fadeInUp" onclick="handleKPIClick('books_issued')" style="animation-delay: 50ms; cursor: pointer;">
+      <div class="sa-kpi-card bg-gradient-golden animate__animated animate__fadeInUp" onclick="handleKPIClick('books_issued')" style="animation-delay: 50ms; cursor: pointer;">
         <div class="kpi-tit">Books Issued</div>
         <div class="kpi-val">{{ books_issued_darajah }}</div>
         <div class="small opacity-75">Total checkouts in AY</div>
       </div>
 
-      <div class="kpi-card-premium kpi-indigo animate__animated animate__fadeInUp" onclick="handleKPIClick('unique_titles')" style="animation-delay: 100ms; cursor: pointer;">
+      <div class="sa-kpi-card bg-gradient-golden animate__animated animate__fadeInUp" onclick="handleKPIClick('unique_titles')" style="animation-delay: 100ms; cursor: pointer;">
         <div class="kpi-tit">Unique Titles</div>
         <div class="kpi-val">{{ unique_titles_count }}</div>
         <div class="small opacity-75">Distinct resources read</div>
       </div>
 
-      <div class="kpi-card-premium kpi-purple animate__animated animate__fadeInUp" onclick="handleKPIClick('currently_issued')" style="animation-delay: 150ms; cursor: pointer;">
+      <div class="sa-kpi-card bg-gradient-brown animate__animated animate__fadeInUp" onclick="handleKPIClick('currently_issued')" style="animation-delay: 150ms; cursor: pointer;">
         <div class="kpi-tit">Currently Issued</div>
         <div class="kpi-val">{{ currently_issued_count }}</div>
         <div class="small opacity-75">Books with students now</div>
       </div>
 
-      <div class="kpi-card-premium kpi-orange animate__animated animate__fadeInUp" onclick="handleKPIClick('non_borrowers')" style="animation-delay: 200ms; cursor: pointer;">
+      <div class="sa-kpi-card bg-gradient-brown animate__animated animate__fadeInUp" onclick="handleKPIClick('non_borrowers')" style="animation-delay: 200ms; cursor: pointer;">
         <div class="kpi-tit">Non-Borrowers</div>
         <div class="kpi-val">{{ non_borrowers_count }}</div>
         <div class="small opacity-75">0 issues this year</div>
       </div>
 
-      <div class="kpi-card-premium kpi-red animate__animated animate__fadeInUp" onclick="handleKPIClick('overdues')" style="animation-delay: 250ms; cursor: pointer;">
+      <div class="sa-kpi-card bg-gradient-brown animate__animated animate__fadeInUp" onclick="handleKPIClick('overdues')" style="animation-delay: 250ms; cursor: pointer;">
         <div class="kpi-tit">Overdue Books</div>
         <div class="kpi-val">{{ total_overdues_current }}</div>
         <div class="small opacity-75">Pending class returns</div>

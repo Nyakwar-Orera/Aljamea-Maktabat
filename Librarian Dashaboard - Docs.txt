@@ -1,0 +1,82 @@
+I want to go Page by Page and Dashboard by Dashboard.
+
+Active Year and Past Year Toggle across all the Dashboards
+*Gods Eye* - Head Office Dashboard
+*Campus Librarian Dashboard* - Admin Dashboard (Has Access to Full Admin Dashboard, Marhalah Dashboard (All Marhala), Class Teacher Dashboard (All Class Teachers), 
+*Marhalah HOD Dashboard* - Marhalah Explorer (Create an access for that specific Marhalah)
+*Teachers Dashboard* - 
+*Student Dashboard* - Student Progress Report
+
+Campus Librarian Dashboard 
+_Cards_
+1. All Students (Counter) OutSide
+        - When Clicked give Total Patrons counter and bifurcation according to the category
+        - When Clicked shows, Active Patron (Students and Teachers Bifurcation)
+        - Expired Patrons (No more in this campus)
+        - Students Data to be pulled from all Students Category (Marhalahs)
+        - Asateza/Faculty Data to be pulled from T-KG Category
+        - Other patrons to be pulled from other category (With Category bifurcation)
+2. Books Issued Change name to (Books Issued 1447-1448H)
+       - When clicked on the card it should display checked our counter using category just like above
+   3.    Currently Issued (Same no change needed)
+4. Today's Activity (Same no change)
+5. Garamat Collected (Fines Collected)
+       - When clicked on the Card needs to display last 7 Days data from Koha and need to support Monthly data as well with a click of a button inside the popup
+
+
+Note: All Charts must have pop up feature in which the data can be viewed
+Section 2
+Borrowing Trend
+* Remains the same but chart needs to take Half space and share space with another chart
+Section 3
+Darajah Distribution by Gender 
+* Remains the same but also need to add Class wise issue chart meaning same chart but do showing Darajah 1 (Counts on the chart)
+Section 3 Part 2
+* Key insights does not give any idea to the campus librarian
+Need to add animation Cards and other UI element to make it stand out properly
+  - Top Marhala (is enough)
+  - Currentlty Issued Books are which books?
+  - Gender distribution 55.0% male, 45.0% female (Girls: Darajah 1-7 only, Boys: Darajah 1-11) What does this mean?
+  
+  Need to understand what impact this will give on a campus librarian or HO if viewing this particular page?
+  
+  
+  Section 4
+  Marhalah Distribution 
+  * Remains the same with interactive and also need a button for pop-up so that data can be viewed in table format
+  Section 4 part 2
+  * Books Issued by Language
+  Need to Have another chart that fits our section (This chart can also go above as well)
+  
+  Section 4 Part 3
+  What is the impact of same data displayed again and again?
+  
+  Top Arabic Titles 
+  Book Titles and Book Coverpages as well in a fancy and concise maner
+  
+  Top English Titles 
+  Book Titles and Book Coverpages as well in a fancy and concise maner
+    
+    Impact of Displayed resources weekly
+  This section must display Coverpage of those books and also the title of those books
+  
+  
+  Section 5 Part 1
+  
+  Top 10 Darajah Performance (AY) 
+  * Can be a list but at the moment looks monotonous
+  
+  Top 10 Individual Students
+* List is okay, but need to display Student Photos small Thumnail type with their names
+
+Academic Marhalas Performance 5 (Seems Repetative can be removed)
+Departmental Marhala Performance 5 (Seems Repetative can be removed)
+
+
+Complete Darajah Breakdown
+* Need to display in a neat and chart so that its visually appealing - currently everything seems to be only List List List and not visually appealing.
+
+we need to modify te super admin part let it resemble the adshboar.htm for god_eye.html and the color should be persistente from accross the pages from the login page 
+let everything be for global of all the campusses and have baranches explorer just like the way you did for darajah and marhala. When the branch is clicked it should take use to admin dashboard for that branch and the page should be the same (dashboard.html) but for that branch superadmin has power to check all the branches. and when the filter is applied it should show only details of that branch, topstart student for the global of all campus just use the logic od dashboard.py route to implemnt super_admin.py dashboard
+the two attached images are what we need to implement for the super admin ashboard.
+let everything work go through the  entire project and give a ready to deploy wensite suytem now the color should be golden brown just like the other paages and enure the color for super admin pages too overhaul everything

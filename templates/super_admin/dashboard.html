@@ -12,11 +12,10 @@
             </h1>
             <p class="text-muted mb-0">Unified Real-time Oversight across {{ aggregate.total_branches }} Global Campuses</p>
         </div>
-        <div class="d-flex gap-2 mt-3 mt-sm-0">
-            <div class="btn-group shadow-sm" role="group">
-                <button type="button" class="btn btn-outline-golden active">AY 1447H</button>
-                <button type="button" class="btn btn-outline-golden">AY 1446H</button>
-            </div>
+        <div class="d-flex gap-2 mt-3 mt-sm-0 align-items-center">
+            <span class="badge bg-soft-golden text-golden px-3 py-2 rounded-pill shadow-sm">
+                <i class="bi bi-calendar-check me-1"></i> Global AY: {{ session.get('selected_ay', 'Current') }}
+            </span>
             <button class="btn btn-golden shadow-sm" onclick="location.reload()">
                 <i class="bi bi-arrow-clockwise me-1"></i> Refresh
             </button>

@@ -225,6 +225,29 @@
         <ul class="navbar-nav align-items-center gap-3">
           {% if session.get('logged_in') %}
 
+          {# Academic Year Toggle - Global Persistence #}
+          <li class="nav-item me-2">
+            <form action="{{ url_for('auth_bp.change_ay') }}" method="POST" id="globalAyForm" class="m-0">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="academic_year" id="globalAyValue">
+              <div class="btn-group btn-group-sm rounded-pill overflow-hidden shadow-sm" role="group" 
+                   style="background: rgba(0,0,0,0.15); border: 1px solid rgba(197, 160, 89, 0.25); padding: 2px;">
+                <button type="button" 
+                        class="btn btn-sm py-1 px-3 rounded-pill {% if session.get('selected_ay', 'current') == 'current' %}btn-golden{% else %}text-white-50 border-0{% endif %}"
+                        style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px;"
+                        onclick="document.getElementById('globalAyValue').value='current'; document.getElementById('globalAyForm').submit();">
+                  ACTIVE
+                </button>
+                <button type="button" 
+                        class="btn btn-sm py-1 px-3 rounded-pill {% if session.get('selected_ay') == '1446' %}btn-golden{% else %}text-white-50 border-0{% endif %}"
+                        style="font-size: 10px; font-weight: 800; letter-spacing: 0.5px;"
+                        onclick="document.getElementById('globalAyValue').value='1446'; document.getElementById('globalAyForm').submit();">
+                  1446H
+                </button>
+              </div>
+            </form>
+          </li>
+
           {# Branch Indicator Pill #}
           {% set bc = session.get('branch_code') %}
           {% if bc %}

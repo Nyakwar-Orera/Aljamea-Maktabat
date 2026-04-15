@@ -159,6 +159,7 @@ def login():
         branch_code = user.get("branch_code") or "AJSN"
         session["branch_code"] = branch_code if role != "super_admin" else None
         session["is_super_admin"] = (role == "super_admin")
+        session["selected_ay"] = "current" # Default to 1447H
 
         if role == "hod":
             session["marhala_name"] = user.get("department_name")
@@ -228,9 +229,9 @@ def token_login():
     session["department_name"] = user.get("department_name")
     session["class_name"] = user.get("class_name")
     session["profile_picture"] = user.get("profile_picture") or "images/avatar.png"
-    branch_code = user.get("branch_code") or "AJSN"
     session["branch_code"] = branch_code if role != "super_admin" else None
     session["is_super_admin"] = (role == "super_admin")
+    session["selected_ay"] = "current" # Default for token users
 
     if role == "student":
         # Students log in via token — route to student portal
@@ -259,6 +260,31 @@ def token_login():
         flash("⚠️ Role not recognized. Please contact the administrator.", "warning")
         session.clear()
         return redirect(url_for("auth_bp.login"))
+
+
+@bp.route("/change_ay", methods=["POST"])
+def change_ay():
+    """Global endpoint to update selected academic year in session."""
+    year = (request.form.get("academic_year") or "").strip()
+    if year:
+        session["selected_ay"] = year
+        current_app.logger.info(f"AY changed to: {year} by {session.get('username')}")
+    
+    # Try to redirect to referring page
+    next_page = request.referrer
+    if next_page and url_for('auth_bp.login') not in next_page:
+        return redirect(next_page)
+    
+    # Fallback based on role
+    role = (session.get("role") or "").lower()
+    if role == "super_admin":
+        return redirect(url_for("super_admin_bp.god_eye"))
+    elif role == "admin":
+        return redirect(url_for("dashboard_bp.dashboard"))
+    elif role == "teacher":
+        return redirect(url_for("teacher_dashboard_bp.dashboard"))
+    
+    return redirect(url_for("auth_bp.login"))
 
 
 # --------------------------------------------------

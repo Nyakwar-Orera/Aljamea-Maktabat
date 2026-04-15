@@ -1164,13 +1164,6 @@ def dashboard():
         lang_values=lang_values
     )
 
-@bp.route("/change_ay", methods=["POST"])
-def change_ay():
-    """Update selected academic year in session."""
-    year = request.form.get("academic_year")
-    if year:
-        session["selected_ay"] = year
-    return redirect(url_for("dashboard_bp.dashboard"))
 
 @bp.route("/api/patron-bifurcation")
 def api_patron_bifurcation():
