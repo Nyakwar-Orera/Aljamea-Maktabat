@@ -2,23 +2,30 @@
    THEME COLORS & GLOBAL VARIABLES
 ================================================= */
 :root {
-  --primary-color: #a45a26;
-  --primary-hover: #8c4519;
-  --accent-bg: #fff8ef;
-  --light-bg: #fffaf4;
-  --text-dark: #3a2a1a;
-  --text-muted: #6b3b16;
-  --border-color: #e6d8c3;
-  --shadow-color: rgba(0, 0, 0, 0.08);
+  /* Institutional Palette (Golden Brown) */
+  --color-gold: #C5A059;
+  --color-gold-dark: #8B6914;
+  --color-gold-soft: rgba(197, 160, 89, 0.12);
+  --color-brown: #4A3728;
+  --color-brown-light: #8E735B;
+  --color-cream: #FDFBF8;
+  --color-cream-deep: #F5F0E6;
+  
+  /* Semantic Aliases */
+  --primary-color: var(--color-gold);
+  --primary-hover: var(--color-gold-dark);
+  --accent-bg: var(--color-cream);
+  --text-dark: var(--color-brown);
+  --text-muted: var(--color-brown-light);
+  --border-color: rgba(197, 160, 89, 0.15);
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(139, 105, 20, 0.12);
+  
+  /* Layout */
   --nav-h: 70px;
   --footer-h: 56px;
   --content-gap: 24px;
-
-  /* Accent tones */
-  --accent-blue: #0d6efd;
-  --accent-green: #198754;
-  --accent-gold: #ffc107;
-  --accent-teal: #0dcaf0;
+  --card-radius: 16px;
 }
 
 /* ================================================
@@ -295,24 +302,24 @@ footer a:hover {
   color: rgba(255, 255, 255, 0.85) !important;
 }
 
-/* Updated KPI Color Variants */
+/* Updated KPI Color Variants — Rebranded for v3.0 */
 .kpi-card-blue {
-  background: linear-gradient(90deg, #0066D1, #007BFF);
+  background: linear-gradient(135deg, #C5A059 0%, #8B6914 100%);
   color: #fff;
 }
 
 .kpi-card-green {
-  background: linear-gradient(90deg, #178A42, #28A745);
+  background: linear-gradient(135deg, #8B6914 0%, #4A3728 100%);
   color: #fff;
 }
 
 .kpi-card-gold {
-  background: linear-gradient(90deg, #D89C00, #FFC107);
+  background: linear-gradient(135deg, #D4AF37 0%, #B28F4D 100%);
   color: #fff;
 }
 
 .kpi-card-teal {
-  background: linear-gradient(90deg, #006D74, #0096A6);
+  background: linear-gradient(135deg, #6B4E31 0%, #4A3728 100%);
   color: #fff;
 }
 
@@ -523,9 +530,9 @@ a.link-primary:hover {
   justify-content: center;
   padding: 1.5rem 0;
   background: radial-gradient(circle at top left,
-                              #fff4e0 0,
-                              #fbe6cf 40%,
-                              #f9e2c3 100%);
+                              #F5F0E6 0,
+                              #ECE2D0 40%,
+                              #DFD0B8 100%);
 }
 
 .login-card {
@@ -600,4 +607,85 @@ a.link-primary:hover {
   .login-page-wrapper {
     padding: 0.5rem;
   }
+}
+
+/* ================================================
+   NEW PREMIUM DESIGN SYSTEM (Unified v3.0)
+   ================================================ */
+
+.sa-kpi-card, .kpi-card {
+    background: #fff;
+    border-radius: var(--card-radius);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s cubic-bezier(0.2, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.sa-kpi-card:hover, .kpi-card:hover {
+    transform: translateY(-8px);
+    box-shadow: var(--shadow-md);
+}
+
+.bg-soft-golden { background-color: var(--color-gold-soft); }
+.text-golden { color: var(--color-gold); }
+.bg-soft-brown { background-color: rgba(74, 55, 40, 0.08); }
+.text-brown { color: var(--color-brown); }
+
+.btn-golden {
+    background-color: var(--color-gold);
+    background-image: linear-gradient(135deg, #D4AF37 0%, var(--color-gold) 100%);
+    border-color: var(--color-gold);
+    color: white !important;
+    font-weight: 600;
+}
+
+.btn-golden:hover {
+    background-color: var(--color-gold-dark);
+    border-color: var(--color-gold-dark);
+    transform: translateY(-1px);
+}
+
+.btn-outline-golden {
+    border-color: var(--color-gold);
+    color: var(--color-gold-dark);
+}
+
+.btn-outline-golden:hover {
+    background-color: var(--color-gold);
+    color: white !important;
+}
+
+.glassmorphism {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.bg-gradient-golden {
+    background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%);
+    color: white !important;
+}
+
+.bg-gradient-brown {
+    background: linear-gradient(135deg, var(--color-gold-dark) 0%, var(--color-brown) 100%);
+    color: white !important;
+}
+
+/* Pulse Animation */
+.pulse-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.pulse-success {
+    background: #10b981;
+    box-shadow: 0 0 0 rgba(16,185,129, 0.4);
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16,185,129, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16,185,129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16,185,129, 0); }
 }
