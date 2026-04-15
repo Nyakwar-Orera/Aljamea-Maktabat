@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError, w
 from datetime import date, datetime
 from typing import Dict, List, Optional, Any
 
+from collections import defaultdict
 from config import Config
 from db_koha import get_branch_conn, is_branch_online, _MockConnection
 
@@ -122,6 +123,22 @@ def get_branch_summary(branch_code: str, hijri_year: Optional[int] = None) -> Di
         # ── Top books ──────────────────────────────────────────────
         top_books = _get_branch_top_books(cur, start, end)
 
+        # ── Top students ──────────────────────────────────────────
+        # Re-using the logic from get_branch_top_students but with existing cursor
+        cur.execute("""
+            SELECT
+                CONCAT(COALESCE(b.surname, ''), ' ', COALESCE(b.firstname, '')) AS StudentName,
+                trno.attribute AS TRNumber,
+                b.cardnumber,
+                COUNT(s.datetime) AS BooksIssued
+            FROM statistics s
+            JOIN borrowers b ON s.borrowernumber = b.borrowernumber
+            LEFT JOIN borrower_attributes trno ON b.borrowernumber = trno.borrowernumber AND trno.code = 'TRNO'
+            WHERE s.type = 'issue' AND DATE(s.datetime) BETWEEN %s AND %s
+            GROUP BY b.borrowernumber ORDER BY BooksIssued DESC LIMIT 10
+        """, (start, end))
+        top_students = cur.fetchall()
+
         cur.close()
 
         cfg = Config.CAMPUS_REGISTRY.get(branch_code, {})
@@ -144,6 +161,7 @@ def get_branch_summary(branch_code: str, hijri_year: Optional[int] = None) -> Di
             "weekly_trend":       weekly_trend,
             "top_marhalas":       top_marhalas,
             "top_books":          top_books,
+            "top_students":       top_students,
             "fetched_at":         datetime.utcnow().isoformat(),
         }
 
@@ -675,6 +693,45 @@ def get_global_fiction_stats(branch_summaries: Optional[List[Dict]] = None) -> D
     total = sum(b.get("total_titles", 0) for b in (branch_summaries or []))
     fiction = int(total * 0.30)
     return {"fiction": fiction, "non_fiction": total - fiction}
+
+def get_global_top_students(branch_summaries: Optional[List[Dict]] = None) -> List[Dict[str, Any]]:
+    """Aggregate top students across all branches into a global leaderboard."""
+    if branch_summaries is None:
+        branch_summaries = get_all_branches_summary()
+
+    # trno -> {name, trno, issues, branches: [ {code, flag, color} ]}
+    master_list = defaultdict(lambda: {"name": "", "trno": "", "issues": 0, "branches": []})
+
+    for b in branch_summaries:
+        branch_code = b.get("branch_code")
+        branch_flag = b.get("flag", "")
+        branch_color = b.get("color", "#888")
+        
+        top_students = b.get("top_students", [])
+        for s in top_students:
+            trno = s.get("TRNumber") or s.get("cardnumber")
+            name = s.get("StudentName")
+            issues = int(s.get("BooksIssued", 0))
+            
+            if not trno: continue
+            
+            # Normalize key
+            key = str(trno).strip().upper()
+            
+            if not master_list[key]["name"]:
+                master_list[key]["name"] = name
+                master_list[key]["trno"] = trno
+                
+            master_list[key]["issues"] += issues
+            master_list[key]["branches"].append({
+                "code": branch_code,
+                "flag": branch_flag,
+                "color": branch_color
+            })
+
+    # Convert and sort
+    sorted_students = sorted(master_list.values(), key=lambda x: x["issues"], reverse=True)
+    return sorted_students[:10]
 
 def get_global_aggregate(branch_summaries: Optional[List[Dict]] = None) -> Dict[str, Any]:
     """
