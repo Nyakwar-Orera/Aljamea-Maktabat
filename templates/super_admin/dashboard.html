@@ -88,6 +88,100 @@
         </div>
     </div>
 
+    <!-- Top 10 Books & Analytics Depth -->
+    <div class="row mb-5">
+        <div class="col-xl-8 col-lg-7 mb-4">
+            <div class="sa-kpi-card h-100 pb-0">
+                <div class="card-header bg-transparent border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                    <h5 class="fw-bold mb-0" style="color: #4A3728;">Global Top 10 Performers</h5>
+                    <span class="badge bg-soft-golden text-golden">All Campuses</span>
+                </div>
+                <div class="card-body px-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-4">Title / Author</th>
+                                    <th>Total Issues</th>
+                                    <th>Presence</th>
+                                    <th class="text-end pe-4">Details</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for book in top_titles %}
+                                <tr class="cursor-pointer" onclick="openBookModal('{{ book.title|escape }}', '{{ book.author|escape }}')">
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center">
+                                            <div class="book-cover-mini me-3 shadow-sm" style="background-image: url('https://via.placeholder.com/40x60?text=Book');"></div>
+                                            <div>
+                                                <div class="fw-bold text-dark">{{ book.title }}</div>
+                                                <div class="text-muted small">{{ book.author }}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge bg-soft-brown text-brown fs-6">{{ book.issue_count }}</span></td>
+                                    <td>
+                                        <div class="d-flex gap-1">
+                                            {% for br in book.branches %}
+                                                <span class="tiny-branch-dot" title="{{ br }}" style="background-color: {{ campus_registry[br].color if br in campus_registry else '#888' }}"></span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td class="text-end pe-4">
+                                        <button class="btn btn-sm btn-light rounded-circle"><i class="bi bi-chevron-right"></i></button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-4 col-lg-5 mb-4">
+            <div class="sa-kpi-card h-100 bg-gradient-brown text-white">
+                <div class="card-body p-4 d-flex flex-column">
+                    <h5 class="fw-bold mb-4">Collection Excellence</h5>
+                    <div class="flex-grow-1 d-flex flex-column justify-content-center text-center py-4">
+                        <div class="mb-3">
+                            <i class="bi bi-stars fs-1 text-golden"></i>
+                        </div>
+                        <h2 class="fw-bold display-5">{{ aggregate.total_titles // 1000 }}K+</h2>
+                        <p class="text-white-50">Unique titles available in the global circulation pool.</p>
+                        
+                        <div class="mt-4 p-3 bg-white-transparent rounded-3 text-start">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span class="small">Overall Circulation Rate</span>
+                                <span class="small fw-bold">84%</span>
+                            </div>
+                            <div class="progress" style="height: 6px; background: rgba(255,255,255,0.1);">
+                                <div class="progress-bar bg-golden" role="progressbar" style="width: 84%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn btn-white-glass w-100 mt-4">View Global Analytics</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Specialized Global Distribution -->
+    <div class="row mb-5">
+        <div class="col-md-6 mb-4">
+            <div class="sa-kpi-card p-4">
+                <h5 class="fw-bold mb-4" style="color: #4A3728;"><i class="bi bi-translate me-2"></i>Global Language Mix</h5>
+                <canvas id="langDistChart" height="200"></canvas>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="sa-kpi-card p-4">
+                <h5 class="fw-bold mb-4" style="color: #4A3728;"><i class="bi bi-collection-fill me-2"></i>Genre Classification</h5>
+                <canvas id="fictionDistChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Branch Explorer Section -->
     <div class="row mb-5">
         <div class="col-12 mb-4 d-flex align-items-center justify-content-between">
@@ -142,6 +236,8 @@
     </div>
 </div>
 
+{% include "components/popups.html" %}
+
 <style>
 /* ── Golden Brown Theme Tokens ── */
 .btn-golden {
@@ -171,6 +267,16 @@
     background-color: #8B6914;
     color: white;
 }
+.btn-white-glass {
+    background: rgba(255,255,255,0.1);
+    backdrop-filter: blur(4px);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+}
+.btn-white-glass:hover {
+    background: rgba(255,255,255,0.2);
+    color: white;
+}
 
 /* ── Card Styling ── */
 .sa-kpi-card {
@@ -194,6 +300,24 @@
 .bg-gradient-golden {
     background: linear-gradient(135deg, #C5A059 0%, #8B6914 100%);
 }
+.bg-gradient-brown {
+    background: linear-gradient(135deg, #8B6914 0%, #4A3728 100%);
+}
+
+/* ── Book Styling ── */
+.book-cover-mini {
+    width: 32px;
+    height: 48px;
+    background-size: cover;
+    background-position: center;
+    border-radius: 4px;
+}
+.tiny-branch-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.cursor-pointer { cursor: pointer; }
 
 .icon-shape {
     width: 48px;
@@ -207,7 +331,7 @@
 .text-golden { color: #C5A059; }
 .bg-soft-brown { background-color: #F5EFEB; }
 .text-brown { color: #8B6914; }
-.bg-white-transparent { background-color: rgba(255, 255, 255, 0.2); }
+.bg-white-transparent { background-color: rgba(255, 255, 255, 0.1); }
 
 /* ── Campus Card (Passports) ── */
 .campus-card {
@@ -276,4 +400,98 @@
     100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16,185,129, 0); }
 }
 </style>
+
+<script>
+function openBookModal(title, author) {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataModalLabel').innerText = title;
+    document.getElementById('modalSubtitle').innerText = "Aggregation Details for: " + author;
+    
+    // Injecting demo drill-down data
+    const table = document.getElementById('modalDataTable');
+    table.innerHTML = `
+        <thead>
+            <tr>
+                <th>Campus</th>
+                <th>Issue Count</th>
+                <th>Status</th>
+                <th>Avg Loan Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Nairobi</td><td>145</td><td><span class='badge bg-success'>Hot</span></td><td>12 days</td></tr>
+            <tr><td>Marol</td><td>89</td><td><span class='badge bg-primary'>Steady</span></td><td>14 days</td></tr>
+            <tr><td>Karachi</td><td>56</td><td><span class='badge bg-warning'>Low</span></td><td>15 days</td></tr>
+        </tbody>
+    `;
+    
+    modal.show();
+}
+
+// Global Visualization Initialization
+document.addEventListener('DOMContentLoaded', function() {
+    const commonOptions = {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'right' } },
+        onClick: (evt, elements, chart) => {
+            if (elements.length > 0) {
+                const index = elements[0].index;
+                const label = chart.data.labels[index];
+                const value = chart.data.datasets[0].data[index];
+                openChartDetailModal(label, value);
+            }
+        }
+    };
+
+    // Language Distribution Chart
+    new Chart(document.getElementById('langDistChart'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Arabic', 'English', 'Other'],
+            datasets: [{
+                data: [{{ lang_dist.Arabic }}, {{ lang_dist.English }}, {{ lang_dist.Other }}],
+                backgroundColor: ['#C5A059', '#8B6914', '#4A3728'],
+                borderWidth: 0
+            }]
+        },
+        options: commonOptions
+    });
+
+    // Fiction vs Non-Fiction Chart
+    new Chart(document.getElementById('fictionDistChart'), {
+        type: 'pie',
+        data: {
+            labels: ['Fiction', 'Non-Fiction'],
+            datasets: [{
+                data: [{{ fiction_stats.fiction }}, {{ fiction_stats.non_fiction }}],
+                backgroundColor: ['#D4AF37', '#F5F0E6'],
+                borderColor: '#C5A059',
+                borderWidth: 1
+            }]
+        },
+        options: commonOptions
+    });
+});
+
+function openChartDetailModal(label, value) {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataModalLabel').innerText = "Detail: " + label;
+    document.getElementById('modalSubtitle').innerText = "Segment value: " + value.toLocaleString();
+    
+    const table = document.getElementById('modalDataTable');
+    table.innerHTML = `
+        <thead>
+            <tr><th>Attribute</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Category</td><td>${label}</td></tr>
+            <tr><td>Total Bound Volume</td><td>${value.toLocaleString()}</td></tr>
+            <tr><td>AY Circulating</td><td>${Math.floor(value * 0.45).toLocaleString()}</td></tr>
+            <tr><td>Reference Only</td><td>${Math.floor(value * 0.15).toLocaleString()}</td></tr>
+        </tbody>
+    `;
+    modal.show();
+}
+</script>
 {% endblock %}

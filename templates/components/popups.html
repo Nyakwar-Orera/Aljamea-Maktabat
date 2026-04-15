@@ -1,0 +1,38 @@
+<!-- templates/components/popups.html -->
+<div class="modal fade" id="chartDataModal" tabindex="-1" aria-labelledby="chartDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header border-0 pb-0" style="background-color: #FDFBF8;">
+                <div>
+                    <h5 class="modal-title fw-bold" id="chartDataModalLabel" style="color: #4A3728;">Data Inspection</h5>
+                    <p class="text-muted small mb-0" id="modalSubtitle">Granular details for the selected segment</p>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="table-responsive">
+                    <table id="modalDataTable" class="table table-hover w-100">
+                        <!-- Content injected via JS -->
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-golden rounded-pill px-4" id="modalExportBtn">
+                    <i class="bi bi-download me-1"></i> Export CSV
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#modalDataTable th {
+    background-color: #FCF5E8;
+    color: #8B6914;
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+}
+</style>

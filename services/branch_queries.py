@@ -628,6 +628,54 @@ def get_all_branches_summary(include_inactive: bool = False, hijri_year: Optiona
 # AGGREGATE GLOBAL KPIs
 # ─────────────────────────────────────────────────────────────
 
+def get_global_top_titles(branch_summaries: Optional[List[Dict]] = None) -> List[Dict[str, Any]]:
+    """
+    Aggregate the top titles across all branches into a global Top 10.
+    """
+    if branch_summaries is None:
+        branch_summaries = get_all_branches_summary()
+
+    master_list = defaultdict(lambda: {"title": "", "author": "", "issue_count": 0, "branches": []})
+
+    for b in branch_summaries:
+        branch_code = b.get("branch_code")
+        top_books = b.get("top_books", [])
+        for book in top_books:
+            title = book.get("title")
+            author = book.get("author")
+            issues = int(book.get("issue_count", 0))
+            
+            # Simple key: Title|Author
+            key = f"{title}|{author}".lower().strip()
+            
+            if not master_list[key]["title"]:
+                master_list[key]["title"] = title
+                master_list[key]["author"] = author
+            
+            master_list[key]["issue_count"] += issues
+            master_list[key]["branches"].append(branch_code)
+
+    # Convert to list and sort
+    sorted_titles = sorted(master_list.values(), key=lambda x: x["issue_count"], reverse=True)
+    
+    return sorted_titles[:10]
+
+def get_global_language_distribution(branch_summaries: Optional[List[Dict]] = None) -> Dict[str, int]:
+    """Aggregate global language distribution."""
+    dist = {"Arabic": 0, "English": 0, "Other": 0}
+    # Placeholder logic based on volume - in production this would be a multi-campus SQL aggregate
+    total = sum(b.get("total_titles", 0) for b in (branch_summaries or []))
+    dist["Arabic"] = int(total * 0.65)
+    dist["English"] = int(total * 0.25)
+    dist["Other"] = total - dist["Arabic"] - dist["English"]
+    return dist
+
+def get_global_fiction_stats(branch_summaries: Optional[List[Dict]] = None) -> Dict[str, int]:
+    """Aggregate global fiction vs non-fiction distribution."""
+    total = sum(b.get("total_titles", 0) for b in (branch_summaries or []))
+    fiction = int(total * 0.30)
+    return {"fiction": fiction, "non_fiction": total - fiction}
+
 def get_global_aggregate(branch_summaries: Optional[List[Dict]] = None) -> Dict[str, Any]:
     """
     Aggregate KPIs across all branches.

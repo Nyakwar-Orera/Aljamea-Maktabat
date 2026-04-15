@@ -21,7 +21,7 @@ def restrict_to_super_admin():
 @bp.route("/dashboard")
 def god_eye():
     """Global 'God's Eye' Dashboard with real-time aggregation."""
-    from services.branch_queries import get_all_branches_summary, get_global_aggregate
+    from services.branch_queries import get_all_branches_summary, get_global_aggregate, get_global_top_titles
     
     # 1. Fetch data from all campuses in parallel
     summaries = get_all_branches_summary()
@@ -29,10 +29,19 @@ def god_eye():
     # 2. Compute global aggregate
     aggregate = get_global_aggregate(summaries)
     
+    # 3. Aggregate Top Titles & Distribution
+    global_top_titles = get_global_top_titles(summaries)
+    from services.branch_queries import get_global_language_distribution, get_global_fiction_stats
+    lang_dist = get_global_language_distribution(summaries)
+    fiction_stats = get_global_fiction_stats(summaries)
+    
     return render_template("super_admin/dashboard.html", 
                          title="God's Eye Dashboard",
                          summaries=summaries,
-                         aggregate=aggregate)
+                         aggregate=aggregate,
+                         top_titles=global_top_titles,
+                         lang_dist=lang_dist,
+                         fiction_stats=fiction_stats)
 
 @bp.route("/switch/<branch_code>")
 def switch_branch(branch_code):
