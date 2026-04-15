@@ -1,40 +1,279 @@
 {% extends "base.html" %}
 
+{% block title %}God's Eye Dashboard — Global Analytics{% endblock %}
+
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row mb-4">
-        <div class="col-12">
-            <h1 class="h3 mb-0 text-gray-800">
-                <i class="bi bi-eye-fill me-2"></i>God's Eye Dashboard
+<div class="container-fluid py-4" style="background-color: #FDFBF8; min-height: 100vh;">
+    <!-- Dashboard Header -->
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <div>
+            <h1 class="h2 mb-0 fw-bold" style="color: #4A3728;">
+                <i class="bi bi-eye-fill me-2" style="color: #C5A059;"></i>God's Eye Dashboard
             </h1>
-            <p class="text-muted">Global Multi-Campus Overview</p>
+            <p class="text-muted mb-0">Unified Real-time Oversight across {{ aggregate.total_branches }} Global Campuses</p>
+        </div>
+        <div class="d-flex gap-2 mt-3 mt-sm-0">
+            <div class="btn-group shadow-sm" role="group">
+                <button type="button" class="btn btn-outline-golden active">AY 1447H</button>
+                <button type="button" class="btn btn-outline-golden">AY 1446H</button>
+            </div>
+            <button class="btn btn-golden shadow-sm" onclick="location.reload()">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+            </button>
         </div>
     </div>
 
-    <!-- KPI Aggregation Placeholder -->
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow mb-4 border-left-golden">
+    <!-- Global Aggregated KPIs -->
+    <div class="row mb-5">
+        <!-- Total Patrons -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="sa-kpi-card glassmorphism hover-up">
                 <div class="card-body">
-                    <div class="text-center py-5">
-                        <div class="spinner-border text-golden mb-3" role="status">
-                            <span class="visually-hidden">Loading...</span>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="icon-shape bg-soft-golden text-golden rounded-circle">
+                            <i class="bi bi-people-fill"></i>
                         </div>
-                        <h5>Initializing Multi-Campus Parallel Query Engine...</h5>
-                        <p class="text-muted">Connecting to 5 campuses (Nairobi, Surat, Karachi, Marol, Sidhpur)</p>
+                        <span class="badge bg-soft-success text-success">+{{ aggregate.active_patrons_ay }} active</span>
                     </div>
+                    <h3 class="fw-bold mb-1">{{ "{:,}".format(aggregate.total_patrons) }}</h3>
+                    <p class="text-muted small mb-0 text-uppercase tracking-wider">Total Patrons</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Titles -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="sa-kpi-card glassmorphism hover-up border-left-golden">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="icon-shape bg-soft-brown text-brown rounded-circle">
+                            <i class="bi bi-bookshelf"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1">{{ "{:,}".format(aggregate.total_titles) }}</h3>
+                    <p class="text-muted small mb-0 text-uppercase tracking-wider">Global Title Pool</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Total Issues -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="sa-kpi-card glassmorphism hover-up bg-gradient-golden text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="icon-shape bg-white-transparent text-white rounded-circle">
+                            <i class="bi bi-journal-arrow-up"></i>
+                        </div>
+                    </div>
+                    <h3 class="fw-bold mb-1">{{ "{:,}".format(aggregate.total_issues) }}</h3>
+                    <p class="text-white-50 small mb-0 text-uppercase tracking-wider">Global Borrows (AY)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Health -->
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="sa-kpi-card glassmorphism hover-up">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="icon-shape bg-soft-{% if aggregate.online_branches == aggregate.total_branches %}success{% else %}warning{% endif %} text-{% if aggregate.online_branches == aggregate.total_branches %}success{% else %}warning{% endif %} rounded-circle">
+                            <i class="bi bi-hdd-network"></i>
+                        </div>
+                        <div class="pulse-indicator pulse-{% if aggregate.online_branches == aggregate.total_branches %}success{% else %}warning{% endif %}"></div>
+                    </div>
+                    <h3 class="fw-bold mb-1">{{ aggregate.online_branches }}/{{ aggregate.total_branches }}</h3>
+                    <p class="text-muted small mb-0 text-uppercase tracking-wider">Nodes Online</p>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Branch Explorer Section -->
+    <div class="row mb-5">
+        <div class="col-12 mb-4 d-flex align-items-center justify-content-between">
+            <h2 class="h4 fw-bold mb-0" style="color: #4A3728;">
+                <i class="bi bi-map-fill me-2" style="color: #8B6914;"></i>Branch Explorer
+            </h2>
+            <div class="text-muted small">Updated: {{ now.strftime('%H:%M:%S UTC') }}</div>
+        </div>
+
+        {% for s in summaries %}
+        <div class="col-xl-4 col-md-6 mb-4">
+            <div class="campus-card hover-up {% if s.status != 'online' %}opacity-75{% endif %}">
+                <div class="campus-card-header" style="background-color: {{ s.color }};">
+                    <div class="d-flex justify-content-between align-items-start position-relative z-index-2">
+                        <div>
+                            <span class="fs-4">{{ s.flag }}</span>
+                            <h4 class="text-white fw-bold mb-0 mt-1">{{ s.short_name }}</h4>
+                            <span class="text-white-50 small">{{ s.country }}</span>
+                        </div>
+                        <div class="status-badge {% if s.status == 'online' %}online{% else %}offline{% endif %}">
+                            {% if s.status == 'online' %}ONLINE{% else %}OFFLINE{% endif %}
+                        </div>
+                    </div>
+                    <i class="bi bi-bank floating-icon"></i>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-6 border-end">
+                            <div class="branch-small-stat">
+                                <span class="label">Issues</span>
+                                <span class="val">{{ "{:,}".format(s.total_issues) }}</span>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="branch-small-stat">
+                                <span class="label">Stock</span>
+                                <span class="val">{{ "{:,}".format(s.total_titles) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('super_admin_bp.switch_branch', branch_code=s.branch_code) }}" 
+                           class="btn btn-outline-dark-golden btn-sm py-2">
+                           <i class="bi bi-box-arrow-in-right me-1"></i> Enter Dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
 </div>
 
 <style>
-.border-left-golden {
-    border-left: 0.25rem solid #C5A059 !important;
+/* ── Golden Brown Theme Tokens ── */
+.btn-golden {
+    background-color: #C5A059;
+    background-image: linear-gradient(135deg, #D4AF37 0%, #C5A059 100%);
+    border-color: #C5A059;
+    color: white;
 }
-.text-golden {
-    color: #C5A059 !important;
+.btn-golden:hover {
+    background-color: #B28F4D;
+    border-color: #B28F4D;
+    color: white;
+}
+.btn-outline-golden {
+    border-color: #C5A059;
+    color: #8B6914;
+}
+.btn-outline-golden:hover, .btn-outline-golden.active {
+    background-color: #C5A059;
+    color: white;
+}
+.btn-outline-dark-golden {
+    border-color: #8B6914;
+    color: #4A3728;
+}
+.btn-outline-dark-golden:hover {
+    background-color: #8B6914;
+    color: white;
+}
+
+/* ── Card Styling ── */
+.sa-kpi-card {
+    background: white;
+    border-radius: 16px;
+    border: 1px solid rgba(197, 160, 89, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+.glassmorphism {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.hover-up {
+    transition: all 0.3s cubic-bezier(0.2, 0, 0.2, 1);
+}
+.hover-up:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 12px 24px rgba(139, 105, 20, 0.12);
+}
+.bg-gradient-golden {
+    background: linear-gradient(135deg, #C5A059 0%, #8B6914 100%);
+}
+
+.icon-shape {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+.bg-soft-golden { background-color: #FCF5E8; }
+.text-golden { color: #C5A059; }
+.bg-soft-brown { background-color: #F5EFEB; }
+.text-brown { color: #8B6914; }
+.bg-white-transparent { background-color: rgba(255, 255, 255, 0.2); }
+
+/* ── Campus Card (Passports) ── */
+.campus-card {
+    background: white;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.05);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+.campus-card-header {
+    padding: 1.5rem;
+    position: relative;
+    min-height: 120px;
+}
+.campus-card-header .floating-icon {
+    position: absolute;
+    right: 20px;
+    bottom: 20px;
+    font-size: 4rem;
+    opacity: 0.1;
+    color: white;
+    transform: rotate(15deg);
+}
+.status-badge {
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+.status-badge.online { background: rgba(52, 211, 153, 0.2); color: #D1FAE5; border: 1px solid rgba(52, 211, 153, 0.4); }
+.status-badge.offline { background: rgba(248, 113, 113, 0.2); color: #FEE2E2; border: 1px solid rgba(248, 113, 113, 0.4); }
+
+.branch-small-stat .label {
+    display: block;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    color: #999;
+    letter-spacing: 0.5px;
+}
+.branch-small-stat .val {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #4A3728;
+}
+
+/* ── Pulse Indicators ── */
+.pulse-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+.pulse-success {
+    background: #10b981;
+    box-shadow: 0 0 0 rgba(16,185,129, 0.4);
+    animation: pulse 2s infinite;
+}
+.pulse-warning {
+    background: #f59e0b;
+    box-shadow: 0 0 0 rgba(245,158,11, 0.4);
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16,185,129, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16,185,129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16,185,129, 0); }
 }
 </style>
 {% endblock %}
