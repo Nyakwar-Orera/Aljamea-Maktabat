@@ -24,9 +24,9 @@ Centralized, real-time visibility into multi-campus library and academic perform
 - [ ] **Branch Explorer** — Visual navigation component for switching between campus views (similar to Darajah explorer).
 - [ ] **Parallel Query Engine** — Optimized cross-campus data retrieval to ensure high-performance KPI rendering.
 - [ ] **Global KPI Aggregation** — Real-time tracking of active patrons, stock, and book issues across all 5 campuses.
-- [ ] **Top Students Globally** — Multi-campus academic ranking and performance visualization.
-- [ ] **Golden-Brown Theme Overhaul** — Full UI/UX styling consistent with the institution's branding and login page.
-- [ ] **Interactive Visualizations** — Charts with synchronized popup data tables for detailed inspection.
+- [ ] **Top Students globally** — Multi-campus academic ranking and performance visualization.
+- [ ] **Global Golden-Brown Theme Overhaul** — Full UI/UX styling consistent across ALL roles (Login, Super Admin, Librarian, HOD, Teacher, Student).
+- [ ] **Interactive Visualizations** — Charts with synchronized popup data tables/modals for detailed inspection.
 - [ ] **Hierarchical Reporting** — Language-wise, class-wise, and year-wise analytics.
 
 ### Out of Scope
@@ -39,9 +39,14 @@ The application acts as a high-level reporting layer sitting on top of multiple 
 
 ## Constraints
 
-- **Tech Stack**: Python 3.x / Flask 2.2.5 — Consistent with current production environment.
+- **Tech Stack**: Python 3.x / Flask 2.2.5 / Bootstrap 5 — Consistent with current production environment.
 - **Database**: Must support concurrent connections to 5+ MySQL instances without pool exhaustion.
-- **UI/UX**: Must adhere to the institutional golden-brown branding and support RTL Arabic display.
+- **Branding**: Persistent Golden-Brown theme:
+  - Primary: `#C5A059` (golden)
+  - Secondary: `#8B6914` (dark golden)
+  - Background: `#F5F0E6` (cream)
+  - Text: `#4A3728` (dark brown)
+- **UI/UX**: Cards must have hover effects and micro-animations; charts must use modals with Chart.js.
 - **Security**: Super Admin routes must have strictly enforced access controls.
 
 ## Key Decisions

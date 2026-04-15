@@ -35,9 +35,10 @@
 
 ### UI & Theme
 
-- [ ] **UIUX-01**: Implementation of the persistent "Golden-Brown" color scheme.
-- [ ] **UIUX-02**: Responsive layout for large-screen administrative monitoring.
-- [ ] **UIUX-03**: Consistent iconography and branding aligned with the institution's light-mode UI.
+- [ ] **UIUX-01**: Implementation of the persistent "Golden-Brown" color scheme (#C5A059, #8B6914, #F5F0E6, #4A3728).
+- [ ] **UIUX-02**: Overhaul all pages (Login, Admin, Librarian, HOD, Teacher, Student) for theme consistency.
+- [ ] **UIUX-03**: Responsive layout for large-screen monitoring with hover effects and animations on all cards.
+- [ ] **UIUX-04**: Implementation of Chart.js visualizations with integrated popup modals for data tables.
 
 ## v2 Requirements
 

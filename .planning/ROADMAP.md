@@ -9,7 +9,7 @@ Implementing the "God Eye" global multi-campus dashboard to provide centralized 
 - [ ] **Phase 1: Foundation & Routing** - Initialize Super Admin blueprint and the parallel query engine.
 - [ ] **Phase 2: Global Analytics Interface** - Implement the "God Eye" dashboard layout and Branch Explorer.
 - [ ] **Phase 3: Advanced Reporting & Depth** - Add specialized reports (Class/Year/Language) and interactive data popups.
-- [ ] **Phase 4: Thematic Overhaul & Global Ranking** - Apply the persistent golden-brown theme and global performance metrics.
+- [ ] **Phase 4: Global Thematic Overhaul & Ranking** - Apply consistent golden-brown branding across ALL dashboards and implement global student performance views.
 
 ## Phase Details
 
@@ -55,19 +55,20 @@ Plans:
 - [ ] 03-01: Global stock and Top 10 Books reporting logic.
 - [ ] 03-02: Language/Fiction specialized reports and chart-to-table popup logic.
 
-### Phase 4: Thematic Overhaul & Global Ranking
-**Goal**: Finalize the institutional branding and global student performance views.
+### Phase 4: Global Thematic Overhaul & Ranking
+**Goal**: Finalize institutional branding across all roles and implement global academic ranking.
 **Depends on**: Phase 3
-**Requirements**: [ANLY-02, ANLY-03, ANLY-04, UIUX-01, UIUX-02, UIUX-03]
+**Requirements**: [ANLY-02, ANLY-03, ANLY-04, UIUX-01, UIUX-02, UIUX-03, UIUX-04]
 **Success Criteria**:
   1. Global Top Students ranking displays cross-campus performance.
-  2. Class-wise and Year-wise counters are fully operational.
-  3. UI perfectly matches the "Golden-Brown" institutional brand across all super admin pages.
-**Plans**: 2 plans
+  2. All roles (Librarian, HOD, Teacher, Student) dashboards use the golden-brown palette (#C5A059).
+  3. Interactive elements (cards/charts) have consistent hover animations and popup data modals.
+**Plans**: 3 plans
 
 Plans:
 - [ ] 04-01: Academic analytics (Top Students, Class/Year distribution).
-- [ ] 04-02: Full CSS/Thematic overhaul and final production polish.
+- [ ] 04-02: Global CSS variables and component styling overhaul (Bootstrap 5).
+- [ ] 04-03: Final role-specific UI testing and production visual polish.
 
 ## Progress
 
