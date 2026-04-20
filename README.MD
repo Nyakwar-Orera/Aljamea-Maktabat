@@ -6,7 +6,7 @@ A professional, high-performance library analytics and reporting dashboard for *
 
 ## 🌟 Institutional Features
 
-### 👁️ God Eye — Super Admin Dashboard
+### 🏢 Head Office Sighat ul-Jamea — Super Admin Dashboard
 A centralized "command center" for senior leadership.
 - **Global Intelligence**: Aggregated KPIs from all 5 campuses (Nairobi, Surat, Karachi, Marol, Sidhpur).
 - **Parallel Query Engine**: Real-time cross-campus stats using threaded async execution.
@@ -64,7 +64,7 @@ python app.py
 
 | Role | Access Level | Capability |
 | :--- | :--- | :--- |
-| **Super Admin** | **Global** | Full God Eye access, all branches, user creation. |
+| **Super Admin** | **Global** | Full Head Office access, all branches, user creation. |
 | **Admin** | **Branch** | Branch-specific dashboard, settings, and reports. |
 | **HOD** | **Marhala** | Periodic reports for their specific department. |
 | **Teacher** | **Darajah** | Class-level dashboard and student tracking. |

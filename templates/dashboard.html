@@ -5,10 +5,27 @@
 {% block extra_css %}
 <style>
   .gradient-text {
-    background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%);
+    background: linear-gradient(135deg, #7a3e10 0%, #a45a26 50%, #c27a40 100%);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+    color: #a45a26;
+    /* solid fallback */
+    text-shadow: none;
+    display: inline-block;
+  }
+
+  /* Force solid color for browsers that don't support text-fill-color or clip */
+  @supports not (-webkit-text-fill-color: transparent) {
+    .gradient-text {
+      color: #a45a26;
+    }
+  }
+
+  @supports not (background-clip: text) {
+    .gradient-text {
+      color: #a45a26;
+    }
   }
 
   .date-badge {
@@ -19,23 +36,18 @@
     font-weight: 700;
   }
 
-  /* Specific KPI Colors — Rebranded Golden-Brown Palette */
-  .vibrant-blue  { background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%) !important; color: white !important; }
-  .vibrant-green { background: linear-gradient(135deg, var(--color-gold-dark) 0%, var(--color-brown) 100%) !important; color: white !important; }
-  .vibrant-purple{ background: linear-gradient(135deg, #D4AF37 0%, #B28F4D 100%) !important; color: white !important; }
-  .vibrant-orange{ background: linear-gradient(135deg, #6B4E31 0%, #4A3728 100%) !important; color: white !important; }
-
   .icon-wrapper {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.25rem;
-    margin-bottom: 1rem;
-    background: rgba(255,255,255,0.2);
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+    background: rgba(255, 255, 255, 0.2);
     backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .chart-card {
@@ -71,7 +83,8 @@
       <div class="row align-items-center">
         <div class="col-lg-6">
           <h1 class="display-6 fw-bold mb-1">
-            <span class="gradient-text">📊 Librarian Analytics Dashboard</span>
+            <span class="gradient-text">📊 Librarian Analytics Dashboard {% if session.get('branch_code') %}- {{
+              session.get('branch_code') }}{% endif %}</span>
           </h1>
           <div class="d-flex align-items-center gap-3">
             <div class="date-badge">
@@ -80,270 +93,347 @@
             </div>
           </div>
         </div>
-        <div class="col-lg-6 mt-4 mt-lg-0">
-            <button class="btn btn-golden shadow-sm" onclick="location.reload()">
-              <i class="bi bi-arrow-clockwise me-1"></i> Refresh
+        <div class="col-lg-6 mt-4 mt-lg-0 d-flex justify-content-lg-end gap-3 align-items-center">
+          
+          <!-- Academic Year Toggle -->
+          <form action="{{ url_for('dashboard_bp.set_academic_year') }}" method="POST" id="ayToggleForm" class="m-0">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="selected_ay" id="ayValue" value="{{ selected_ay }}">
+          </form>
+          <div class="btn-group shadow-sm rounded-pill overflow-hidden" role="group">
+            <button type="button"
+              class="btn btn-sm px-4 fw-bold {% if selected_ay == 'current' %}btn-primary{% else %}bg-white border text-muted{% endif %}"
+              onclick="setAY('current')">
+              ACTIVE YEAR
             </button>
-
-            <!-- Marhala Filter -->
-            <form action="{{ url_for('dashboard_bp.dashboard') }}" method="POST" class="d-flex align-items-center gap-2" id="marhalaForm">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <div class="input-group shadow-sm" style="border-radius: 50px; overflow: hidden;">
-                <span class="input-group-text bg-white border-end-0 ps-3">
-                  <i class="fas fa-filter text-primary"></i>
-                </span>
-                <select name="marhalaFilter" class="form-select border-start-0 py-2" onchange="this.form.submit()" 
-                        style="min-width: 180px; border-radius: 0 50px 50px 0;">
-                  <option value="">All Marhalas</option>
-                  {% for m in all_marhalas %}
-                  <option value="{{ m }}" {% if selected_marhala == m %}selected{% endif %}>{{ m }}</option>
-                  {% endfor %}
-                </select>
-              </div>
-            </form>
-
-            <button class="btn btn-primary rounded-circle shadow-sm" onclick="window.location.reload()" style="width: 42px; height: 42px;">
-              <i class="fas fa-sync-alt"></i>
+            {% if available_years and available_years|length > 0 %}
+            <button type="button"
+              class="btn btn-sm px-4 fw-bold {% if selected_ay != 'current' %}btn-primary{% else %}bg-white border text-muted{% endif %}"
+              onclick="setAY('{{ available_years[0].hijri_year }}')">
+              {{ available_years[0].hijri_year }} H
             </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- KPI Section -->
-  <div class="row g-4 mb-5">
-    {% for card in kpi_cards %}
-    <div class="col-md-6 col-lg-4 col-xl">
-      <div class="sa-kpi-card {{ card.color }} shadow-sm cursor-pointer" 
-           onclick="handleKPIClick('{{ card.key }}')">
-        <div class="card-body">
-          <div class="icon-wrapper">
-            <i class="fas {{ card.icon }}"></i>
-          </div>
-          <div class="kpi-label small text-uppercase fw-bold opacity-75">{{ card.label }}</div>
-          <div class="kpi-value h2 fw-bold mb-1">{{ card.value }}</div>
-          <div class="kpi-subtext small opacity-100">
-            <i class="fas fa-info-circle me-1"></i> {{ card.subtext }} 
-            {% if card.key == 'total_patrons' %}
-               &bull; <span class="fw-bold text-white">{{ kpi_data.active_patrons }} Active</span>
             {% endif %}
           </div>
-        </div>
-      </div>
-    </div>
-    {% endfor %}
-  </div>
 
-  <!-- Section 2: Trends & Language (Half Space Share) -->
-  <div class="row g-4 mb-5">
-    <div class="col-xl-6">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="fas fa-chart-line text-primary me-2"></i> Borrowing Trends</div>
-          <button class="view-data-btn" onclick="openChartTableModal('trend')">View Table</button>
-        </div>
-        <div class="chart-container" style="height: 320px;">
-          <canvas id="trendChart"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-6">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="fas fa-language text-purple me-2"></i> Issues by Language</div>
-          <button class="view-data-btn" onclick="openChartTableModal('language')">View Table</button>
-        </div>
-        <div class="chart-container" style="height: 320px;">
-          <canvas id="languageIssuesChart"></canvas>
+          <!-- Marhala Filter -->
+          <form action="{{ url_for('dashboard_bp.dashboard') }}" method="POST" class="m-0" id="marhalaForm">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="input-group input-group-sm shadow-sm rounded-pill overflow-hidden">
+              <span class="input-group-text bg-white border-0 ps-3 text-muted">
+                <i class="fas fa-filter"></i>
+              </span>
+              <select name="marhalaFilter" class="form-select border-0 bg-white pe-4" onchange="this.form.submit()" style="min-width: 160px; box-shadow: none; cursor: pointer;">
+                <option value="">All Marhalas</option>
+                {% for m in all_marhalas %}
+                <option value="{{ m }}" {% if selected_marhala==m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </form>
+
+          <button class="btn btn-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center" onclick="window.location.reload()" style="width: 38px; height: 38px;" title="Refresh Dashboard">
+            <i class="fas fa-sync-alt"></i>
+          </button>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Section 3: Darajah Distribution & Insights -->
-  <div class="row g-4 mb-5">
-    <div class="col-xl-7">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="fas fa-users-class text-info me-2"></i> Darajah Distribution (Boys 1-11, Girls 1-7)</div>
-          <button class="view-data-btn" onclick="openChartTableModal('darajah')">View Table</button>
+<!-- KPI Section -->
+<div class="row g-4 mb-5">
+  {% for card in kpi_cards %}
+  <div class="col-md-6 col-lg-4 col-xl">
+    <div class="card kpi-card-fancy {{ card.color }} shadow-sm" onclick="handleKPIClick('{{ card.key }}')">
+      <div class="card-body">
+        <div class="icon-wrapper">
+          <i class="fas {{ card.icon }}"></i>
         </div>
-        <div class="chart-container" style="height: 400px;">
-          <canvas id="darajahDistributionChart"></canvas>
+        <div class="kpi-label">{{ card.label }}</div>
+        <div class="kpi-value">{{ card.value }}</div>
+        <div class="kpi-subtext">
+          <i class="fas fa-info-circle me-1"></i> {{ card.subtext }}
+          {% if card.key == 'total_patrons' %}
+          &bull; <span class="fw-bold text-white">{{ kpi_data.active_patrons }} Active</span>
+          {% endif %}
         </div>
       </div>
     </div>
-    <div class="col-xl-5">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="fas fa-lightbulb text-warning me-2"></i> Intelligence & Insights</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Section 2: Trends & Language (Half Space Share) -->
+<div class="row g-4 mb-5">
+  <div class="col-xl-6">
+    <div class="chart-card shadow-sm h-100">
+      <div class="chart-header">
+        <div class="chart-title"><i class="fas fa-chart-line text-primary me-2"></i> Borrowing Trends</div>
+        <button class="view-data-btn" onclick="openChartTableModal('trend')">View Table</button>
+      </div>
+      <div class="chart-container" style="height: 320px;">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-6">
+    <div class="chart-card shadow-sm h-100">
+      <div class="chart-header">
+        <div class="chart-title"><i class="fas fa-language text-purple me-2"></i> Issues by Language</div>
+        <button class="view-data-btn" onclick="openChartTableModal('language')">View Table</button>
+      </div>
+      <div class="chart-container" style="height: 320px;">
+        <canvas id="languageIssuesChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 3: Darajah Distribution & Insights -->
+<div class="row g-4 mb-5">
+  <div class="col-xl-7">
+    <div class="chart-card shadow-sm h-100">
+      <div class="chart-header">
+        <div class="chart-title"><i class="fas fa-users-class text-info me-2"></i> Darajah Distribution (Boys 1-11,
+          Girls 1-7)</div>
+        <button class="view-data-btn" onclick="openChartTableModal('darajah')">View Table</button>
+      </div>
+      <div class="chart-container" style="height: 400px;">
+        <canvas id="darajahDistributionChart"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-5">
+    <div class="chart-card shadow-sm h-100">
+      <div class="chart-header">
+        <div class="chart-title"><i class="fas fa-lightbulb text-warning me-2"></i> Intelligence & Insights</div>
+      </div>
+      <div class="card-body p-0">
+        {% if insights %}
+        {% for insight in insights %}
+        <div class="insight-pill">
+          <div class="d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-warning bg-opacity-25 p-2 text-warning">
+              <i class="fas fa-bolt"></i>
+            </div>
+            <span class="fw-bold text-dark">{{ insight }}</span>
+          </div>
         </div>
-        <div class="card-body p-0">
-          {% if insights %}
-            {% for insight in insights %}
-            <div class="insight-pill">
-              <div class="d-flex align-items-center gap-3">
-                <div class="rounded-circle bg-warning bg-opacity-25 p-2 text-warning">
-                  <i class="fas fa-bolt"></i>
-                </div>
-                <span class="fw-bold text-dark">{{ insight }}</span>
+        {% endfor %}
+        {% else %}
+        <p class="text-center text-muted py-5">Generating intelligent insights...</p>
+        {% endif %}
+
+        <div class="mt-4 p-3 rounded bg-light border border-warning border-opacity-25">
+          <h6 class="fw-bold mb-2"><i class="fas fa-info-circle me-2"></i> Note on Distribution</h6>
+          <p class="small text-muted mb-0">
+            Analysis shows engagement spikes in Darajah 1-7 (Co-ed) and 8-11 (Boys only).
+            Girls' records are actively monitored until Darajah 7.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Section 4: Star Patrons & Top Borrowed Resources -->
+<div class="row g-4 mb-5">
+  <!-- Star Patrons Grid (8 cols) -->
+  <div class="col-xl-8">
+    <div class="chart-card shadow-sm h-100">
+      <div class="chart-header border-bottom">
+        <div class="chart-title fw-bold"><i class="fas fa-star text-success me-2"></i> Star Patrons (Top Performers)
+        </div>
+        <ul class="nav nav-pills" id="patronGenderTab" role="tablist">
+          <li class="nav-item"><button class="nav-link active py-1 px-4 rounded-pill" data-bs-toggle="pill"
+              data-bs-target="#male-patrons">Male</button></li>
+          <li class="nav-item"><button class="nav-link py-1 px-4 rounded-pill ms-2" data-bs-toggle="pill"
+              data-bs-target="#female-patrons">Female</button></li>
+        </ul>
+      </div>
+      <div class="chart-container" style="height: auto; min-height: 520px;">
+        <div class="tab-content pt-2">
+          <!-- Male Patrons -->
+          <div class="tab-pane fade show active" id="male-patrons">
+            <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-5 p-3">
+              {% for student in top_students_male %}
+              <div class="col">
+                <a href="{{ student.StudentLink }}" class="text-decoration-none d-block h-100">
+                  <div
+                    class="star-patron-card d-block h-100 p-2 rounded hover-elevate border bg-white text-center shadow-sm">
+                    <div class="small text-muted mb-1 fw-bold">{{ student.borrowernumber }}</div>
+                    <div class="position-relative mb-2 mx-auto" style="width: 100px; height: 125px;">
+                      <img src="{{ url_for('students.patron_photo', borrowernumber=student.borrowernumber) }}"
+                        class="img-fluid border shadow-sm rounded">
+                      <span class="position-absolute top-0 end-0 badge bg-primary rounded-circle"
+                        style="width:24px;height:24px;padding:0;font-size:11px;line-height:24px;margin: -8px -8px 0 0; border: 2px solid #fff;">{{
+                        loop.index }}</span>
+                    </div>
+                    <div class="fw-bold text-dark text-truncate small mb-0" title="{{ student.StudentName }}">{{
+                      student.StudentName }}</div>
+                    <div class="small text-primary mb-1">{{ student.Class }}</div>
+                    <div class="text-success fw-bold small mt-1">🏆 {{ student.BooksIssued }} Issues</div>
+                  </div>
+                </a>
               </div>
+              {% endfor %}
+            </div>
+          </div>
+          <!-- Female Patrons -->
+          <div class="tab-pane fade" id="female-patrons">
+            <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-5 p-3">
+              {% for student in top_students_female %}
+              <div class="col">
+                <a href="{{ student.StudentLink }}" class="text-decoration-none d-block h-100">
+                  <div
+                    class="star-patron-card d-block h-100 p-2 rounded hover-elevate border bg-white text-center shadow-sm">
+                    <div class="small text-muted mb-1 fw-bold">{{ student.borrowernumber }}</div>
+                    <div class="position-relative mb-2 mx-auto" style="width: 100px; height: 125px;">
+                      <img src="{{ url_for('students.patron_photo', borrowernumber=student.borrowernumber) }}"
+                        class="img-fluid border shadow-sm rounded">
+                      <span class="position-absolute top-0 end-0 badge bg-danger rounded-circle"
+                        style="width:24px;height:24px;padding:0;font-size:11px;line-height:24px;margin: -8px -8px 0 0; border: 2px solid #fff;">{{
+                        loop.index }}</span>
+                    </div>
+                    <div class="fw-bold text-dark text-truncate small mb-0" title="{{ student.StudentName }}">{{
+                      student.StudentName }}</div>
+                    <div class="small text-primary mb-1">{{ student.Class }}</div>
+                    <div class="text-success fw-bold small">🏆 {{ student.BooksIssued }} Issues</div>
+                  </div>
+                </a>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Titles Display (4 cols) -->
+  <div class="col-xl-4">
+    <div class="chart-card shadow-sm h-100">
+      <div class="chart-header border-bottom">
+        <div class="chart-title fw-bold"><i class="fas fa-book-reader text-primary me-2"></i> Top Resources (Top 10)
+        </div>
+        <ul class="nav nav-pills" id="titlesTab" role="tablist">
+          <li class="nav-item"><button class="nav-link active py-1 px-3 rounded-pill" data-bs-toggle="pill"
+              data-bs-target="#arabic-titles">Ara</button></li>
+          <li class="nav-item"><button class="nav-link py-1 px-3 rounded-pill ms-2" data-bs-toggle="pill"
+              data-bs-target="#english-titles">Eng</button></li>
+        </ul>
+      </div>
+      <div class="tab-content pt-3 px-3" style="max-height: 520px; overflow-y: auto;">
+        <div class="tab-pane fade show active" id="arabic-titles">
+          <div class="row g-2">
+            {% for row in arabic_top_records[:10] %}
+            <div class="col-12">
+              <a href="{{ opac_base }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}" target="_blank"
+                class="text-decoration-none text-dark">
+                <div class="d-flex align-items-center p-2 border rounded hover-elevate bg-white shadow-sm mb-1">
+                  <img src="{{ row.CoverURL }}" class="rounded me-3 shadow-sm border"
+                    style="width: 42px; height: 60px; object-fit: cover;">
+                  <div style="flex: 1; min-width: 0;">
+                    <div class="small fw-bold text-truncate" title="{{ row.Title }}">{{ row.Title }}</div>
+                    <div class="text-primary small" style="font-size: 0.7rem;">{{ row.Times_Issued }} Issues</div>
+                  </div>
+                </div>
+              </a>
             </div>
             {% endfor %}
-          {% else %}
-            <p class="text-center text-muted py-5">Generating intelligent insights...</p>
-          {% endif %}
-          
-          <div class="mt-4 p-3 rounded bg-light border border-warning border-opacity-25">
-            <h6 class="fw-bold mb-2"><i class="fas fa-info-circle me-2"></i> Note on Distribution</h6>
-            <p class="small text-muted mb-0">
-              Analysis shows engagement spikes in Darajah 1-7 (Co-ed) and 8-11 (Boys only). 
-              Girls' records are actively monitored until Darajah 7.
-            </p>
+          </div>
+        </div>
+        <div class="tab-pane fade" id="english-titles">
+          <div class="row g-2">
+            {% for row in english_top_records[:10] %}
+            <div class="col-12">
+              <a href="{{ opac_base }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}" target="_blank"
+                class="text-decoration-none text-dark">
+                <div class="d-flex align-items-center p-2 border rounded hover-elevate bg-white shadow-sm mb-1">
+                  <img src="{{ row.CoverURL }}" class="rounded me-3 shadow-sm border"
+                    style="width: 42px; height: 60px; object-fit: cover;">
+                  <div style="flex: 1; min-width: 0;">
+                    <div class="small fw-bold text-truncate" title="{{ row.Title }}">{{ row.Title }}</div>
+                    <div class="text-primary small" style="font-size: 0.7rem;">{{ row.Times_Issued }} Issues</div>
+                  </div>
+                </div>
+              </a>
+            </div>
+            {% endfor %}
           </div>
         </div>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- Section 4: Marhala Distribution & Star Patrons -->
-  <div class="row g-4 mb-5">
-    <div class="col-xl-5">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="fas fa-layer-group text-warning me-2"></i> Marhala Distribution</div>
-          <button class="view-data-btn" onclick="openChartTableModal('marhala')">View Table</button>
-        </div>
-        <div class="chart-container" style="height: 380px;">
-          <canvas id="marhalaDistributionChart"></canvas>
-        </div>
+<!-- Section 5: Subject Cloud & Marhala Distribution -->
+<div class="row g-4 mb-5">
+  <div class="col-xl-6">
+    <div class="chart-card shadow-sm h-100">
+      <div class="chart-header border-bottom">
+        <div class="chart-title fw-bold"><i class="fas fa-cloud text-primary me-2"></i> Subject Cloud</div>
+        <button class="view-data-btn" data-bs-toggle="modal" data-bs-target="#subjectModal">Details</button>
       </div>
-    </div>
-    
-    <!-- Star Patrons Grid -->
-    <div class="col-xl-7">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="fas fa-star text-success me-2"></i> Star Patrons (Top Performers)</div>
-          <ul class="nav nav-pills" id="patronGenderTab" role="tablist">
-            <li class="nav-item"><button class="nav-link active py-1 px-4 rounded-pill" data-bs-toggle="pill" data-bs-target="#male-patrons">Male</button></li>
-            <li class="nav-item"><button class="nav-link py-1 px-4 rounded-pill ms-2" data-bs-toggle="pill" data-bs-target="#female-patrons">Female</button></li>
-          </ul>
-        </div>
-        <div class="chart-container" style="height: auto; min-height: 400px;">
-          <div class="tab-content">
-            <!-- Male Patrons -->
-            <div class="tab-pane fade show active" id="male-patrons">
-              <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-5 p-3">
-                {% for student in top_students_male %}
-                <div class="col">
-                  <a href="{{ student.StudentLink }}" class="text-decoration-none d-block h-100">
-                    <div class="star-patron-card d-block h-100 p-2 rounded hover-elevate border bg-white text-center">
-                      <div class="small text-muted mb-1 fw-bold">{{ student.borrowernumber }}</div>
-                      <div class="position-relative mb-2 mx-auto" style="width: 100px; height: 125px;">
-                        <img
-                          src="{{ url_for('students.patron_photo', borrowernumber=student.borrowernumber) }}"
-                          {% set fallback_url = 'https://api.dicebear.com/7.x/initials/svg?seed=' ~ student.StudentName | replace(' ', '+') ~ '&backgroundColor=3b82f6,10b981,8b5cf6,f59e0b,ef4444&backgroundType=gradientLinear' %}
-                          onerror="this.onerror=null; this.src=this.getAttribute('data-fallback');"
-                          data-fallback="{{ fallback_url }}"
-                          class="img-fluid border shadow-sm"
-                          alt="{{ student.StudentName }}"
-                          style="width:100%; height:100%; object-fit:cover; border-radius: 4px;"
-                        >
-                        <span class="position-absolute top-0 end-0 badge bg-primary rounded-circle" style="width:20px;height:20px;padding:0;font-size:10px;line-height:20px;margin: -5px -5px 0 0; border: 2px solid #fff;">{{ loop.index }}</span>
-                      </div>
-                      <div class="fw-bold text-dark text-truncate small mb-0" title="{{ student.StudentName }}">{{ student.StudentName }}</div>
-                      <div class="small fw-bold text-primary mb-1">{{ student.Class }}</div>
-                      <div class="text-success fw-bold small">🏆 {{ student.BooksIssued }} Issues</div>
-                    </div>
-                  </a>
-                </div>
-                {% endfor %}
-                {% if not top_students_male %}
-                <div class="col-12 text-center py-5 text-muted">
-                  <i class="fas fa-mars fa-3x mb-3 opacity-25"></i>
-                  <p>No male star patrons data available.</p>
-                </div>
-                {% endif %}
-              </div>
-            </div>
-            <!-- Female Patrons -->
-            <div class="tab-pane fade" id="female-patrons">
-              <div class="row g-3 row-cols-2 row-cols-md-3 row-cols-lg-5 p-3">
-                {% for student in top_students_female %}
-                <div class="col">
-                  <a href="{{ student.StudentLink }}" class="text-decoration-none d-block h-100">
-                    <div class="star-patron-card d-block h-100 p-2 rounded hover-elevate border bg-white text-center">
-                      <div class="small text-muted mb-1 fw-bold">{{ student.borrowernumber }}</div>
-                      <div class="position-relative mb-2 mx-auto" style="width: 100px; height: 125px;">
-                        <img
-                          src="{{ url_for('students.patron_photo', borrowernumber=student.borrowernumber) }}"
-                          {% set fallback_url = 'https://api.dicebear.com/7.x/initials/svg?seed=' ~ student.StudentName | replace(' ', '+') ~ '&backgroundColor=3b82f6,10b981,8b5cf6,f59e0b,ef4444&backgroundType=gradientLinear' %}
-                          onerror="this.onerror=null; this.src=this.getAttribute('data-fallback');"
-                          data-fallback="{{ fallback_url }}"
-                          class="img-fluid border shadow-sm"
-                          alt="{{ student.StudentName }}"
-                          style="width:100%; height:100%; object-fit:cover; border-radius: 4px;"
-                        >
-                        <span class="position-absolute top-0 end-0 badge bg-danger rounded-circle" style="width:20px;height:20px;padding:0;font-size:10px;line-height:20px;margin: -5px -5px 0 0; border: 2px solid #fff;">{{ loop.index }}</span>
-                      </div>
-                      <div class="fw-bold text-dark text-truncate small mb-0" title="{{ student.StudentName }}">{{ student.StudentName }}</div>
-                      <div class="small fw-bold text-primary mb-1">{{ student.Class }}</div>
-                      <div class="text-success fw-bold small">🏆 {{ student.BooksIssued }} Issues</div>
-                    </div>
-                  </a>
-                </div>
-                {% endfor %}
-                {% if not top_students_female %}
-                <div class="col-12 text-center py-5 text-muted">
-                  <i class="fas fa-venus fa-3x mb-3 opacity-25"></i>
-                  <p>No female star patrons data available.</p>
-                </div>
-                {% endif %}
-              </div>
-            </div>
-          </div>
+      <div class="chart-container" style="position: relative; height: 400px;">
+        <canvas id="subjectCloud" style="width: 100%;"></canvas>
+        <div id="subjectCloudEmpty" class="text-center text-muted py-5 d-none">
+          <i class="fas fa-cloud fa-3x d-block mb-3 opacity-25"></i>
+          No subject data found.
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Section 5: Class-wise Performance & Top Titles -->
-  <div class="row g-4 mb-5">
-    <div class="col-xl-8">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="fas fa-table text-info me-2"></i> Class-wise Performance (Complete Darajah Breakdown)</div>
-          <div class="d-flex gap-2">
-            <input type="text" id="darajahSearch" class="form-control form-control-sm rounded-pill" placeholder="Filter..." onkeyup="filterDarajahs()">
-            <button class="btn btn-sm btn-outline-primary rounded-circle" onclick="exportDarajahs()"><i class="fas fa-download"></i></button>
-          </div>
+  <!-- Marhala Distribution -->
+  <div class="col-xl-6">
+    <div class="chart-card shadow-sm h-100">
+      <div class="chart-header border-bottom">
+        <div class="chart-title fw-bold"><i class="fas fa-layer-group text-warning me-2"></i> Marhala Distribution</div>
+        <button class="view-data-btn" onclick="openChartTableModal('marhala')">Table</button>
+      </div>
+      <div class="chart-container" style="height: 400px;">
+        <canvas id="marhalaDistributionChart"></canvas>
+        <div id="marhalaDistributionEmpty" class="text-center text-muted py-5 d-none">
+          <p>No Marhala data found.</p>
         </div>
-        <div class="table-responsive" style="max-height: 520px;">
-          <table class="table table-hover align-middle mb-0">
-            <thead class="bg-light sticky-top">
-              <tr class="small text-uppercase">
-                <th class="ps-3">Class</th>
-                <th>Marhala</th>
-                <th class="text-center">Issues</th>
-                <th class="text-center">Avg</th>
-                <th class="text-center">Status</th>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Subject Details Modal Area -->
+<div class="modal fade" id="subjectModal" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title fw-bold"><i class="fas fa-cloud me-2"></i> Subject Details — Overall</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr class="small fw-bold text-uppercase">
+                <th class="ps-4">No.</th>
+                <th>Subject (DDC)</th>
+                <th>Details</th>
+                <th class="text-center pe-4">Issues</th>
               </tr>
             </thead>
-            <tbody id="darajahsTableBody">
-              {% for row in all_darajahs_detailed %}
-              <tr class="darajah-row" data-name="{{ row.Darajah | lower }}" data-marhala="{{ row.Marhala | lower }}">
-                <td class="ps-3 fw-bold text-dark">{{ row.Darajah }}</td>
-                <td><span class="badge bg-light text-dark border">{{ row.Marhala }}</span></td>
-                <td class="text-center fw-bold text-primary">{{ row.TotalIssues }}</td>
-                <td class="text-center fw-bold">{{ "%.1f"|format(row.AvgIssuesPerStudent or 0) }}</td>
-                <td class="text-center">
-                  {% set val = row.AvgIssuesPerStudent or 0 %}
-                  <div class="progress" style="height: 6px; width: 60px; margin: 0 auto;">
-                    <div class="progress-bar bg-{{ 'success' if val > 5 else ('info' if val > 3 else 'warning') }}" {{ ('style="width: ' ~ [val * 10, 100]|min ~ '%;"') | safe }}></div>
-                  </div>
+            <tbody>
+              {% for item in subject_cloud %}
+              <tr>
+                <td class="ps-4">{{ loop.index }}</td>
+                <td class="fw-bold text-primary">{{ item.upper_subject }}</td>
+                <td class="text-muted small">{{ item.full_subject or '—' }}</td>
+                <td class="text-center pe-4">
+                  <span class="badge bg-light text-primary border rounded-pill px-3">{{ item.issue_count }}</span>
                 </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" class="text-center py-4 text-muted">No data available</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -351,63 +441,96 @@
         </div>
       </div>
     </div>
+  </div>
+</div>
 
-    <!-- Top Titles Display -->
-    <div class="col-xl-4">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="fas fa-book-reader text-primary me-2"></i> Top Borrowed Resources</div>
-          <ul class="nav nav-pills" id="titlesTab" role="tablist">
-            <li class="nav-item"><button class="nav-link active py-1 px-4 rounded-pill" data-bs-toggle="pill" data-bs-target="#arabic-titles">Arabic</button></li>
-            <li class="nav-item"><button class="nav-link py-1 px-4 rounded-pill ms-2" data-bs-toggle="pill" data-bs-target="#english-titles">English</button></li>
-          </ul>
-        </div>
-        <div class="tab-content pt-3">
-          <div class="tab-pane fade show active" id="arabic-titles">
-            <div class="row g-3 row-cols-2">
-              {% for row in arabic_top_records[:4] %}
-              <div class="col">
-                <a href="{{ opac_base }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}" target="_blank" class="text-decoration-none text-dark d-block h-100">
-                  <div class="book-card border rounded p-2 text-center h-100 shadow-sm hover-elevate" style="background: #fff; display: flex; flex-direction: column; transition: transform 0.2s;">
-                    <img src="{{ row.CoverURL }}" class="img-fluid rounded mb-2" onerror="this.onerror=null; if(this.src.includes('amazon')) { this.src='https://books.google.com/books/content?vid=ISBN:{{ row.ISBN }}&printsec=frontcover&img=1&zoom=1' } else { this.src='https://via.placeholder.com/150x200?text=No+Cover' }">
-                    <div class="small fw-bold text-truncate px-1" title="{{ row.Title }}">{{ row.Title }}</div>
-                    <p class="text-muted px-1 mt-1 mb-2 w-100" style="font-size: 0.75rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex-grow: 1; white-space: normal;" title="{{ row.Synopsis }}">{{ row.Synopsis or 'No synopsis available' }}</p>
-                    <div class="mt-auto">
-                      <div class="badge bg-primary">{{ row.Times_Issued }} Issues</div>
-                    </div>
-                  </div>
-                </a>
-              </div>
-              {% endfor %}
-            </div>
-          </div>
-          <div class="tab-pane fade" id="english-titles">
-            <div class="row g-3 row-cols-2">
-              {% for row in english_top_records[:4] %}
-              <div class="col">
-                <a href="{{ opac_base }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ row.BiblioNumber }}" target="_blank" class="text-decoration-none text-dark d-block h-100">
-                  <div class="book-card border rounded p-2 text-center h-100 shadow-sm hover-elevate" style="background: #fff; display: flex; flex-direction: column; transition: transform 0.2s;">
-                    <img src="{{ row.CoverURL }}" class="img-fluid rounded mb-2" onerror="this.onerror=null; if(this.src.includes('amazon')) { this.src='https://books.google.com/books/content?vid=ISBN:{{ row.ISBN }}&printsec=frontcover&img=1&zoom=1' } else { this.src='https://via.placeholder.com/150x200?text=No+Cover' }">
-                    <div class="small fw-bold text-truncate px-1" title="{{ row.Title }}">{{ row.Title }}</div>
-                    <p class="text-muted px-1 mt-1 mb-2 w-100" style="font-size: 0.75rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex-grow: 1; white-space: normal;" title="{{ row.Synopsis }}">{{ row.Synopsis or 'No synopsis available' }}</p>
-                    <div class="mt-auto">
-                      <div class="badge bg-primary">{{ row.Times_Issued }} Issues</div>
-                    </div>
-                  </div>
-                </a>
-              </div>
-              {% endfor %}
-            </div>
+<!-- Section 6: Class-wise Performance Breakdown -->
+<div class="row g-4 mb-5">
+  <div class="col-12">
+    <div class="chart-card shadow-sm">
+      <div class="chart-header border-bottom px-4">
+        <div class="chart-title fw-bold"><i class="fas fa-table text-info me-2"></i> Class-wise Performance (Complete
+          Darajah Breakdown)</div>
+        <div class="d-flex align-items-center gap-3">
+          <div class="input-group input-group-sm rounded-pill overflow-hidden border shadow-sm" style="width: 300px;">
+            <span class="input-group-text bg-white border-0"><i class="fas fa-search text-muted"></i></span>
+            <input type="text" id="globalTableSearch" class="form-control border-0"
+              placeholder="Filter classes, marhalas, performance...">
           </div>
         </div>
       </div>
+      <div class="p-3">
+        <table id="darajahDataTable" class="table table-hover align-middle mb-0 display responsive nowrap"
+          style="width:100%">
+          <thead class="bg-light">
+            <tr class="small text-muted fw-bold">
+              <th class="ps-4">Class / Darajah</th>
+              <th>Marhala</th>
+              <th class="text-center">Total Students</th>
+              <th class="text-center">Active Members</th>
+              <th class="text-center">Active Borrowers</th>
+              <th class="text-center">Engagement %</th>
+              <th class="text-center">Unique Titles</th>
+              <th class="text-center">Total Issues</th>
+              <th class="text-center">Issues/Student</th>
+              <th class="text-center pe-4">Benchmark</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in all_darajahs_detailed %}
+            <tr class="small">
+              <td class="ps-4 fw-bold">
+                <a href="{{ url_for('super_admin_bp.teleport_to_teacher_dashboard', branch_code=row.BranchCode or session.get('branch_code', 'AJSN'), darajah=row.Darajah) }}"
+                  class="text-decoration-none text-primary-hover" title="Teleport to Teacher Dashboard">
+                  {{ row.Darajah }}
+                </a>
+              </td>
+              <td><span class="badge bg-light text-dark border px-2 rounded-pill">{{ row.Marhala }}</span></td>
+              <td class="text-center">{{ row.TotalStudents }}</td>
+              <td class="text-center">
+                <span class="text-success fw-bold">{{ row.ActiveStudents }}</span>
+                <div class="progress mt-1" style="height: 3px; width: 40px; margin: 0 auto;">
+                  {% set pbar_style_1 = "width: " ~ row.MembershipPercent ~ "%;" %}
+                  <div class="progress-bar bg-success" style="{{ pbar_style_1 }}"></div>
+                </div>
+              </td>
+              <td class="text-center">
+                <span class="text-primary fw-bold">{{ row.ParticipatingStudents }}</span>
+              </td>
+              <td class="text-center">
+                <div class="d-flex align-items-center justify-content-center gap-2">
+                  <span class="fw-bold">{{ row.BorrowerPercent }}%</span>
+                  <div class="progress"
+                    style="height: 6px; width: 40px; border-radius: 3px; background-color: #f1f5f9;">
+                    {% set pbar_style_2 = "width: " ~ row.BorrowerPercent ~ "%;" %}
+                    <div class="progress-bar bg-primary" style="{{ pbar_style_2 }}"></div>
+                  </div>
+                </div>
+              </td>
+              <td class="text-center">
+                <span class="badge bg-info-soft text-info fw-bold">{{ row.UniqueTitles }}</span>
+              </td>
+              <td class="text-center fw-bold text-primary">{{ row.TotalIssues }}</td>
+              <td class="text-center fw-bold text-dark">{{ "%.1f"|format(row.AvgIssuesPerStudent or 0) }}</td>
+              <td class="text-center pe-4">
+                <span class="badge bg-{{ row.EfficiencyColor }} rounded-pill px-3 py-2" style="font-size: 0.65rem;">
+                  {{ row.Efficiency | upper }}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
+</div>
 
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
 <!-- Generic Chart Data Modal -->
 <div class="modal fade" id="chartDataModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">
@@ -443,7 +566,9 @@
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4" id="{{ id }}Body">
-        <div class="text-center py-5"><div class="spinner-border text-{{ color }}"></div></div>
+        <div class="text-center py-5">
+          <div class="spinner-border text-{{ color }}"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -477,13 +602,14 @@
   const CURRENT_MARHALA = "{{ selected_marhala or 'None' }}";
 
 
-  document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
     // Set animation delays for insight pills
     document.querySelectorAll('.insight-pill').forEach((el, index) => {
       el.style.animationDelay = (index * 0.1) + 's';
     });
-    
+
     initCharts();
+    initDataTable();
     setupTooltips();
   });
 
@@ -571,7 +697,7 @@
           tooltip: {
             callbacks: {
               label: ctx => ` ${ctx.dataset.label}: ${ctx.raw} issues`,
-              footer: items => ` Total: ${items.reduce((a,b) => a + b.raw, 0)} issues`
+              footer: items => ` Total: ${items.reduce((a, b) => a + b.raw, 0)} issues`
             }
           }
         }
@@ -590,43 +716,43 @@
   }
 
   // Generic Chart Data Modal Handler
-  window.openChartTableModal = function(type) {
+  window.openChartTableModal = function (type) {
     const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
     const title = document.getElementById('chartDataTitle');
     const head = document.getElementById('chartDataHeaders');
     const body = document.getElementById('chartDataBody');
-    
+
     let htmlHead = '', htmlBody = '';
-    
-    if(type === 'trend') {
+
+    if (type === 'trend') {
       title.innerText = 'Borrowing Trend Data';
       htmlHead = '<th>Month / Period</th><th class="text-end">Books Issued</th>';
       htmlBody = trendData.labels.map((l, i) => `<tr><td>${l}</td><td class="text-end fw-bold">${trendData.values[i]}</td></tr>`).join('');
-    } else if(type === 'language') {
+    } else if (type === 'language') {
       title.innerText = 'Issues by Language Data';
       htmlHead = '<th>Language</th><th class="text-end">Books Issued</th>';
       htmlBody = languageData.labels.map((l, i) => `<tr><td>${l}</td><td class="text-end fw-bold">${languageData.values[i]}</td></tr>`).join('');
-    } else if(type === 'darajah') {
+    } else if (type === 'darajah') {
       title.innerText = 'Darajah Distribution Details';
       htmlHead = '<th>Darajah / Year</th><th class="text-end">Boys</th><th class="text-end">Girls</th><th class="text-end">Total</th>';
       htmlBody = darajahData.labels.map((l, i) => `<tr><td>${l}</td><td class="text-end">${darajahData.male[i]}</td><td class="text-end">${darajahData.female[i]}</td><td class="text-end fw-bold">${darajahData.male[i] + darajahData.female[i]}</td></tr>`).join('');
-    } else if(type === 'marhala') {
+    } else if (type === 'marhala') {
       title.innerText = 'Marhala Distribution Details';
       htmlHead = '<th>Marhala Level</th><th class="text-end">Books Issued</th>';
       htmlBody = marhalaData.labels.map((l, i) => `<tr><td>${l}</td><td class="text-end fw-bold">${marhalaData.values[i]}</td></tr>`).join('');
     }
-    
+
     head.innerHTML = htmlHead;
     body.innerHTML = htmlBody;
     modal.show();
   };
 
   // KPI Click Handler
-  window.handleKPIClick = function(key) {
+  window.handleKPIClick = function (key) {
     const modals = { 'total_patrons': 'patronModal', 'total_issues': 'issuesModal', 'currently_issued': 'currentlyIssuedModal', 'today_activity': 'activityModal', 'garamat': 'finesModal' };
     const target = modals[key];
     if (!target) return;
-    
+
     bootstrap.Modal.getOrCreateInstance(document.getElementById(target)).show();
 
     if (key === 'total_patrons') loadPatronStats();
@@ -641,7 +767,7 @@
     body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">Loading statistics...</p></div>';
     fetch('/dashboard/api/patron-bifurcation').then(r => r.json()).then(res => {
 
-        body.innerHTML = `
+      body.innerHTML = `
           <div class="row g-3 text-center mb-4">
              <div class="col-4">
                <div class="p-3 rounded-4 bg-light border shadow-sm">
@@ -728,7 +854,7 @@
     body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">Loading issues analysis...</p></div>';
     fetch('/dashboard/api/issues-bifurcation').then(r => r.json()).then(res => {
 
-        body.innerHTML = `
+      body.innerHTML = `
           <div class="row">
             <div class="col-md-7 border-end">
               <h6 class="fw-bold mb-3">Issued by Category</h6>
@@ -749,9 +875,9 @@
     const body = document.getElementById('currentlyIssuedModalBody');
     body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning"></div><p class="mt-2">Fetching active borrowings...</p></div>';
     const m = CURRENT_MARHALA !== 'None' ? CURRENT_MARHALA : '';
-    fetch('/dashboard/api/currently-issued-details' + (m ? '?marhala='+encodeURIComponent(m) : '')).then(r => r.json()).then(res => {
+    fetch('/dashboard/api/currently-issued-details' + (m ? '?marhala=' + encodeURIComponent(m) : '')).then(r => r.json()).then(res => {
 
-        body.innerHTML = `<div class="table-responsive" style="max-height: 480px;"><table class="table table-sm table-hover"><thead><tr class="small"><th>Patron</th><th>Class</th><th class="text-center">Books</th></tr></thead><tbody>${res.data.map(p => `<tr><td><b>${p.firstname} ${p.surname}</b><br><small class="text-muted">${p.trno || p.userid}</small></td><td>${p.darajah || '—'}</td><td class="text-center"><span class="badge bg-primary">${p.book_count}</span></td></tr>`).join('')}</tbody></table></div>`;
+      body.innerHTML = `<div class="table-responsive" style="max-height: 480px;"><table class="table table-sm table-hover"><thead><tr class="small"><th>Patron</th><th>Class</th><th class="text-center">Books</th></tr></thead><tbody>${res.data.map(p => `<tr><td><b>${p.firstname} ${p.surname}</b><br><small class="text-muted">${p.trno || p.userid}</small></td><td>${p.darajah || '—'}</td><td class="text-center"><span class="badge bg-primary">${p.book_count}</span></td></tr>`).join('')}</tbody></table></div>`;
     });
   }
 
@@ -760,7 +886,7 @@
     body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-info"></div><p class="mt-2">Loading today\'s events...</p></div>';
     fetch('/dashboard/api/today-activity-details').then(r => r.json()).then(res => {
 
-        body.innerHTML = `<div class="table-responsive" style="max-height: 400px;"><table class="table table-sm table-hover"><thead><tr class="small text-muted"><th>Time</th><th>Action</th><th>Patron</th><th>Title</th></tr></thead><tbody>${res.data.map(a => `<tr><td class="small">${a.time}</td><td><span class="badge bg-${a.type === 'issue' ? 'success' : 'info'} small">${a.type.toUpperCase()}</span></td><td><b>${a.surname}</b></td><td class="small text-truncate" style="max-width: 200px;">${a.title}</td></tr>`).join('')}</tbody></table></div>`;
+      body.innerHTML = `<div class="table-responsive" style="max-height: 400px;"><table class="table table-sm table-hover"><thead><tr class="small text-muted"><th>Time</th><th>Action</th><th>Patron</th><th>Title</th></tr></thead><tbody>${res.data.map(a => `<tr><td class="small">${a.time}</td><td><span class="badge bg-${a.type === 'issue' ? 'success' : 'info'} small">${a.type.toUpperCase()}</span></td><td><b>${a.surname}</b></td><td class="small text-truncate" style="max-width: 200px;">${a.title}</td></tr>`).join('')}</tbody></table></div>`;
     });
   }
 
@@ -769,7 +895,7 @@
     body.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-danger"></div><p class="mt-2">Loading fines data...</p></div>';
     fetch('/dashboard/api/fines-bifurcation').then(r => r.json()).then(res => {
 
-        body.innerHTML = `
+      body.innerHTML = `
           <div class="row g-4">
             <div class="col-6 border-end"><h6>Last 7 Days Collection</h6><div class="list-group list-group-flush">${res.daily_stats.length ? res.daily_stats.map(d => `<div class="list-group-item d-flex justify-content-between"><span>${d.d}</span><b class="text-success">${d.count}</b></div>`).join('') : '<p class="text-muted">No collections recorded.</p>'}</div></div>
             <div class="col-6">
@@ -781,16 +907,92 @@
     });
   }
 
-  window.filterDarajahs = function() {
-    const q = document.getElementById('darajahSearch').value.toLowerCase();
-    document.querySelectorAll('.darajah-row').forEach(r => {
-      const text = (r.getAttribute('data-name') || '') + ' ' + (r.getAttribute('data-marhala') || '');
-      r.style.display = text.includes(q) ? '' : 'none';
+  function initDataTable() {
+    const table = $('#darajahDataTable').DataTable({
+      pageLength: 10,
+      order: [[7, "desc"]], // Sort by Total Issues (Index 7) by default
+      language: {
+        search: "_INPUT_",
+        searchPlaceholder: "Filter everything..."
+      },
+      dom: '<"d-none"f>rt<"d-flex justify-content-between align-items-center mt-3"ip>',
+      columnDefs: [
+        { targets: [2, 3, 4, 5, 6, 7, 8, 9], className: 'text-center' }
+      ]
     });
+
+    // Custom Global Search
+    $('#globalTableSearch').on('keyup', function () {
+      table.search(this.value).draw();
+    });
+  }
+
+  window.exportDarajahs = function () {
+    // Since we now have DataTables, we can use its built-in buttons if we want, 
+    // but for now let's keep it simple or hook to DT export.
+    const table = $('#darajahDataTable').DataTable();
+    const data = table.rows({ search: 'applied' }).data();
+    alert('Generating export for ' + data.length + ' darajahs...');
   };
 
-  window.exportDarajahs = function() {
-    alert('Generating Detailed CSV Export...');
-  };
+</script>
+<script id="subjectCloudData" type="application/json">
+  {{ subject_cloud | tojson | safe }}
+</script>
+<script>
+  // --- Subject Cloud Logic ---
+  (function () {
+    function aggregateBySubject(data) {
+      if (!data || !data.length) return [];
+      var map = {};
+      data.forEach(function (d) {
+        var s = d.upper_subject;
+        if (!s) return;
+        map[s] = (map[s] || 0) + parseInt(d.issue_count || 1);
+      });
+      return Object.entries(map).map(function (e) { return [e[0], e[1]]; });
+    }
+
+    try {
+      const cloudDataEl = document.getElementById('subjectCloudData');
+      var rawData = cloudDataEl ? JSON.parse(cloudDataEl.textContent) : [];
+      var canvas = document.getElementById('subjectCloud');
+      var emptyEl = document.getElementById('subjectCloudEmpty');
+
+      if (canvas) {
+        var words = aggregateBySubject(rawData);
+        if (!words.length) {
+          canvas.style.display = 'none';
+          if (emptyEl) emptyEl.classList.remove('d-none');
+        } else {
+          var maxCnt = Math.max.apply(null, words.map(function (w) { return w[1]; }));
+          var w = canvas.parentElement.offsetWidth || 500;
+          canvas.width = w;
+          canvas.height = 380;
+
+          var palette = ['#4f46e5', '#3b82f6', '#8b5cf6', '#0284c7', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
+
+          WordCloud(canvas, {
+            list: words.map(function (w) {
+              var ratio = w[1] / maxCnt;
+              return [w[0], Math.round(18 + ratio * 50)];
+            }),
+            gridSize: Math.round(16 * w / 500),
+            weightFactor: 1,
+            fontFamily: "'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+            color: function () { return palette[Math.floor(Math.random() * palette.length)]; },
+            rotateRatio: 0.3,
+            rotationSteps: 2,
+            backgroundColor: 'transparent',
+            shrinkToFit: true,
+            drawOutOfBound: false,
+            minSize: 8
+          });
+        }
+      }
+    } catch (e) {
+      console.warn("Subject cloud error:", e);
+    }
+  })();
 </script>
 {% endblock %}

@@ -9,32 +9,25 @@ python-dotenv==1.0.1
 # ============================
 # Database & Persistence
 # ============================
-mysql-connector-python==9.0.0    # Koha DB (MySQL/MariaDB) via connection pool
-sqlite-utils==3.35               # Lightweight helpers on top of SQLite
-SQLAlchemy==2.0.36               # ORM (optional / future use)
+mysql-connector-python==9.0.0
+sqlite-utils==3.35
+SQLAlchemy==2.0.36
 
 # ============================
 # Data Handling & Exports
 # ============================
-# pandas 2.2.3 has Windows wheels for newer Python versions
-pandas==2.2.3
-openpyxl==3.1.5                  # Excel .xlsx support
-XlsxWriter==3.2.0                # Writing styled Excel files
-odfpy==1.4.1                     # OpenDocument (.ods) export
+pandas==2.2.3  # Changed from 3.0.2 (doesn't exist yet)
+openpyxl==3.1.5
+XlsxWriter==3.2.0
+odfpy==1.4.1
 
 # ============================
 # PDF Generation & Imaging
 # ============================
-reportlab==4.2.2                 # PDF generation for reports
-Pillow==10.4.0                   # Image handling (avatars, logos, etc.)
-
-# RTL shaping for Arabic (so text joins correctly in PDFs)
+reportlab==4.2.2
+Pillow==12.2.0
 arabic-reshaper>=3.0.0,<4.0.0
 python-bidi==0.4.2
-
-# Optional HTML → PDF (requires system libs: GTK, Cairo, Pango)
-# Uncomment ONLY if these are installed on the server.
-# weasyprint==61.2 ; sys_platform != "win32"
 
 # ============================
 # Email & Notifications
@@ -48,9 +41,7 @@ email-validator==2.2.0
 APScheduler==3.10.4
 Flask-APScheduler==1.13.1
 python-dateutil==2.9.0.post0
-pytz==2024.1                      # Timezone utilities (used by schedulers)
-
-# Hijri calendar conversion (for dashboard dates)
+pytz==2024.1
 hijri-converter>=2.3.0,<3.0.0
 
 # ============================
@@ -67,4 +58,4 @@ requests==2.32.3
 # ============================
 # WSGI Server (Production)
 # ============================
-waitress==3.0.2                  # Production WSGI server (Windows/Linux)
+waitress==3.0.2

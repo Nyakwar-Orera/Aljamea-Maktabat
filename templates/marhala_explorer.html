@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "super_admin/_sa_base.html" if session.get('role')|lower == 'superadmin' else "base.html" %}
 {% block content %}
 <div class="container-fluid py-4">
   <!-- Header -->

@@ -9,7 +9,9 @@ def init_appdata():
     if not db_path:
         db_path = os.path.join(os.path.dirname(__file__), 'appdata.db')
     
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, timeout=30)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
     cur = conn.cursor()
     
     # ── Users table ──────────────────────────────────────────────────────────
@@ -144,13 +146,54 @@ def init_appdata():
     cur.execute('''
         CREATE TABLE IF NOT EXISTS audit_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user TEXT,
+            actor TEXT,
             action TEXT,
-            detail TEXT,
+            details TEXT,
             ip_address TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    
+    # ── Book Review Marks ─────────────────────────────────────────────────────
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS book_review_marks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_username TEXT NOT NULL,
+            student_trno TEXT,
+            student_name TEXT,
+            darajah_name TEXT,
+            academic_year TEXT,
+            marks REAL DEFAULT 0,
+            review_count INTEGER DEFAULT 0,
+            remarks TEXT,
+            source TEXT,
+            uploaded_by TEXT,
+            uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            book_review_name TEXT,
+            hijri_month TEXT,
+            percent REAL,
+            grade TEXT,
+            campus_branch TEXT DEFAULT 'Global',
+            branch_code TEXT DEFAULT 'AJSN'
+        )
+    ''')
+
+    # Migrate tables — add new columns if they don't exist yet
+    _migrations = [
+        "ALTER TABLE audit_log ADD COLUMN actor TEXT",
+        "ALTER TABLE audit_log ADD COLUMN details TEXT",
+        "ALTER TABLE book_review_marks ADD COLUMN book_review_name TEXT",
+        "ALTER TABLE book_review_marks ADD COLUMN hijri_month TEXT",
+        "ALTER TABLE book_review_marks ADD COLUMN percent REAL",
+        "ALTER TABLE book_review_marks ADD COLUMN grade TEXT",
+        "ALTER TABLE book_review_marks ADD COLUMN campus_branch TEXT DEFAULT 'Global'",
+        "ALTER TABLE book_review_marks ADD COLUMN branch_code TEXT DEFAULT 'AJSN'",
+    ]
+    for sql in _migrations:
+        try:
+            cur.execute(sql)
+        except Exception:
+            pass
 
     # ── Seed admin user if needed ─────────────────────────────────────────────
     admin_user = os.getenv("ADMIN_USER", "admin")

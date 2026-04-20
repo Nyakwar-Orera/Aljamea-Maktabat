@@ -1,0 +1,134 @@
+{% extends "super_admin/_sa_base.html" %}
+
+{% block title %}Branch Explorer | Global Network{% endblock %}
+
+{% block extra_css %}
+<style>
+  .explorer-card {
+    border: none;
+    border-radius: 20px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+    overflow: hidden;
+    background: white;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  }
+
+  .explorer-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 35px rgba(164, 90, 38, 0.15);
+    border-color: var(--primary-color);
+  }
+
+  .card-flag-header {
+    height: 100px;
+    background: linear-gradient(135deg, var(--primary-light), #fff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  .status-online { background-color: #10b981; box-shadow: 0 0 8px #10b981; }
+  .status-offline { background-color: #ef4444; box-shadow: 0 0 8px #ef4444; }
+
+  .branch-info {
+    padding: 1.5rem;
+    flex-grow: 1;
+  }
+
+  .stat-pill {
+    background: var(--accent-bg);
+    color: var(--text-muted);
+    padding: 4px 12px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: inline-block;
+    margin-top: 10px;
+  }
+
+  .teleport-btn {
+    width: 100%;
+    border: none;
+    background: var(--primary-light);
+    color: var(--primary-color);
+    padding: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+  }
+
+  .explorer-card:hover .teleport-btn {
+    background: var(--primary-color);
+    color: white;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid fade-in">
+  <div class="dashboard-header mb-5">
+    <div class="row align-items-center">
+      <div class="col-lg-8">
+        <h1 class="display-5 fw-bold">Global Branch Explorer</h1>
+        <p class="text-muted fs-5">Select a campus to teleport into its command center.</p>
+      </div>
+      <div class="col-lg-4 text-lg-end">
+        <div class="badge bg-light text-dark p-3 rounded-pill shadow-sm border">
+          <i class="bi bi-globe-asia me-2 text-primary"></i> 
+          {{ summaries|length }} Total Branches in Network
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    {% for s in summaries %}
+    <div class="col-12 col-md-6 col-xl-4 col-xxl-3">
+      <div class="explorer-card" onclick="location.href='{{ url_for('super_admin_bp.switch_branch', branch_code=s.branch_code) }}'">
+        <div class="card-flag-header">
+          {{ s.flag }}
+        </div>
+        <div class="branch-info">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h4 class="fw-900 mb-0">{{ s.short_name }}</h4>
+            <div class="d-flex align-items-center">
+              <span class="status-indicator {% if s.status == 'online' %}status-online{% else %}status-offline{% endif %}"></span>
+              <span class="small fw-bold text-uppercase" style="font-size: 10px;">{{ s.status }}</span>
+            </div>
+          </div>
+          <p class="text-muted small mb-3">Code: {{ s.branch_code }}</p>
+          
+          <div class="d-flex flex-wrap gap-2 mt-3">
+            <div class="stat-pill">
+              <i class="bi bi-people me-1"></i> {{ "{:,}".format(s.total_patrons) }} Patrons
+            </div>
+            <div class="stat-pill">
+              <i class="bi bi-book me-1"></i> {{ "{:,}".format(s.total_issues) }} Issued
+            </div>
+          </div>
+        </div>
+        <div class="teleport-btn text-center">
+          Enter Dashboard
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

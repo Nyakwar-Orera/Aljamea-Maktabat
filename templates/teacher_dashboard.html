@@ -1,12 +1,32 @@
-{% extends "base.html" %}
+{% extends "super_admin/_sa_base.html" if session.get('role')|lower == 'superadmin' else "base.html" %}
 
 {% block title %}Teacher Dashboard | AI Jamea Library{% endblock %}
 
 {% block content %}
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+<link
+  href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
+  rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
 
-  /* Inherits --color-gold, --color-brown, etc from base.html */
+<style>
+  :root {
+    --primary: #4f46e5;
+    --primary-soft: #eef2ff;
+    --secondary: #64748b;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #0ea5e9;
+    --purple: #8b5cf6;
+    --bg-body: #fdfdfd;
+    --bg-card: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 10px 20px -5px rgba(0, 0, 0, 0.06);
+  }
 
   /* Global Layout */
   main.container {
@@ -32,7 +52,13 @@
     position: sticky;
     top: 0;
     z-index: 1000;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  }
+
+  @media (max-width: 992px) {
+    .top-nav {
+      padding: 0.75rem 1rem;
+    }
   }
 
   .logo-area {
@@ -69,6 +95,16 @@
     background: var(--primary-soft);
   }
 
+  @media (max-width: 768px) {
+    .nav-links {
+      display: none;
+    }
+
+    .logo-area span {
+      display: none;
+    }
+  }
+
   .nav-item-top.active {
     background: var(--primary);
     color: white;
@@ -77,9 +113,20 @@
   .user-profile-top {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding-left: 1.5rem;
+    gap: 0.75rem;
+    padding-left: 1rem;
     border-left: 1.5px solid #f1f5f9;
+  }
+
+  @media (max-width: 576px) {
+    .profile-text-top {
+      display: none;
+    }
+
+    .user-profile-top {
+      padding-left: 0.5rem;
+      border-left: none;
+    }
   }
 
   .profile-text-top {
@@ -118,12 +165,27 @@
     padding: 2.5rem 2rem;
   }
 
+  @media (max-width: 768px) {
+    .main-viewport {
+      padding: 1.25rem 1rem;
+    }
+  }
+
   /* Page Sub-Header */
   .page-sub-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
     margin-bottom: 2.5rem;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 1200px) {
+    .page-sub-header {
+      flex-direction: column;
+      align-items: flex-start;
+    }
   }
 
   .darajah-profile-pill {
@@ -145,6 +207,21 @@
     font-weight: 800;
   }
 
+  @media (max-width: 576px) {
+    .darajah-profile-pill {
+      flex-wrap: wrap;
+      border-radius: 16px;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+    }
+
+    .pill-segment:last-child {
+      border-left: none !important;
+      padding-left: 0 !important;
+      width: 100%;
+    }
+  }
+
   /* KPI Cards */
   .kpi-row {
     display: grid;
@@ -153,9 +230,27 @@
     margin-bottom: 2.5rem;
   }
 
-  .sa-kpi-card {
+  @media (max-width: 1600px) {
+    .kpi-row {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 992px) {
+    .kpi-row {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 576px) {
+    .kpi-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .kpi-card-premium {
     padding: 1.25rem;
-    border-radius: var(--card-radius);
+    border-radius: var(--radius-md);
     color: white;
     text-decoration: none !important;
     position: relative;
@@ -165,19 +260,52 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
+    cursor: pointer;
   }
 
-  .kpi-card-premium:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); }
-  
-  .kpi-blue { background: linear-gradient(135deg, #3b82f6, #2563eb); }
-  .kpi-green { background: linear-gradient(135deg, #10b981, #059669); }
-  .kpi-purple { background: linear-gradient(135deg, #8b5cf6, #7c3aed); }
-  .kpi-indigo { background: linear-gradient(135deg, #6366f1, #4f46e5); }
-  .kpi-orange { background: linear-gradient(135deg, #f59e0b, #d97706); }
-  .kpi-red { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .kpi-card-premium:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-md);
+  }
 
-  .kpi-val { font-size: 2rem; font-weight: 800; margin: 0.25rem 0; line-height: 1; }
-  .kpi-tit { text-transform: uppercase; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.5px; opacity: 0.9; }
+  .kpi-blue {
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
+  }
+
+  .kpi-green {
+    background: linear-gradient(135deg, #10b981, #059669);
+  }
+
+  .kpi-purple {
+    background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  }
+
+  .kpi-indigo {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+  }
+
+  .kpi-orange {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+  }
+
+  .kpi-red {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+  }
+
+  .kpi-val {
+    font-size: 2rem;
+    font-weight: 800;
+    margin: 0.25rem 0;
+    line-height: 1;
+  }
+
+  .kpi-tit {
+    text-transform: uppercase;
+    font-size: 0.65rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    opacity: 0.9;
+  }
 
   /* Premium Card Styling */
   .premium-card {
@@ -194,6 +322,8 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
   }
 
   .card-header-fancy h3 {
@@ -206,7 +336,7 @@
     color: var(--text-main);
   }
 
-  /* Star Patrons Specific (Screenshot 2 Alignment) */
+  /* Star Patrons Specific */
   .star-patrons-compact {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -226,7 +356,10 @@
     align-items: center;
   }
 
-  .star-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+  .star-card:hover {
+    border-color: var(--primary);
+    transform: translateY(-3px);
+  }
 
   .star-pic-wrapper {
     position: relative;
@@ -259,7 +392,7 @@
     align-items: center;
     justify-content: center;
     border: 2px solid white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   .star-name {
@@ -343,6 +476,7 @@
     background: linear-gradient(135deg, #f0fdf4 0%, #dbfde8 100%);
     border-color: #10b981;
   }
+
   .student-card-modern.mustawa-achieved:hover {
     border-color: #059669;
     box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.2);
@@ -353,6 +487,7 @@
     background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
     border-color: #ef4444;
   }
+
   .student-card-modern.non-borrower:hover {
     border-color: #dc2626;
     box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.2);
@@ -373,11 +508,25 @@
     border: 1.5px solid #fee2e2;
   }
 
-  .logout-btn-nav:hover { background: #fef2f2 !important; border-color: var(--danger); }
+  .logout-btn-nav:hover {
+    background: #fef2f2 !important;
+    border-color: var(--danger);
+  }
 
-  .bg-lisan { background: #fdf4ff !important; color: #a21caf !important; }
-  .bg-arabic { background: #ecfdf5 !important; color: #065f46 !important; }
-  .bg-english { background: #eff6ff !important; color: #1e40af !important; }
+  .bg-lisan {
+    background: #fdf4ff !important;
+    color: #a21caf !important;
+  }
+
+  .bg-arabic {
+    background: #ecfdf5 !important;
+    color: #065f46 !important;
+  }
+
+  .bg-english {
+    background: #eff6ff !important;
+    color: #1e40af !important;
+  }
 
   /* Subject Cloud */
   .subject-cloud {
@@ -407,8 +556,18 @@
     z-index: 2;
   }
 
-  @media (max-width: 1400px) {
-    .kpi-row { grid-template-columns: repeat(3, 1fr); }
+  /* Book Card */
+  .book-card {
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .book-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  .ar-font {
+    font-family: 'Noto Naskh Arabic', 'Amiri', serif;
   }
 </style>
 
@@ -420,15 +579,7 @@
         <i class="bi bi-stack fs-3"></i>
         <span>Library Portal</span>
       </a>
-      
-      <nav class="nav-links gap-2">
-        <a href="{{ url_for('teacher_dashboard_bp.download_darajah_pdf') }}" class="btn text-white fw-bold rounded-pill px-4 btn-nav" style="background-color: #3b82f6; font-size: 0.9rem;" target="_blank">
-          <i class="bi bi-file-earmark-pdf-fill me-2"></i> Export Report in PDF
-        </a>
-        <a href="#" onclick="alert('Excel export coming soon!'); return false;" class="btn btn-light border fw-bold rounded-pill px-4 text-dark shadow-sm" style="font-size: 0.9rem;">
-          <i class="bi bi-file-earmark-excel-fill text-success me-2"></i> Export Report in Excel
-        </a>
-      </nav>
+
     </div>
 
     <div class="d-flex align-items-center gap-3">
@@ -437,9 +588,8 @@
           <div class="profile-name-top">{{ darajah_masool_name }}</div>
           <div class="profile-badge-top">{{ darajah_name }}</div>
         </div>
-        <img src="{{ url_for('students.patron_photo', borrowernumber=teacher_borrowernumber or 0) }}" 
-             onerror="this.src='/static/images/avatar.png'"
-             class="avatar-top" alt="">
+        <img src="{{ url_for('students.patron_photo', borrowernumber=teacher_borrowernumber or 0) }}"
+          onerror="this.src='/static/images/avatar.png'" class="avatar-top" alt="">
       </div>
       <a href="{{ url_for('auth_bp.logout') }}" class="nav-item-top logout-btn-nav">
         <i class="bi bi-power"></i>
@@ -452,13 +602,16 @@
     <div class="page-sub-header">
       <div class="page-title">
         <h1>Darajah Dashboard {{ darajah_name }}</h1>
-        <p class="text-muted fw-bold mb-0" style="font-size: 0.9rem;">Academic Year {{ current_academic_year or '1447-1448 H' }} &bull; Only Enrolled Students</p>
+        <p class="text-muted fw-bold mb-0" style="font-size: 0.9rem;">Academic Year {{ current_academic_year or
+          '1447-1448 H' }} &bull; Only Enrolled Students</p>
       </div>
 
       <div class="d-flex align-items-center gap-3 animate__animated animate__fadeIn">
         <!-- Class Teacher Card -->
-        <div class="bg-white border text-start d-flex align-items-center shadow-sm" style="padding: 0.5rem 1.25rem; border-radius: 16px; gap: 0.85rem;">
-          <div class="bg-primary bg-opacity-10 text-primary rounded p-2 d-flex align-items-center justify-content-center">
+        <div class="bg-white border text-start d-flex align-items-center shadow-sm"
+          style="padding: 0.5rem 1.25rem; border-radius: 16px; gap: 0.85rem;">
+          <div
+            class="bg-primary bg-opacity-10 text-primary rounded p-2 d-flex align-items-center justify-content-center">
             <i class="bi bi-person-video2 fs-5"></i>
           </div>
           <div>
@@ -478,48 +631,52 @@
           <div class="pill-segment text-warning">
             <i class="bi bi-gender-ambiguous"></i> {{ parsed_darajah.gender }}
           </div>
-          <div class="pill-segment text-success d-none">
-            <i class="bi bi-calendar3"></i> {{ now_hijri }}
-          </div>
-          <div class="pill-segment text-info" style="color: #4f46e5 !important; border-left: 1.5px solid #f1f5f9; padding-left: 1rem;">
+          <div class="pill-segment text-info"
+            style="color: #4f46e5 !important; border-left: 1.5px solid #f1f5f9; padding-left: 1rem;">
             <i class="bi bi-clock-history"></i> <span id="english-datetime-display"></span>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Section 1: KPI Stats -->
     <div class="kpi-row">
-      <div class="sa-kpi-card bg-gradient-golden animate__animated animate__fadeInUp" onclick="handleKPIClick('students')" style="cursor: pointer;">
+      <div class="kpi-card-premium kpi-blue animate__animated animate__fadeInUp" onclick="handleKPIClick('students')">
         <div class="kpi-tit">Total Students</div>
         <div class="kpi-val">{{ total_students }}</div>
         <div class="small opacity-75">&nbsp;</div>
       </div>
 
-      <div class="sa-kpi-card bg-gradient-golden animate__animated animate__fadeInUp" onclick="handleKPIClick('books_issued')" style="animation-delay: 50ms; cursor: pointer;">
+      <div class="kpi-card-premium kpi-green animate__animated animate__fadeInUp"
+        onclick="handleKPIClick('books_issued')" style="animation-delay: 50ms;">
         <div class="kpi-tit">Books Issued</div>
         <div class="kpi-val">{{ books_issued_darajah }}</div>
         <div class="small opacity-75">Total checkouts in AY</div>
       </div>
 
-      <div class="sa-kpi-card bg-gradient-golden animate__animated animate__fadeInUp" onclick="handleKPIClick('unique_titles')" style="animation-delay: 100ms; cursor: pointer;">
+      <div class="kpi-card-premium kpi-indigo animate__animated animate__fadeInUp"
+        onclick="handleKPIClick('unique_titles')" style="animation-delay: 100ms;">
         <div class="kpi-tit">Unique Titles</div>
         <div class="kpi-val">{{ unique_titles_count }}</div>
         <div class="small opacity-75">Distinct resources read</div>
       </div>
 
-      <div class="sa-kpi-card bg-gradient-brown animate__animated animate__fadeInUp" onclick="handleKPIClick('currently_issued')" style="animation-delay: 150ms; cursor: pointer;">
+      <div class="kpi-card-premium kpi-purple animate__animated animate__fadeInUp"
+        onclick="handleKPIClick('currently_issued')" style="animation-delay: 150ms;">
         <div class="kpi-tit">Currently Issued</div>
         <div class="kpi-val">{{ currently_issued_count }}</div>
         <div class="small opacity-75">Books with students now</div>
       </div>
 
-      <div class="sa-kpi-card bg-gradient-brown animate__animated animate__fadeInUp" onclick="handleKPIClick('non_borrowers')" style="animation-delay: 200ms; cursor: pointer;">
+      <div class="kpi-card-premium kpi-orange animate__animated animate__fadeInUp"
+        onclick="handleKPIClick('non_borrowers')" style="animation-delay: 200ms;">
         <div class="kpi-tit">Non-Borrowers</div>
         <div class="kpi-val">{{ non_borrowers_count }}</div>
         <div class="small opacity-75">0 issues this year</div>
       </div>
 
-      <div class="sa-kpi-card bg-gradient-brown animate__animated animate__fadeInUp" onclick="handleKPIClick('overdues')" style="animation-delay: 250ms; cursor: pointer;">
+      <div class="kpi-card-premium kpi-red animate__animated animate__fadeInUp" onclick="handleKPIClick('overdues')"
+        style="animation-delay: 250ms;">
         <div class="kpi-tit">Overdue Books</div>
         <div class="kpi-val">{{ total_overdues_current }}</div>
         <div class="small opacity-75">Pending class returns</div>
@@ -534,7 +691,9 @@
             <h3><i class="bi bi-graph-up text-primary"></i> Borrowing Velocity (Darajah)</h3>
             <div>
               <span class="badge bg-light text-muted border me-2">Monthly Trend</span>
-              <button class="btn btn-sm btn-outline-primary rounded-pill py-0 px-3" style="font-size: 0.8rem; font-weight: 700;" onclick="openChartTableModal('velocity')">View Table</button>
+              <button class="btn btn-sm btn-outline-primary rounded-pill py-0 px-3"
+                style="font-size: 0.8rem; font-weight: 700;" onclick="openChartTableModal('velocity')">View
+                Table</button>
             </div>
           </div>
           <div style="height: 300px;">
@@ -546,7 +705,8 @@
         <div class="premium-card animate__animated animate__fadeInRight h-100 mb-0">
           <div class="card-header-fancy">
             <h3><i class="bi bi-pie-chart-fill text-info"></i> Issues by Language</h3>
-            <button class="btn btn-sm btn-outline-primary rounded-pill py-0 px-3" style="font-size: 0.8rem; font-weight: 700;" onclick="openChartTableModal('language')">View Table</button>
+            <button class="btn btn-sm btn-outline-primary rounded-pill py-0 px-3"
+              style="font-size: 0.8rem; font-weight: 700;" onclick="openChartTableModal('language')">View Table</button>
           </div>
           <div style="height: 300px;">
             <canvas id="languageChart"></canvas>
@@ -569,29 +729,38 @@
             <h3><i class="bi bi-journal-bookmark-fill text-primary"></i> Top Borrowed Resources</h3>
             <ul class="nav nav-pills mb-0" id="titlesTab" role="tablist">
               <li class="nav-item">
-                <button class="nav-link active py-1 px-3 rounded-pill" data-bs-toggle="pill" data-bs-target="#section-english" style="font-weight: 600;">English</button>
+                <button class="nav-link active py-1 px-3 rounded-pill" data-bs-toggle="pill"
+                  data-bs-target="#section-english" style="font-weight: 600;">English</button>
               </li>
               <li class="nav-item">
-                <button class="nav-link py-1 px-3 rounded-pill ms-1" data-bs-toggle="pill" data-bs-target="#section-arabic" style="font-weight: 600;">Arabic</button>
+                <button class="nav-link py-1 px-3 rounded-pill ms-1" data-bs-toggle="pill"
+                  data-bs-target="#section-arabic" style="font-weight: 600;">Arabic</button>
               </li>
               <li class="nav-item">
-                <button class="nav-link py-1 px-3 rounded-pill ms-1" data-bs-toggle="pill" data-bs-target="#section-lisan" style="font-weight: 600;">Lisan</button>
+                <button class="nav-link py-1 px-3 rounded-pill ms-1" data-bs-toggle="pill"
+                  data-bs-target="#section-lisan" style="font-weight: 600;">Lisan</button>
               </li>
             </ul>
           </div>
 
           {% macro book_card(t, badge_bg) %}
           <div class="col">
-            <a href="{{ OPAC_BASE }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ t.BiblioNumber }}" target="_blank" class="text-decoration-none text-dark d-block h-100">
-              <div class="book-card border rounded p-2 text-center h-100 shadow-sm" style="background: #fff; display: flex; flex-direction: column; transition: transform 0.2s; border-color: #edf2f7 !important;">
-                <img src="{{ t.CoverURL }}" class="img-fluid rounded mb-2 shadow-sm" style="height: 200px; width: 100%; object-fit: contain; background: #f8fafc; padding: 5px;"
-                     onerror="this.onerror=null; this.src='https://books.google.com/books/content?vid=ISBN:{{ t.ISBN }}&printsec=frontcover&img=1&zoom=1'">
-                <div class="small fw-800 text-truncate px-1 {{ 'ar-font' if badge_bg == '#0d6efd' else '' }}" title="{{ t.Title }}">{{ t.Title }}</div>
-                <p class="text-muted px-1 mt-1 mb-2 w-100" style="font-size: 0.62rem; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex-grow: 1; white-space: normal;">{{ t.Synopsis }}</p>
+            <a href="{{ OPAC_BASE }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ t.BiblioNumber }}" target="_blank"
+              class="text-decoration-none text-dark d-block h-100">
+              <div class="book-card border rounded p-2 text-center h-100 shadow-sm"
+                style="background: #fff; display: flex; flex-direction: column; transition: transform 0.2s; border-color: #edf2f7 !important;">
+                <img src="{{ t.CoverURL }}" class="img-fluid rounded mb-2 shadow-sm"
+                  style="height: 200px; width: 100%; object-fit: contain; background: #f8fafc; padding: 5px;"
+                  onerror="this.onerror=null; this.src='https://books.google.com/books/content?vid=ISBN:{{ t.ISBN }}&printsec=frontcover&img=1&zoom=1'">
+                <div class="small fw-800 text-truncate px-1 {{ 'ar-font' if badge_bg == '#0d6efd' else '' }}"
+                  title="{{ t.Title }}">{{ t.Title }}</div>
+                <p class="text-muted px-1 mt-1 mb-2 w-100"
+                  style="font-size: 0.62rem; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex-grow: 1; white-space: normal;">
+                  {{ t.Synopsis }}</p>
                 <div class="mt-auto">
                   <div class="badge rounded-pill px-2" style="background-color: {{ badge_bg }}; font-size: 0.68rem;">{{ t.Times_Issued }} Issues</div>
                   {% if t.Barcode %}
-                    <div class="mt-1 text-muted fw-bold" style="font-size: 0.58rem;">#{{ t.Barcode }}</div>
+                  <div class="mt-1 text-muted fw-bold" style="font-size: 0.58rem;">#{{ t.Barcode }}</div>
                   {% endif %}
                 </div>
               </div>
@@ -604,31 +773,31 @@
             <div class="tab-pane fade show active" id="section-english">
               <div class="row g-2 row-cols-2">
                 {% for t in top_english[:4] %}
-                  {{ book_card(t, '#8b5cf6') }}
+                {{ book_card(t, '#8b5cf6') }}
                 {% else %}
-                  <div class="col-12 text-center py-4 text-muted small">No English records found</div>
+                <div class="col-12 text-center py-4 text-muted small">No English records found</div>
                 {% endfor %}
               </div>
             </div>
-            
+
             <!-- Arabic pane -->
             <div class="tab-pane fade" id="section-arabic">
               <div class="row g-2 row-cols-2">
                 {% for t in top_arabic[:4] %}
-                  {{ book_card(t, '#0d6efd') }}
+                {{ book_card(t, '#0d6efd') }}
                 {% else %}
-                  <div class="col-12 text-center py-4 text-muted small">No Arabic records found</div>
+                <div class="col-12 text-center py-4 text-muted small">No Arabic records found</div>
                 {% endfor %}
               </div>
             </div>
-            
+
             <!-- Lisan pane -->
             <div class="tab-pane fade" id="section-lisan">
               <div class="row g-2 row-cols-2">
                 {% for t in top_lisan[:4] %}
-                  {{ book_card(t, '#10b981') }}
+                {{ book_card(t, '#10b981') }}
                 {% else %}
-                  <div class="col-12 text-center py-4 text-muted small">No Lisan records found</div>
+                <div class="col-12 text-center py-4 text-muted small">No Lisan records found</div>
                 {% endfor %}
               </div>
             </div>
@@ -638,11 +807,12 @@
 
       <!-- Subject Cloud -->
       <div class="col-lg-6">
-        <div class="premium-card h-100 mb-0 animate__animated animate__fadeInUp" style="position: relative; overflow: hidden;">
+        <div class="premium-card h-100 mb-0 animate__animated animate__fadeInUp"
+          style="position: relative; overflow: hidden;">
           <div class="card-header-fancy">
             <h3><i class="bi bi-cloud-fill text-primary"></i> Subject Cloud</h3>
-            <button class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-700"
-                    data-bs-toggle="modal" data-bs-target="#subjectModal">
+            <button class="btn btn-sm btn-outline-primary rounded-pill px-3 fw-700" data-bs-toggle="modal"
+              data-bs-target="#subjectModal">
               <i class="bi bi-table me-1"></i> View Details
             </button>
           </div>
@@ -683,11 +853,14 @@
                     <td class="fw-700" style="color: #4f46e5;">{{ item.upper_subject }}</td>
                     <td class="text-muted small">{{ item.full_subject or '—' }}</td>
                     <td class="text-center pe-4">
-                      <span class="badge rounded-pill px-3" style="background: #eef2ff; color: #4f46e5;">{{ item.issue_count }}</span>
+                      <span class="badge rounded-pill px-3" style="background: #eef2ff; color: #4f46e5;">{{
+                        item.issue_count }}</span>
                     </td>
                   </tr>
                   {% else %}
-                  <tr><td colspan="4" class="text-center text-muted py-4">No data available</td></tr>
+                  <tr>
+                    <td colspan="4" class="text-center text-muted py-4">No data available</td>
+                  </tr>
                   {% endfor %}
                 </tbody>
               </table>
@@ -702,60 +875,60 @@
 
     <!-- WordCloud JS -->
     <script>
-    (function() {
-      function aggregateBySubject(data) {
-        var map = {};
-        data.forEach(function(d) {
-          var s = d.upper_subject;
-          if (!s) return;
-          map[s] = (map[s] || 0) + parseInt(d.issue_count || 1);
+      (function () {
+        function aggregateBySubject(data) {
+          var map = {};
+          data.forEach(function (d) {
+            var s = d.upper_subject;
+            if (!s) return;
+            map[s] = (map[s] || 0) + parseInt(d.issue_count || 1);
+          });
+          return Object.entries(map).map(function (e) { return [e[0], e[1]]; });
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+          try {
+            var raw = JSON.parse(document.getElementById('subjectCloudData').textContent || '[]');
+            var canvas = document.getElementById('subjectCloud');
+            var emptyEl = document.getElementById('subjectCloudEmpty');
+            if (!canvas) return;
+
+            var words = aggregateBySubject(raw);
+            if (!words.length) {
+              canvas.style.display = 'none';
+              emptyEl.classList.remove('d-none');
+              return;
+            }
+
+            var maxCnt = Math.max.apply(null, words.map(function (w) { return w[1]; }));
+            var w = canvas.parentElement.offsetWidth || 480;
+            canvas.width = w;
+            canvas.height = 300;
+
+            var palette = ['#4f46e5', '#2563eb', '#7c3aed', '#0284c7', '#059669',
+              '#d97706', '#e11d48', '#0891b2', '#16a34a', '#9333ea', '#dc2626', '#0e7490'];
+
+            var scaled = words.map(function (w) {
+              var ratio = w[1] / maxCnt;
+              return [w[0], Math.round(20 + ratio * 56)];
+            });
+
+            WordCloud(canvas, {
+              list: scaled,
+              gridSize: Math.round(16 * w / 480),
+              weightFactor: 1,
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              color: function () { return palette[Math.floor(Math.random() * palette.length)]; },
+              rotateRatio: 0.4,
+              rotationSteps: 2,
+              backgroundColor: 'transparent',
+              shrinkToFit: true,
+              drawOutOfBound: false,
+              minSize: 10,
+            });
+          } catch (e) { console.warn('Subject cloud error:', e); }
         });
-        return Object.entries(map).map(function(e) { return [e[0], e[1]]; });
-      }
-
-      document.addEventListener('DOMContentLoaded', function() {
-        try {
-          var raw = JSON.parse(document.getElementById('subjectCloudData').textContent || '[]');
-          var canvas  = document.getElementById('subjectCloud');
-          var emptyEl = document.getElementById('subjectCloudEmpty');
-          if (!canvas) return;
-
-          var words = aggregateBySubject(raw);
-          if (!words.length) {
-            canvas.style.display = 'none';
-            emptyEl.classList.remove('d-none');
-            return;
-          }
-
-          var maxCnt = Math.max.apply(null, words.map(function(w){return w[1];}));
-          var w = canvas.parentElement.offsetWidth || 480;
-          canvas.width  = w;
-          canvas.height = 300;
-
-          var palette = ['#4f46e5','#2563eb','#7c3aed','#0284c7','#059669',
-                         '#d97706','#e11d48','#0891b2','#16a34a','#9333ea','#dc2626','#0e7490'];
-
-          var scaled = words.map(function(w) {
-            var ratio = w[1] / maxCnt;
-            return [w[0], Math.round(20 + ratio * 56)];
-          });
-
-          WordCloud(canvas, {
-            list:            scaled,
-            gridSize:        Math.round(16 * w / 480),
-            weightFactor:    1,
-            fontFamily:      "'Plus Jakarta Sans', sans-serif",
-            color:           function() { return palette[Math.floor(Math.random()*palette.length)]; },
-            rotateRatio:     0.4,
-            rotationSteps:   2,
-            backgroundColor: 'transparent',
-            shrinkToFit:     true,
-            drawOutOfBound:  false,
-            minSize:         10,
-          });
-        } catch(e) { console.warn('Subject cloud error:', e); }
-      });
-    })();
+      })();
     </script>
 
     <!-- Row: Star Patrons | Book Review Grades -->
@@ -768,15 +941,18 @@
           </div>
           <div class="star-patrons-compact">
             {% for s in top_students %}
-            <a href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}" class="star-card animate__animated animate__fadeIn text-decoration-none" style="animation-delay: {{ loop.index0 * 50 }}ms; cursor: pointer;">
-              <div class="text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 0.5px;">{{ s.TRNumber }}</div>
+            <a href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}"
+              class="star-card animate__animated animate__fadeIn text-decoration-none"
+              style="animation-delay: {{ loop.index0 * 50 }}ms; cursor: pointer;">
+              <div class="text-muted fw-bold mb-2" style="font-size: 0.7rem; letter-spacing: 0.5px;">{{ s.TRNumber }}
+              </div>
               <div class="star-pic-wrapper">
                 <img src="{{ url_for('students.patron_photo', borrowernumber=s.borrowernumber or 0) }}"
-                     onerror="this.src='/static/images/avatar.png'"
-                     class="star-pic" alt="">
+                  onerror="this.src='/static/images/avatar.png'" class="star-pic" alt="">
                 <div class="star-badge-rank">{{ loop.index }}</div>
               </div>
-              <div class="star-name" title="{{ s.cardnumber }} - {{ s.FullName }}">{{ s.cardnumber }} - {{ s.FullName }}</div>
+              <div class="star-name" title="{{ s.cardnumber }} - {{ s.FullName }}">{{ s.cardnumber }} - {{ s.FullName }}
+              </div>
               <div class="star-darajah">{{ s.Class }}</div>
               <div class="star-issues mt-1">🏆 {{ s.Issues_AY }} Issues</div>
             </a>
@@ -791,10 +967,10 @@
           <div class="card-header-fancy">
             <h3 style="color: #7c3aed;"><i class="bi bi-award-fill"></i> Book Review Grades</h3>
             <button class="btn btn-sm rounded-pill px-3 fw-700"
-                    style="color: #7c3aed; border: 1px solid #7c3aed; background: transparent;"
-                    onmouseover="this.style.background='#7c3aed'; this.style.color='#fff';"
-                    onmouseout="this.style.background='transparent'; this.style.color='#7c3aed';"
-                    data-bs-toggle="modal" data-bs-target="#reviewModal">
+              style="color: #7c3aed; border: 1px solid #7c3aed; background: transparent;"
+              onmouseover="this.style.background='#7c3aed'; this.style.color='#fff';"
+              onmouseout="this.style.background='transparent'; this.style.color='#7c3aed';" data-bs-toggle="modal"
+              data-bs-target="#reviewModal">
               <i class="bi bi-table me-1"></i> View Details
             </button>
           </div>
@@ -832,15 +1008,15 @@
                     </td>
                     <td class="text-center align-middle">
                       {% if r.grade == 'A' %}
-                        <span class="badge" style="background: #ecfdf5; color: #059669; font-size: 0.9rem;">A</span>
+                      <span class="badge" style="background: #ecfdf5; color: #059669; font-size: 0.9rem;">A</span>
                       {% elif r.grade == 'B' %}
-                        <span class="badge" style="background: #eff6ff; color: #2563eb; font-size: 0.9rem;">B</span>
+                      <span class="badge" style="background: #eff6ff; color: #2563eb; font-size: 0.9rem;">B</span>
                       {% elif r.grade == 'C' %}
-                        <span class="badge" style="background: #fffbeb; color: #d97706; font-size: 0.9rem;">C</span>
+                      <span class="badge" style="background: #fffbeb; color: #d97706; font-size: 0.9rem;">C</span>
                       {% elif r.grade == 'D' %}
-                        <span class="badge" style="background: #fef2f2; color: #dc2626; font-size: 0.9rem;">D</span>
+                      <span class="badge" style="background: #fef2f2; color: #dc2626; font-size: 0.9rem;">D</span>
                       {% else %}
-                        <span class="badge bg-light text-muted border">Not Submitted</span>
+                      <span class="badge bg-light text-muted border">Not Submitted</span>
                       {% endif %}
                     </td>
                     <td class="text-center align-middle fw-bold text-muted">
@@ -848,7 +1024,9 @@
                     </td>
                   </tr>
                   {% else %}
-                  <tr><td colspan="3" class="text-center py-4 text-muted">No review data available</td></tr>
+                  <tr>
+                    <td colspan="3" class="text-center py-4 text-muted">No review data available</td>
+                  </tr>
                   {% endfor %}
                 </tbody>
               </table>
@@ -860,61 +1038,83 @@
         </div>
       </div>
     </div>
+    <script id="reviewGradesData" type="application/json">{{ (review_grade_counts or {}) | tojson | safe }}</script>
 
     <!-- Review Grades Chart JS -->
     <script>
-      document.addEventListener('DOMContentLoaded', function() {
+      document.addEventListener('DOMContentLoaded', function () {
         const ctxRev = document.getElementById('reviewGradesChart');
-        if (ctxRev) {
-          const counts = {{ (review_grade_counts or {}) | tojson }};
-          new Chart(ctxRev, {
-            type: 'bar',
-            data: {
-              labels: ['Grade A', 'Grade B', 'Grade C', 'Grade D', 'Pending'],
-              datasets: [{
-                label: 'Students',
-                data: [counts['A'], counts['B'], counts['C'], counts['D'], counts['Not Submitted']],
-                backgroundColor: [
-                  '#10b981', // A - emerald
-                  '#3b82f6', // B - blue
-                  '#f59e0b', // C - amber
-                  '#ef4444', // D - red
-                  '#9ca3af'  // Pending - gray
-                ],
-                borderRadius: {topLeft: 8, topRight: 8, bottomLeft: 0, bottomRight: 0},
-                barPercentage: 0.6
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: { display: false },
-                tooltip: {
-                  backgroundColor: 'rgba(0,0,0,0.8)',
-                  padding: 12,
-                  titleFont: { size: 14, family: "'Plus Jakarta Sans', sans-serif" },
-                  bodyFont: { size: 13, family: "'Plus Jakarta Sans', sans-serif" }
+        if (!ctxRev) return;
+
+        const countsData = JSON.parse(document.getElementById('reviewGradesData').textContent || '{}');
+        const rawCounts = countsData;
+      const counts = {
+        A: parseInt(rawCounts['A'] || 0),
+        B: parseInt(rawCounts['B'] || 0),
+        C: parseInt(rawCounts['C'] || 0),
+        D: parseInt(rawCounts['D'] || 0),
+        'Not Submitted': parseInt(rawCounts['Not Submitted'] || 0)
+      };
+      const totalStudents = counts.A + counts.B + counts.C + counts.D + counts['Not Submitted'];
+
+      if (totalStudents === 0) {
+        const wrapper = ctxRev.parentElement;
+        ctxRev.style.display = 'none';
+        const empty = document.createElement('div');
+        empty.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;color:#94a3b8;';
+        empty.innerHTML = '<i class="bi bi-award fs-1 mb-2 opacity-25"></i><div class="fw-bold">No reviews uploaded yet</div><div class="small mt-1">Upload a file from Settings &rsaquo; Taqeem</div>';
+        wrapper.appendChild(empty);
+        return;
+      }
+
+      new Chart(ctxRev, {
+        type: 'bar',
+        data: {
+          labels: ['Grade A', 'Grade B', 'Grade C', 'Grade D', 'Pending'],
+          datasets: [{
+            label: 'Students',
+            data: [counts.A, counts.B, counts.C, counts.D, counts['Not Submitted']],
+            backgroundColor: [
+              '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#9ca3af'
+            ],
+            borderRadius: { topLeft: 8, topRight: 8, bottomLeft: 0, bottomRight: 0 },
+            barPercentage: 0.6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: 'rgba(0,0,0,0.8)',
+              padding: 12,
+              callbacks: {
+                label: function (ctx) {
+                  const val = ctx.raw || 0;
+                  const pct = totalStudents > 0 ? Math.round((val / totalStudents) * 100) : 0;
+                  return ` ${val} student${val !== 1 ? 's' : ''} (${pct}%)`;
                 }
               },
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  ticks: { precision: 0, font: { family: "'Plus Jakarta Sans', sans-serif" } },
-                  grid: { borderDash: [4, 4], color: '#f3f4f6' }
-                },
-                x: {
-                  grid: { display: false },
-                  ticks: { font: { family: "'Plus Jakarta Sans', sans-serif", weight: 'bold' } }
-                }
-              }
+              titleFont: { size: 14, family: "'Plus Jakarta Sans', sans-serif" },
+              bodyFont: { size: 13, family: "'Plus Jakarta Sans', sans-serif" }
             }
-          });
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: { precision: 0, font: { family: "'Plus Jakarta Sans', sans-serif" } },
+              grid: { borderDash: [4, 4], color: '#f3f4f6' }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { font: { family: "'Plus Jakarta Sans', sans-serif", weight: 'bold' } }
+            }
+          }
         }
       });
+      });
     </script>
-
-
 
     <!-- Full Class Roster Grid -->
     <div id="roster" class="premium-card animate__animated animate__fadeInUp" style="animation-delay: 100ms;">
@@ -922,38 +1122,40 @@
         <h3><i class="bi bi-grid-3x3-gap text-primary"></i> Complete Class Students</h3>
         <div class="input-group input-group-sm" style="width: 280px;">
           <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-          <input type="text" id="rosterFilter" class="form-control border-start-0 ps-0" placeholder="Filter students...">
+          <input type="text" id="rosterFilter" class="form-control border-start-0 ps-0"
+            placeholder="Filter students...">
         </div>
       </div>
 
       <div class="roster-grid">
         {% for s in students %}
-        <a href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}" 
-           class="student-card-modern roster-item {% if s.MustawaAchieved %}mustawa-achieved{% elif s.IsNonBorrower %}non-borrower{% endif %}">
-          
+        <a href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}"
+          class="student-card-modern roster-item {% if s.MustawaAchieved %}mustawa-achieved{% elif s.IsNonBorrower %}non-borrower{% endif %}">
+
           <div class="position-absolute top-0 end-0 p-3">
-             <div class="badge {% if s.IsNonBorrower %}bg-danger{% else %}bg-primary-soft text-primary{% endif %} rounded-pill small fw-800">{{ s.Issues_AY }} Books</div>
+            <div
+              class="badge {% if s.IsNonBorrower %}bg-danger{% else %}bg-primary-soft text-primary{% endif %} rounded-pill small fw-800">
+              {{ s.Issues_AY }} Books</div>
           </div>
-          
-          <img src="{{ url_for('students.patron_photo', borrowernumber=s.borrowernumber or 0) }}" 
-               {% set fallback_url = 'https://api.dicebear.com/7.x/initials/svg?seed=' ~ s.FullName | replace(' ', '+') ~ '&backgroundColor=4f46e5' %}
-               onerror="this.src='{{ fallback_url }}'"
-               class="student-pic-main" alt="">
-               
+
+          <img src="{{ url_for('students.patron_photo', borrowernumber=s.borrowernumber or 0) }}" {% set
+            fallback_url='https://api.dicebear.com/7.x/initials/svg?seed=' ~ s.FullName | replace(' ', ' +')
+            ~ '&backgroundColor=4f46e5' %} onerror="this.src='{{ fallback_url }}'" class="student-pic-main" alt="">
+
           <div class="fw-800 text-main">{{ s.FullName }}</div>
           <div class="small text-muted fw-700">TR {{ s.TRNumber }}</div>
-          
+
           <div class="mt-3">
             {% if s.Overdues > 0 %}
-              <div class="text-danger fw-800 small mt-1">
-                <i class="bi bi-exclamation-triangle-fill"></i> {{ s.Overdues }} Overdue Books
-              </div>
+            <div class="text-danger fw-800 small mt-1">
+              <i class="bi bi-exclamation-triangle-fill"></i> {{ s.Overdues }} Overdue Books
+            </div>
             {% endif %}
 
             {% if s.IsNonBorrower %}
-              <div class="text-danger fw-800 small mt-1">
-                <i class="bi bi-person-x-fill"></i> Non-Borrower
-              </div>
+            <div class="text-danger fw-800 small mt-1">
+              <i class="bi bi-person-x-fill"></i> Non-Borrower
+            </div>
             {% endif %}
           </div>
         </a>
@@ -964,11 +1166,8 @@
 </div>
 
 <!-- Data Carriers -->
-<div id="viz-payload" 
-     data-labels='{{ trend_labels|tojson|safe }}' 
-     data-values='{{ trend_values|tojson|safe }}' 
-     data-languages='{{ language_stats|tojson|safe }}'
-     style="display: none;"></div>
+<div id="viz-payload" data-labels='{{ trend_labels|tojson|safe }}' data-values='{{ trend_values|tojson|safe }}'
+  data-languages='{{ language_stats|tojson|safe }}' style="display: none;"></div>
 
 <!-- Chart Data Modal -->
 <div class="modal fade" id="chartDataModal" tabindex="-1">
@@ -996,23 +1195,6 @@
 </div>
 
 <!-- KPI Modals -->
-{% macro kpi_modal(id, title, icon, color='primary') %}
-<div class="modal fade" id="{{ id }}" tabindex="-1">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0 shadow-lg" style="border-radius: 12px; overflow: hidden;">
-      <div class="modal-header bg-{{ color }} text-white py-3">
-        <h5 class="modal-title fw-bold"><i class="bi {{ icon }} me-2"></i> {{ title }}</h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body p-4" id="{{ id }}Body">
-        <!-- Content will be injected by JS -->
-      </div>
-    </div>
-  </div>
-</div>
-{% endmacro %}
-
-<!-- KPI Modals Container -->
 <div id="kpiModals">
   <!-- Students Modal -->
   <div class="modal fade" id="kpiStudentsModal" tabindex="-1">
@@ -1031,13 +1213,15 @@
               </div>
             </div>
             <div class="col-4">
-              <div class="p-3 rounded bg-primary bg-opacity-10 border border-primary border-opacity-25 text-primary shadow-sm h-100">
+              <div
+                class="p-3 rounded bg-primary bg-opacity-10 border border-primary border-opacity-25 text-primary shadow-sm h-100">
                 <div class="small text-uppercase fw-bold mb-1">Active <br> Borrowers</div>
                 <div class="h3 fw-bold mb-0">{{ active_borrowers }}</div>
               </div>
             </div>
             <div class="col-4">
-              <div class="p-3 rounded bg-warning bg-opacity-10 border border-warning border-opacity-25 text-warning shadow-sm h-100">
+              <div
+                class="p-3 rounded bg-warning bg-opacity-10 border border-warning border-opacity-25 text-warning shadow-sm h-100">
                 <div class="small text-uppercase fw-bold mb-1">Non <br> Borrowers</div>
                 <div class="h3 fw-bold mb-0">{{ non_borrowers_count }}</div>
               </div>
@@ -1074,7 +1258,9 @@
                 {% if s.Issues_AY > 0 %}
                 <tr>
                   <td class="ps-4">
-                    <a class="fw-bold text-decoration-none text-dark" href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}">{{ s.FullName }}</a>
+                    <a class="fw-bold text-decoration-none text-dark"
+                      href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}">{{
+                      s.FullName }}</a>
                     <div class="small text-muted">TR {{ s.TRNumber }}</div>
                   </td>
                   <td class="text-center align-middle fw-bold text-success">{{ s.Issues_AY }}</td>
@@ -1114,12 +1300,15 @@
                 {% for t in unique_titles_list %}
                 <tr>
                   <td class="ps-4 fw-bold">
-                    <a href="{{ OPAC_BASE }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ t.biblionumber }}" target="_blank" class="text-decoration-none text-dark">{{ t.title }}</a>
+                    <a href="{{ OPAC_BASE }}/cgi-bin/koha/opac-detail.pl?biblionumber={{ t.biblionumber }}"
+                      target="_blank" class="text-decoration-none text-dark">{{ t.title }}</a>
                   </td>
                   <td class="text-center align-middle fw-bold text-muted">{{ t.issues }}</td>
                 </tr>
                 {% else %}
-                <tr><td colspan="2" class="text-center text-muted py-3">No unique titles found.</td></tr>
+                <tr>
+                  <td colspan="2" class="text-center text-muted py-3">No unique titles found.</td>
+                </tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -1153,19 +1342,23 @@
               <tbody>
                 {% set ns = namespace(found=false) %}
                 {% for s in (students or [])|sort(attribute='Currently_Issued', reverse=true) %}
-                  {% if s.Currently_Issued and s.Currently_Issued > 0 %}
-                    {% set ns.found = true %}
-                    <tr>
-                      <td class="ps-4">
-                        <a class="fw-bold text-decoration-none text-dark" href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}">{{ s.FullName }}</a>
-                        <div class="small text-muted">TR {{ s.TRNumber }}</div>
-                      </td>
-                      <td class="text-center align-middle fw-bold" style="color: #8b5cf6;">{{ s.Currently_Issued }}</td>
-                    </tr>
-                  {% endif %}
+                {% if s.Currently_Issued and s.Currently_Issued > 0 %}
+                {% set ns.found = true %}
+                <tr>
+                  <td class="ps-4">
+                    <a class="fw-bold text-decoration-none text-dark"
+                      href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}">{{
+                      s.FullName }}</a>
+                    <div class="small text-muted">TR {{ s.TRNumber }}</div>
+                  </td>
+                  <td class="text-center align-middle fw-bold" style="color: #8b5cf6;">{{ s.Currently_Issued }}</td>
+                </tr>
+                {% endif %}
                 {% endfor %}
                 {% if not ns.found %}
-                  <tr><td colspan="2" class="text-center py-4 text-muted">No books currently issued.</td></tr>
+                <tr>
+                  <td colspan="2" class="text-center py-4 text-muted">No books currently issued.</td>
+                </tr>
                 {% endif %}
               </tbody>
             </table>
@@ -1194,29 +1387,34 @@
               </thead>
               <tbody>
                 {% set ns = namespace(found=false) %}
-                {# If a student is in 'students' list but NOT in 'month_students' list, they are a non-borrower this month #}
                 {% set month_borrower_trnos = [] %}
                 {% for ms in month_students %}
-                  {% set _ = month_borrower_trnos.append(ms.TRNumber) %}
+                {% set _ = month_borrower_trnos.append(ms.TRNumber) %}
                 {% endfor %}
-                
+
                 {% for s in students %}
-                  {% if s.TRNumber not in month_borrower_trnos %}
-                    {% set ns.found = true %}
-                    <tr>
-                      <td class="ps-4">
-                        <a class="fw-bold text-decoration-none text-dark" href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}">{{ s.FullName }}</a>
-                        <div class="small text-muted">TR {{ s.TRNumber }}</div>
-                      </td>
-                      <td class="text-center align-middle {% if s.Issues_AY == 0 %}text-danger fw-bold{% else %}text-muted{% endif %}">
-                        {{ s.Issues_AY }} Issues this Year
-                      </td>
-                    </tr>
-                  {% endif %}
+                {% if s.TRNumber not in month_borrower_trnos %}
+                {% set ns.found = true %}
+                <tr>
+                  <td class="ps-4">
+                    <a class="fw-bold text-decoration-none text-dark"
+                      href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}">{{
+                      s.FullName }}</a>
+                    <div class="small text-muted">TR {{ s.TRNumber }}</div>
+                  </td>
+                  <td
+                    class="text-center align-middle {% if s.Issues_AY == 0 %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                    {{ s.Issues_AY }} Issues this Year
+                  </td>
+                </tr>
+                {% endif %}
                 {% endfor %}
-                
+
                 {% if not ns.found %}
-                <tr><td colspan="2" class="text-center py-4 text-success fw-bold">Awesome! All students borrowed this month!</td></tr>
+                <tr>
+                  <td colspan="2" class="text-center py-4 text-success fw-bold">Awesome! All students borrowed this
+                    month!</td>
+                </tr>
                 {% endif %}
               </tbody>
             </table>
@@ -1250,7 +1448,9 @@
                 {% set ns.found = true %}
                 <tr>
                   <td class="ps-4">
-                    <a class="fw-bold text-decoration-none text-dark" href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}">{{ s.FullName }}</a>
+                    <a class="fw-bold text-decoration-none text-dark"
+                      href="{{ url_for('students.student', identifier=(s.TRNumber or s.borrowernumber or 0)) }}">{{
+                      s.FullName }}</a>
                     <div class="small text-muted">TR {{ s.TRNumber }}</div>
                   </td>
                   <td class="text-center align-middle fw-bold text-danger">{{ s.Overdues }}</td>
@@ -1258,7 +1458,9 @@
                 {% endif %}
                 {% endfor %}
                 {% if not ns.found %}
-                <tr><td colspan="2" class="text-center py-4 text-success fw-bold">No overdue books! 🎉</td></tr>
+                <tr>
+                  <td colspan="2" class="text-center py-4 text-success fw-bold">No overdue books! 🎉</td>
+                </tr>
                 {% endif %}
               </tbody>
             </table>
@@ -1271,10 +1473,9 @@
 </div>
 {% endblock %}
 
-
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+  document.addEventListener('DOMContentLoaded', function () {
     const vizPayload = document.getElementById('viz-payload');
     if (!vizPayload) return;
 
@@ -1289,32 +1490,37 @@ document.addEventListener('DOMContentLoaded', function() {
     vGradient.addColorStop(1, 'rgba(79, 70, 229, 0)');
 
     new Chart(vCtx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Books Issued',
-                data: values,
-                borderColor: '#4f46e5',
-                backgroundColor: vGradient,
-                borderWidth: 4,
-                tension: 0.4,
-                fill: true,
-                pointBackgroundColor: '#fff',
-                pointBorderColor: '#4f46e5',
-                pointBorderWidth: 2,
-                pointRadius: 4
-            }]
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Books Issued',
+          data: values,
+          borderColor: '#4f46e5',
+          backgroundColor: vGradient,
+          borderWidth: 4,
+          tension: 0.4,
+          fill: true,
+          pointBackgroundColor: '#fff',
+          pointBorderColor: '#4f46e5',
+          pointBorderWidth: 2,
+          pointRadius: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        onClick: (e, active) => {
+          if (active.length > 0) {
+            window.openChartTableModal('velocity', active[0].index);
+          }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: { beginAtZero: true, grid: { borderDash: [5, 5], color: '#f1f5f9' }, ticks: { color: '#64748b' } },
-                x: { grid: { display: false }, ticks: { color: '#64748b' } }
-            }
+        plugins: { legend: { display: false } },
+        scales: {
+          y: { beginAtZero: true, grid: { borderDash: [5, 5], color: '#f1f5f9' }, ticks: { color: '#64748b' } },
+          x: { grid: { display: false }, ticks: { color: '#64748b' } }
         }
+      }
     });
 
     // 2. Language Chart
@@ -1324,83 +1530,68 @@ document.addEventListener('DOMContentLoaded', function() {
     const colors = ['#4f46e5', '#10b981', '#f59e0b', '#0ea5e9', '#8b5cf6', '#ef4444', '#6366f1'];
 
     new Chart(lCtx, {
-        type: 'doughnut',
-        data: {
-            labels: langLabels,
-            datasets: [{
-                data: langCounts,
-                backgroundColor: colors,
-                borderWidth: 0,
-                hoverOffset: 10
-            }]
+      type: 'doughnut',
+      data: {
+        labels: langLabels,
+        datasets: [{
+          data: langCounts,
+          backgroundColor: colors,
+          borderWidth: 0,
+          hoverOffset: 10
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '70%',
+        onClick: (e, active) => {
+          if (active.length > 0) {
+            window.openChartTableModal('language', active[0].index);
+          }
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '70%',
-            plugins: {
-                legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { weight: '700' } } }
-            }
+        plugins: {
+          legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { weight: '700' } } }
         }
+      }
     });
 
-    // 3. Language Resource Toggles
-    const tabBtns = document.querySelectorAll('.res-tab-btn');
-    const sections = document.querySelectorAll('.lang-section');
-
-    tabBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            const lang = btn.dataset.lang;
-            tabBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            sections.forEach(sec => {
-                if (sec.id === `section-${lang}`) {
-                    sec.classList.remove('d-none');
-                } else {
-                    sec.classList.add('d-none');
-                }
-            });
-        });
-    });
-
-    // 4. Roster Filtering
+    // 3. Roster Filtering
     const rosterFilter = document.getElementById('rosterFilter');
     if (rosterFilter) {
-        rosterFilter.addEventListener('input', function() {
-            const term = this.value.toLowerCase();
-            document.querySelectorAll('.roster-item').forEach(item => {
-                const text = item.textContent.toLowerCase();
-                item.style.display = text.includes(term) ? 'block' : 'none';
-            });
+      rosterFilter.addEventListener('input', function () {
+        const term = this.value.toLowerCase();
+        document.querySelectorAll('.roster-item').forEach(item => {
+          const text = item.textContent.toLowerCase();
+          item.style.display = text.includes(term) ? 'block' : 'none';
         });
+      });
     }
 
     // Modal Handlers
-    window.openChartTableModal = function(type) {
+    window.openChartTableModal = function (type, highlightIdx) {
       const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
       const title = document.getElementById('chartDataTitle');
       const head = document.getElementById('chartDataHeaders');
       const body = document.getElementById('chartDataBody');
-      
+
       let htmlHead = '', htmlBody = '';
-      
-      if(type === 'velocity') {
+
+      if (type === 'velocity') {
         title.innerText = 'Borrowing Velocity Data';
         htmlHead = '<th>Month</th><th class="text-end">Books Issued</th>';
-        htmlBody = labels.map((l, i) => `<tr><td>${l}</td><td class="text-end fw-bold">${values[i]}</td></tr>`).join('');
-      } else if(type === 'language') {
+        htmlBody = labels.map((l, i) => `<tr class="${i === highlightIdx ? 'table-primary fw-bold' : ''}"><td>${l}</td><td class="text-end fw-bold">${values[i]}</td></tr>`).join('');
+      } else if (type === 'language') {
         title.innerText = 'Issues by Language Data';
         htmlHead = '<th>Language</th><th class="text-end">Books Issued</th>';
-        htmlBody = langData.map(l => `<tr><td class="text-capitalize">${l.language}</td><td class="text-end fw-bold">${l.count}</td></tr>`).join('');
+        htmlBody = langData.map((l, i) => `<tr class="${i === highlightIdx ? 'table-primary fw-bold' : ''}"><td class="text-capitalize">${l.language}</td><td class="text-end fw-bold">${l.count}</td></tr>`).join('');
       }
-      
+
       head.innerHTML = htmlHead;
       body.innerHTML = htmlBody;
       modal.show();
     };
 
-    window.handleKPIClick = function(key) {
+    window.handleKPIClick = function (key) {
       const modalMap = {
         'students': 'kpiStudentsModal',
         'books_issued': 'kpiBooksModal',
@@ -1409,7 +1600,7 @@ document.addEventListener('DOMContentLoaded', function() {
         'non_borrowers': 'kpiNonBorrowersModal',
         'overdues': 'kpiOverduesModal'
       };
-      
+
       const targetId = modalMap[key];
       if (targetId) {
         bootstrap.Modal.getOrCreateInstance(document.getElementById(targetId)).show();
@@ -1418,24 +1609,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Live Clock for Teacher Dashboard
     function updateLiveClock() {
-        const display = document.getElementById('english-datetime-display');
-        if (!display) return;
-        
-        const now = new Date();
-        const day = now.getDate();
-        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        const month = months[now.getMonth()];
-        const year = now.getFullYear();
-        let hours = now.getHours();
-        const minutes = now.getMinutes().toString().padStart(2, '0');
-        const ampm = hours >= 12 ? 'PM' : 'AM';
-        hours = hours % 12 || 12;
-        
-        display.innerText = `${day} ${month} ${year}: ${hours}:${minutes} ${ampm}, Nairobi`;
+      const display = document.getElementById('english-datetime-display');
+      if (!display) return;
+
+      const now = new Date();
+      const day = now.getDate();
+      const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+      const month = months[now.getMonth()];
+      const year = now.getFullYear();
+      let hours = now.getHours();
+      const minutes = now.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12 || 12;
+
+      display.innerText = `${day} ${month} ${year}: ${hours}:${minutes} ${ampm}, Nairobi`;
     }
-    
+
     updateLiveClock();
-    setInterval(updateLiveClock, 30000); // Update every 30 seconds
-});
+    setInterval(updateLiveClock, 30000);
+  });
 </script>
 {% endblock %}

@@ -657,6 +657,41 @@ def upload_teacher_mappings_only():
             conn.close()
 
 
+# ========== ADD MISSING ENDPOINT: GET STUDENT MAPPINGS ==========
+@bp.route("/api/get_student_mappings", methods=["GET"])
+def get_student_mappings():
+    """Get all student-darajah mappings"""
+    if not session.get("logged_in"):
+        return jsonify([])
+    conn = None
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT id, student_username, student_name, darajah_name, academic_year, enrollment_date
+            FROM student_darajah_mapping
+            ORDER BY darajah_name, student_name
+        """)
+        rows = cur.fetchall()
+        return jsonify([
+            {
+                "id": r[0],
+                "student_username": r[1],
+                "student_name": r[2] or r[1],
+                "darajah_name": r[3],
+                "academic_year": r[4],
+                "enrollment_date": r[5]
+            }
+            for r in rows
+        ])
+    except Exception as e:
+        current_app.logger.error(f"Get student mappings error: {e}")
+        return jsonify([])
+    finally:
+        if conn:
+            conn.close()
+
+
 # ---------------- PROGRAM MANAGEMENT ----------------
 @bp.route("/programs")
 def admin_programs():
@@ -1238,12 +1273,25 @@ def list_users():
     try:
         conn = get_conn()
         cur = conn.cursor()
-        cur.execute("""
-            SELECT username, email, role, department_name, class_name, darajah_name, 
-                   teacher_name, teacher_email, profile_picture, created_at, campus_branch
-            FROM users
-            ORDER BY role ASC, username ASC
-        """)
+        # Filter by branch_code for non-superadmins
+        is_super = session.get("is_super_admin", False)
+        branch_code = session.get("branch_code")
+        
+        if is_super or not branch_code:
+            cur.execute("""
+                SELECT username, email, role, department_name, class_name, darajah_name, 
+                       teacher_name, teacher_email, profile_picture, created_at, campus_branch
+                FROM users
+                ORDER BY role ASC, username ASC
+            """)
+        else:
+            cur.execute("""
+                SELECT username, email, role, department_name, class_name, darajah_name, 
+                       teacher_name, teacher_email, profile_picture, created_at, campus_branch
+                FROM users
+                WHERE branch_code = ?
+                ORDER BY role ASC, username ASC
+            """, (branch_code,))
         rows = cur.fetchall()
         return jsonify([
             {
@@ -1845,6 +1893,30 @@ def get_email_templates():
     try:
         conn = get_conn()
         cur = conn.cursor()
+        
+        # Create table if not exists
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS email_templates (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_key TEXT UNIQUE NOT NULL,
+                subject TEXT NOT NULL,
+                html TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Insert default templates if none exist
+        cur.execute("SELECT COUNT(*) FROM email_templates")
+        if cur.fetchone()[0] == 0:
+            default_templates = [
+                ('welcome', 'Welcome to Aljamea Library', '<h1>Welcome!</h1><p>Your library account is ready.</p>'),
+                ('overdue_reminder', 'Book Overdue Reminder', '<h1>Overdue Notice</h1><p>Please return your book.</p>'),
+                ('due_soon', 'Book Due Soon', '<h1>Due Soon</h1><p>Your book is due in 3 days.</p>'),
+            ]
+            cur.executemany("INSERT INTO email_templates (template_key, subject, html) VALUES (?, ?, ?)", default_templates)
+            conn.commit()
+        
         cur.execute("SELECT template_key, subject, html FROM email_templates ORDER BY template_key ASC")
         rows = cur.fetchall()
         return jsonify([{"template_key": r[0], "subject": r[1], "html": r[2]} for r in rows])
@@ -2000,9 +2072,16 @@ def list_audit():
     try:
         conn = get_conn()
         cur = conn.cursor()
-        cur.execute("SELECT ts, actor, action, details FROM audit_log ORDER BY ts DESC LIMIT 100")
+        # Check if column is 'created_at' or 'ts' - try both
+        try:
+            cur.execute("SELECT created_at as ts, actor, action, details FROM audit_log ORDER BY created_at DESC LIMIT 100")
+        except sqlite3.OperationalError:
+            cur.execute("SELECT ts, actor, action, details FROM audit_log ORDER BY ts DESC LIMIT 100")
         rows = cur.fetchall()
         return jsonify([{"ts": r[0], "actor": r[1], "action": r[2], "details": r[3]} for r in rows])
+    except Exception as e:
+        current_app.logger.error(f"List audit error: {e}")
+        return jsonify([])
     finally:
         if conn:
             conn.close()
@@ -2170,8 +2249,12 @@ def upload_book_reviews():
                 file_type = 'csv'
             else:
                 return jsonify(success=False, error="Unsupported file type. Please upload CSV or Excel file.")
+        review_name = request.form.get('review_name', '').strip()
+        max_marks = float(request.form.get('max_marks', 30.0))
+        overwrite = request.form.get('overwrite') == 'true'
+
         from services.marks_service import process_book_review_upload
-        result = process_book_review_upload(file, file_type, academic_year)
+        result = process_book_review_upload(file, file_type, academic_year, review_name, max_marks, overwrite)
         if result.get('success'):
             msg = f"Successfully processed {result.get('processed', 0)} book review records."
             if result.get('errors', 0) > 0:
@@ -2262,6 +2345,28 @@ def get_book_review_marks():
             conn.close()
 
 
+@bp.route("/api/download_book_review_template", methods=["GET"])
+def download_book_review_template():
+    if not session.get("logged_in"):
+        return jsonify(success=False, error="Unauthorized")
+    try:
+        darajah_name = request.args.get('darajah', 'All')
+        from config import Config
+        academic_year = (request.args.get('academic_year') or Config.CLEAN_ACADEMIC_YEAR()).replace('H', '').strip()
+        from services.marks_service import get_book_review_template
+        content = get_book_review_template(darajah_name, academic_year)
+        filename = f"Book_Review_Template_{darajah_name}_{academic_year}.xlsx"
+        return send_file(
+            BytesIO(content), 
+            as_attachment=True, 
+            download_name=filename, 
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    except Exception as e:
+        current_app.logger.error(f"Error downloading book review template: {e}")
+        return jsonify(success=False, error=str(e))
+
+
 @bp.route("/api/delete_book_review_marks", methods=["POST"])
 def delete_book_review_marks():
     if not session.get("logged_in"):
@@ -2300,12 +2405,56 @@ def delete_book_review_marks():
 def get_taqeem_overview():
     if not session.get("logged_in"):
         return jsonify(success=False, error="Unauthorized")
-    conn = None
     try:
         from config import Config
         academic_year = (request.args.get('academic_year') or Config.CLEAN_ACADEMIC_YEAR()).replace('H', '').strip()
+        darajah_name = request.args.get('darajah_name', '')
+        review_name = request.args.get('review_name', '')
+
         conn = get_conn()
         cur = conn.cursor()
+        
+        # Filter by branch_code for non-superadmins
+        is_super = session.get("is_super_admin", False)
+        branch_code = session.get("branch_code")
+        
+        # Build dynamic query
+        if review_name and review_name != 'current':
+            query = """
+                SELECT st.student_username as username, st.student_name as name, st.darajah_name as class_name,
+                       ROUND(st.physical_books_marks + st.digital_books_marks, 2) as total_pd_marks,
+                       ROUND(br.marks, 2) as total_review_marks,
+                       ROUND(st.program_attendance_marks, 2) as total_program_marks,
+                       ROUND(st.physical_books_marks + st.digital_books_marks + br.marks + st.program_attendance_marks, 2) as grand_total
+                FROM student_taqeem st
+                JOIN book_review_marks br ON st.student_username = br.student_username 
+                     AND st.academic_year = br.academic_year
+                WHERE st.academic_year = ? AND (br.book_review_name = ? OR (br.book_review_name IS NULL AND ? = 'Initial Upload'))
+            """
+            params = [academic_year, review_name, review_name]
+            table_alias = "st"
+            
+            if not is_super and branch_code:
+                query += " AND st.branch_code = ?"
+                params.append(branch_code)
+        else:
+            query = """
+                SELECT student_username as username, student_name as name, darajah_name as class_name,
+                       ROUND(physical_books_marks + digital_books_marks, 2) as total_pd_marks,
+                       ROUND(book_review_marks, 2) as total_review_marks,
+                       ROUND(program_attendance_marks, 2) as total_program_marks,
+                       ROUND(total_marks, 2) as grand_total
+                FROM student_taqeem
+                WHERE academic_year = ?
+            """
+            params = [academic_year]
+            table_alias = ""
+            
+            if not is_super and branch_code:
+                query += " AND branch_code = ?"
+                params.append(branch_code)
+        
+        # Teacher role isolation
         role = (session.get("role") or "").lower()
         if role == "teacher":
             teacher_name = session.get("user")
@@ -2319,33 +2468,121 @@ def get_taqeem_overview():
                 return jsonify(success=True, data=[])
                 
             placeholders = ', '.join(['?'] * len(teacher_darajahs))
-            query = f"""
-                SELECT student_username as username, student_name as name, darajah_name as class_name,
-                       ROUND(physical_books_marks + digital_books_marks, 2) as total_pd_marks,
-                       ROUND(book_review_marks, 2) as total_review_marks,
-                       ROUND(program_attendance_marks, 2) as total_program_marks,
-                       ROUND(total_marks, 2) as grand_total
-                FROM student_taqeem
-                WHERE academic_year = ? AND darajah_name IN ({placeholders})
-                ORDER BY darajah_name, student_name
-            """
-            cur.execute(query, (academic_year, *teacher_darajahs))
-        else:
-            cur.execute("""
-                SELECT student_username as username, student_name as name, darajah_name as class_name,
-                       ROUND(physical_books_marks + digital_books_marks, 2) as total_pd_marks,
-                       ROUND(book_review_marks, 2) as total_review_marks,
-                       ROUND(program_attendance_marks, 2) as total_program_marks,
-                       ROUND(total_marks, 2) as grand_total
-                FROM student_taqeem
-                WHERE academic_year = ?
-                ORDER BY darajah_name, student_name
-            """, (academic_year,))
+            col_prefix = f"{table_alias}." if table_alias else ""
+            query += f" AND {col_prefix}darajah_name IN ({placeholders})"
+            params.extend(teacher_darajahs)
+
+        # Darajah filter
+        if darajah_name and darajah_name != 'All':
+            col_prefix = f"{table_alias}." if table_alias else ""
+            query += f" AND {col_prefix}darajah_name = ?"
+            params.append(darajah_name)
+
+        query += f" ORDER BY {table_alias + '.' if table_alias else ''}darajah_name, {table_alias + '.' if table_alias else ''}student_name"
+        cur.execute(query, params)
         rows = cur.fetchall()
         data = [dict(zip([d[0] for d in cur.description], row)) for row in rows]
         return jsonify(success=True, data=data)
     except Exception as e:
         current_app.logger.error(f"Error getting taqeem overview: {e}")
+        return jsonify(success=False, error=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+@bp.route("/api/get_review_sessions", methods=["GET"])
+def get_review_sessions():
+    """List distinct book review upload sessions for selection."""
+    if not session.get("logged_in"):
+        return jsonify(success=False, error="Unauthorized"), 401
+    
+    conn = None
+    try:
+        from config import Config
+        academic_year = (request.args.get('academic_year') or Config.CLEAN_ACADEMIC_YEAR()).replace('H', '').strip()
+        
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        # Get distinct review names and their metadata
+        cur.execute("""
+            SELECT 
+                COALESCE(book_review_name, 'Initial Upload') as session_name,
+                MAX(uploaded_at) as last_upload,
+                COUNT(*) as record_count,
+                GROUP_CONCAT(DISTINCT darajah_name) as darajahs
+            FROM book_review_marks
+            WHERE academic_year = ?
+            GROUP BY session_name
+            ORDER BY last_upload DESC
+        """, (academic_year,))
+        
+        rows = cur.fetchall()
+        sessions = [
+            {
+                "name": r[0], 
+                "timestamp": r[1], 
+                "count": r[2],
+                "darajahs": list(set(r[3].split(','))) if r[3] else []
+            } 
+            for r in rows
+        ]
+        
+        return jsonify(success=True, sessions=sessions)
+    except Exception as e:
+        current_app.logger.error(f"Error getting review sessions: {e}")
+        return jsonify(success=False, error=str(e))
+    finally:
+        if conn:
+            conn.close()
+
+
+@bp.route("/api/delete_review_session", methods=["POST"])
+def delete_review_session():
+    """Delete an entire book review upload session (bulk delete)."""
+    if not session.get("logged_in"):
+        return jsonify(success=False, error="Unauthorized"), 401
+    
+    conn = None
+    try:
+        data = request.get_json()
+        session_name = data.get('session_name', '').strip()
+        from config import Config
+        academic_year = (data.get('academic_year') or Config.CLEAN_ACADEMIC_YEAR()).replace('H', '').strip()
+        
+        if not session_name:
+            return jsonify(success=False, error="Session name is required")
+        
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        # Get count before deletion
+        cur.execute("""
+            SELECT COUNT(*) FROM book_review_marks 
+            WHERE COALESCE(book_review_name, 'Initial Upload') = ? AND academic_year = ?
+        """, (session_name, academic_year))
+        count = cur.fetchone()[0]
+        
+        # Delete all records for this session
+        cur.execute("""
+            DELETE FROM book_review_marks 
+            WHERE COALESCE(book_review_name, 'Initial Upload') = ? AND academic_year = ?
+        """, (session_name, academic_year))
+        
+        conn.commit()
+        
+        # Recalculate taqeem for affected students
+        from services.marks_service import update_all_student_taqeem
+        recalc_count = update_all_student_taqeem(academic_year)
+        
+        _audit(session.get("user", "admin"), "delete_review_session", 
+               f"Session: {session_name}, Records: {count}, Recalculated: {recalc_count}")
+        
+        return jsonify(success=True, message=f"Deleted {count} records from session '{session_name}'. Recalculated {recalc_count} students.")
+        
+    except Exception as e:
+        current_app.logger.error(f"Error deleting review session: {e}")
         return jsonify(success=False, error=str(e))
     finally:
         if conn:

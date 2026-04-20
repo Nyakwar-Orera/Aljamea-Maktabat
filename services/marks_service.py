@@ -29,7 +29,7 @@ def get_current_academic_year():
     return Config.CLEAN_ACADEMIC_YEAR()
 
 
-def process_book_review_upload(file, file_type='csv', academic_year=None):
+def process_book_review_upload(file, file_type='csv', academic_year=None, review_name=None, max_marks=30.0, overwrite=False):
     """
     Process uploaded file containing book review marks (CSV or Excel).
     """
@@ -40,9 +40,9 @@ def process_book_review_upload(file, file_type='csv', academic_year=None):
     
     try:
         if file_type.lower() == 'csv':
-            return process_csv_file(file, academic_year)
+            return process_csv_file(file, academic_year, review_name, max_marks, overwrite)
         elif file_type.lower() in ['xlsx', 'xls', 'excel']:
-            return process_excel_file(file, academic_year)
+            return process_excel_file(file, academic_year, review_name, max_marks, overwrite)
         else:
             return {'success': False, 'error': f'Unsupported file type: {file_type}'}
     except Exception as e:
@@ -50,7 +50,7 @@ def process_book_review_upload(file, file_type='csv', academic_year=None):
         return {'success': False, 'error': f'Error processing file: {str(e)}'}
 
 
-def process_csv_file(csv_file, academic_year=None):
+def process_csv_file(csv_file, academic_year=None, review_name=None, max_marks=30.0, overwrite=False):
     """Process CSV file containing book review marks."""
     if academic_year is None:
         academic_year = get_current_academic_year()
@@ -63,26 +63,25 @@ def process_csv_file(csv_file, academic_year=None):
             content = csv_file
         
         csv_reader = csv.DictReader(io.StringIO(content))
-        
-        required_columns = ['Trno', 'Marks']
-        optional_columns = ['Name', 'FullName', 'ClassName', 'Remarks', 'AcademicYear']
-        
         fieldnames = csv_reader.fieldnames
         if not fieldnames:
             return {'success': False, 'error': 'CSV file has no headers'}
         
-        missing_columns = [col for col in required_columns if col not in fieldnames]
-        if missing_columns:
-            return {'success': False, 'error': f'Missing required columns: {missing_columns}'}
+        # Identity column check
+        has_trno = any(col.lower() in ['trno', 'student_trno', 'studentid', 'its'] for col in fieldnames)
+        if not has_trno:
+            return {'success': False, 'error': "CSV missing identity column (Trno/ITS)"}
         
-        return process_book_review_rows(csv_reader, academic_year, source='csv')
+        return process_book_review_rows(csv_reader, academic_year, source='csv', 
+                                       review_name=review_name, max_marks=max_marks, overwrite=overwrite)
+
         
     except Exception as e:
         logger.error(f"Error processing CSV file: {e}")
         return {'success': False, 'error': f'Error processing CSV file: {str(e)}'}
 
 
-def process_excel_file(excel_file, academic_year=None):
+def process_excel_file(excel_file, academic_year=None, review_name=None, max_marks=30.0, overwrite=False):
     """Process Excel file containing book review marks."""
     if academic_year is None:
         academic_year = get_current_academic_year()
@@ -105,7 +104,7 @@ def process_excel_file(excel_file, academic_year=None):
             df = df.where(pd.notnull(df), None)
             rows = df.to_dict('records')
             
-            sheet_result = process_excel_sheet(rows, sheet_name, academic_year)
+            sheet_result = process_excel_sheet(rows, sheet_name, academic_year, review_name, max_marks, overwrite)
             
             if not sheet_result:
                 logger.warning(f"Process sheet '{sheet_name}' returned None")
@@ -133,7 +132,7 @@ def process_excel_file(excel_file, academic_year=None):
         return {'success': False, 'error': f'Error processing Excel file: {str(e)}'}
 
 
-def process_excel_sheet(rows, sheet_name, academic_year=None):
+def process_excel_sheet(rows, sheet_name, academic_year=None, review_name=None, max_marks=30.0, overwrite=False):
     """Process rows from an Excel sheet."""
     if academic_year is None:
         academic_year = get_current_academic_year()
@@ -180,18 +179,30 @@ def process_excel_sheet(rows, sheet_name, academic_year=None):
                         normalized_row[col_name] = row[col_idx]
                 
                 trno = extract_column_value(normalized_row, [
-                    'trno', 'studentid', 'id', 'studenttrno', 'its', 'itsid', 'ejamaatid', 'regno'
+                    'trno', 'student_trno', 'studentid', 'id', 'studenttrno', 'its', 'itsid', 'ejamaatid', 'regno'
                 ])
                 full_name = extract_column_value(normalized_row, [
-                    'fullname', 'name', 'studentname', 'full_name', 'engname', 'displayname'
+                    'studentname', 'fullname', 'name', 'full_name', 'engname', 'displayname'
                 ])
                 marks_str = extract_column_value(normalized_row, [
-                    'marks', 'mark', 'score', 'obtained', 'marksobtained', 'taqeem'
+                    'markstotal', 'marks', 'mark', 'score', 'obtained', 'marksobtained', 'taqeem'
                 ])
                 total_str = extract_column_value(normalized_row, ['total', 'totalscore', 'sum', 'max', 'outof'])
                 percent_str = extract_column_value(normalized_row, ['percent', 'percentage', '％'])
-                class_name = extract_column_value(normalized_row, ['classname', 'class', 'division', 'div', 'darajah'])
-                remarks = extract_column_value(normalized_row, ['remarks', 'note', 'comment', 'review', 'feedback'])
+                class_name = extract_column_value(normalized_row, ['darajaheg1am', 'darajah', 'classname', 'class', 'division', 'div'])
+                remarks = extract_column_value(normalized_row, ['remarks', 'note', 'comment', 'review', 'feedback', 'bookofyourchoice', 'book_of_your_choice'])
+                
+                # New Multi-Review Fields
+                ay_val = extract_column_value(normalized_row, ['academicyear', 'ay', 'year'])
+
+                # Review session selection
+                assigned_review = review_name
+                row_review = extract_column_value(normalized_row, ['bookreviewname', 'reviewname', 'assignment', 'title', 'reviewtitle'])
+                if row_review:
+                    assigned_review = row_review
+                if not assigned_review:
+                    assigned_review = "Initial Upload"
+
                 
                 if not class_name and sheet_name:
                     class_name = sheet_name
@@ -239,17 +250,50 @@ def process_excel_sheet(rows, sheet_name, academic_year=None):
                             percent_value = float(percent_str_clean)
                         
                         marks = (percent_value / 100) * 30
+                        if not percent_val:
+                            percent_val = percent_value
                     except (ValueError, TypeError):
-                        errors.append(f"Row {row_num}: Cannot calculate marks for Trno {trno}")
-                        error_count += 1
-                        continue
+                        pass
+
+                # Scaling calculation
+                if max_marks != 30.0:
+                    try:
+                        scale_factor = 30.0 / float(max_marks)
+                        marks = marks * scale_factor
+                    except: pass
+
+                if marks == 0:
+                    # Final fallback: if marks is zero but we have a grade, assign a default mark
+                    if grade:
+                        g = str(grade).upper().strip()
+                        if g == 'A': marks = 25
+                        elif g == 'B': marks = 20
+                        elif g == 'C': marks = 15
+                        elif g == 'D': marks = 10
                 
                 if marks == 0:
                     errors.append(f"Row {row_num}: No valid marks found for Trno {trno}")
                     error_count += 1
                     continue
                 
-                marks = min(marks, 30)
+                marks = min(max(0, marks), 30)
+                
+                # Normalize Percent for storage
+                if not percent_val:
+                    percent_val = (marks / 30) * 100
+                
+                # Review session selection
+                assigned_review = review_name
+                if row_review:
+                    assigned_review = row_review
+                if not assigned_review:
+                    assigned_review = "Initial Upload"
+                
+                # Ensure AY
+                if not ay_val:
+                    ay_val = academic_year
+                else:
+                    ay_val = str(ay_val).replace('H', '').strip()
                 
                 username_from_trno = f"TR{trno}"
                 
@@ -288,26 +332,35 @@ def process_excel_sheet(rows, sheet_name, academic_year=None):
                     branch_code = user_branch_res[0] or 'AJSN'
                     campus_branch = user_branch_res[1] or 'Global'
 
+                if overwrite:
+                    cur.execute("""
+                        DELETE FROM book_review_marks 
+                        WHERE student_username = ? AND academic_year = ? AND book_review_name = ?
+                    """, (username, str(ay_val).replace('H', '').strip(), assigned_review))
+
                 cur.execute("""
-                    INSERT OR REPLACE INTO book_review_marks (
+                    INSERT INTO book_review_marks (
                         student_username, student_trno, student_name, darajah_name, 
                         academic_year, marks, review_count, remarks, source, uploaded_by, 
-                        campus_branch, branch_code, uploaded_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+                        uploaded_at, book_review_name, hijri_month, percent, grade
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     username,
                     trno,
                     full_name if full_name else None,
-                    class_name if class_name else None,
-                    academic_year,
+                    class_name,
+                    ay_val,
                     marks,
-                    remarks if remarks else None,
-                    'excel_import',
-                    'admin',
-                    campus_branch,
-                    branch_code,
-                    datetime.now()
+                    remarks,
+                    f"Excel ({sheet_name})" if sheet_name else "Excel",
+                    'admin',  # uploaded_by
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    assigned_review,
+                    month,
+                    percent_val,
+                    grade
                 ))
+
                 
                 success_count += 1
                 processed_students.append(username)
@@ -347,10 +400,16 @@ def extract_column_value(row_dict, possible_keys):
     return None
 
 
-def process_book_review_rows(rows, academic_year=None, source='csv'):
-    """Process book review marks from rows."""
+def process_book_review_rows(rows, academic_year=None, source='csv', review_name=None, max_marks=30.0, overwrite=False):
+    """
+    Process book review marks from rows.
+    Scales marks from max_marks down to 30.0 (the system standard).
+    """
     if academic_year is None:
         academic_year = get_current_academic_year()
+    
+    if not review_name:
+        review_name = "Initial Upload"
     
     conn = None
     try:
@@ -365,21 +424,29 @@ def process_book_review_rows(rows, academic_year=None, source='csv'):
         for row_num, row in enumerate(rows, start=2):
             try:
                 trno = extract_column_value(row, [
-                    'Trno', 'trno', 'studentid', 'id', 'studenttrno', 'its', 'itsid', 'ejamaatid', 'regno'
+                    'Trno', 'trno', 'student_trno', 'studentid', 'id', 'studenttrno'
                 ])
                 marks_str = extract_column_value(row, [
-                    'Marks', 'marks', 'mark', 'score', 'obtained', 'marksobtained', 'taqeem'
+                    'marks_total', 'Marks', 'marks', 'mark', 'score', 'obtained', 'taqeem'
                 ])
                 student_name = extract_column_value(row, [
-                    'FullName', 'Name', 'fullname', 'name', 'studentname', 'full_name', 'engname', 'displayname'
+                    'student_name', 'FullName', 'Name', 'fullname', 'name'
                 ])
                 darajah_name = extract_column_value(row, [
-                    'ClassName', 'classname', 'class', 'division', 'div', 'darajah'
+                    'darajah_(eg: "1 A M")', 'ClassName', 'classname', 'class', 'darajah'
                 ])
                 remarks = extract_column_value(row, [
-                    'Remarks', 'remarks', 'note', 'comment', 'review', 'feedback'
+                    'Remarks', 'remarks', 'note', 'comment', 'review', 'bookofyourchoice'
                 ])
-                row_academic_year = extract_column_value(row, ['AcademicYear', 'academicyear']) or academic_year
+                # Multi-Review Fields
+                review_name = extract_column_value(row, ['book_review_name', 'review_name', 'bookreviewname', 'reviewname', 'assignment'])
+                grade = extract_column_value(row, ['grade', 'result', 'rating'])
+                month = extract_column_value(row, ['hijri_month', 'hijrimonth', 'month', 'period'])
+                percent_val = extract_column_value(row, ['percent', 'percentage', '％'])
+                
+                row_academic_year = extract_column_value(row, ['academic_year', 'AcademicYear', 'academicyear', 'ay', 'year']) or academic_year
+
+
                 
                 if not trno:
                     errors.append(f"Row {row_num}: Missing Trno")
@@ -398,14 +465,46 @@ def process_book_review_rows(rows, academic_year=None, source='csv'):
                 
                 try:
                     marks = float(marks_str)
-                    if marks < 0 or marks > 100:
-                        errors.append(f"Row {row_num}: Marks must be between 0 and 100 for Trno {trno}")
-                        error_count += 1
-                        continue
-                except ValueError:
-                    errors.append(f"Row {row_num}: Invalid marks value '{marks_str}' for Trno {trno}")
+                except (ValueError, TypeError):
+                    marks = 0
+
+                # Scaling calculation
+                if max_marks != 30.0:
+                    try:
+                        # Scale obtained marks to the 30-mark standard
+                        scale_factor = 30.0 / float(max_marks)
+                        marks = marks * scale_factor
+                    except: pass
+
+                # Fallback calculation if marks is zero
+                if marks == 0 and percent_val:
+                    try:
+                        p = float(str(percent_val).replace('%', ''))
+                        marks = (p / 100) * 30
+                    except: pass
+                
+                if marks == 0 and grade:
+                    g = str(grade).upper().strip()
+                    if g == 'A': marks = 25
+                    elif g == 'B': marks = 20
+                    elif g == 'C': marks = 15
+                    elif g == 'D': marks = 10
+                
+                if marks == 0:
+                    errors.append(f"Row {row_num}: Invalid or missing marks for Trno {trno}")
                     error_count += 1
                     continue
+                
+                marks = min(max(0, marks), 30)
+                if not percent_val:
+                    percent_val = (marks / 30) * 100
+                
+                # Use provided review name or fall back to row specific one if exists
+                assigned_review = review_name
+                row_review = extract_column_value(row, ['book_review_name', 'review_name', 'bookreviewname', 'reviewname', 'assignment'])
+                if row_review:
+                    assigned_review = row_review
+
                 
                 username_from_trno = f"TR{trno}"
                 
@@ -440,26 +539,36 @@ def process_book_review_rows(rows, academic_year=None, source='csv'):
                     branch_code = user_branch_res[0] or 'AJSN'
                     campus_branch = user_branch_res[1] or 'Global'
 
+                if overwrite:
+                    # Clear existing record for this student + session combination
+                    cur.execute("""
+                        DELETE FROM book_review_marks 
+                        WHERE student_username = ? AND academic_year = ? AND book_review_name = ?
+                    """, (username, str(row_academic_year).replace('H', '').strip(), assigned_review))
+
                 cur.execute("""
-                    INSERT OR REPLACE INTO book_review_marks (
+                    INSERT INTO book_review_marks (
                         student_username, student_trno, student_name, darajah_name, 
-                        academic_year, marks, review_count, remarks, source, uploaded_by,
-                        campus_branch, branch_code, uploaded_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)
+                        academic_year, marks, review_count, remarks, source, uploaded_by, 
+                        uploaded_at, book_review_name, hijri_month, percent, grade
+                    ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
                     username,
                     trno,
                     student_name if student_name else None,
-                    darajah_name if darajah_name else None,
-                    row_academic_year,
+                    darajah_name,
+                    str(row_academic_year).replace('H', '').strip(),
                     marks,
-                    remarks if remarks else None,
+                    remarks,
                     source,
                     'admin',
-                    campus_branch,
-                    branch_code,
-                    datetime.now()
+                    datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    assigned_review,
+                    month,
+                    percent_val,
+                    grade
                 ))
+
                 
                 success_count += 1
                 processed_students.append(username)
@@ -1305,3 +1414,183 @@ def calculate_program_attendance_marks(student_username, academic_year=None):
         academic_year = get_current_academic_year()
     
     return get_program_attendance_marks(student_username, academic_year)
+def get_book_review_template(darajah_name=None, academic_year=None):
+    """
+    Generate an Excel template for book review marks.
+    Prefills ALL enrolled students in the darajah (from Koha), not just
+    those who already have a taqeem record, so no student is missed.
+    Headers: Trno, Student Name, Darajah, Book Review Name, Grade, Marks, Hijri Month, Remarks, Academic Year
+    """
+    import pandas as pd
+    import io
+    
+    if academic_year is None:
+        academic_year = get_current_academic_year()
+    
+    headers = ['Trno', 'Student Name', 'Darajah', 'Book Review Name', 'Grade', 'Marks', 'Hijri Month', 'Remarks', 'Academic Year']
+    data = []
+    
+    if darajah_name and darajah_name != 'All':
+        # ── PRIMARY SOURCE: Koha borrowers (catches ALL enrolled students) ──────
+        koha_students = []
+        try:
+            from db_koha import get_koha_conn
+            koha_conn = get_koha_conn()
+            koha_cur = koha_conn.cursor(dictionary=True)
+            koha_cur.execute("""
+                SELECT DISTINCT
+                    trno.attribute AS trno,
+                    TRIM(CONCAT(
+                        COALESCE(b.surname,  ''),
+                        CASE WHEN b.surname IS NOT NULL AND b.firstname IS NOT NULL
+                             THEN ' ' ELSE '' END,
+                        COALESCE(b.firstname, '')
+                    )) AS full_name
+                FROM borrowers b
+                JOIN borrower_attributes cls
+                    ON cls.borrowernumber = b.borrowernumber
+                   AND cls.code IN ('Class', 'DAR', 'CLASS', 'CLASS_STD', 'STD')
+                   AND cls.attribute = %s
+                JOIN borrower_attributes trno
+                    ON trno.borrowernumber = b.borrowernumber
+                   AND trno.code = 'TRNO'
+                WHERE (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+                ORDER BY full_name
+            """, (darajah_name,))
+            koha_students = koha_cur.fetchall()
+            koha_cur.close()
+            koha_conn.close()
+            logger.info(f"Template: fetched {len(koha_students)} students from Koha for darajah '{darajah_name}'")
+        except Exception as e:
+            logger.warning(f"Koha unavailable for template generation; falling back to student_taqeem. Error: {e}")
+
+        if koha_students:
+            for st in koha_students:
+                trno = str(st.get('trno') or '').strip()
+                if not trno:
+                    continue
+                full_name = (st.get('full_name') or f'Student ({trno})').strip()
+                data.append({
+                    'Trno': trno,
+                    'Student Name': full_name,
+                    'Darajah': darajah_name,
+                    'Book Review Name': '',
+                    'Grade': '',
+                    'Marks': '',
+                    'Hijri Month': '',
+                    'Remarks': '',
+                    'Academic Year': academic_year
+                })
+        else:
+            # ── FALLBACK: local student_taqeem table ────────────────────────────
+            conn = None
+            try:
+                conn = get_conn()
+                cur = conn.cursor()
+                cur.execute("""
+                    SELECT student_trno, student_name, darajah_name
+                    FROM student_taqeem
+                    WHERE darajah_name = ?
+                    ORDER BY student_name
+                """, (darajah_name,))
+                for student in cur.fetchall():
+                    data.append({
+                        'Trno': student[0],
+                        'Student Name': student[1],
+                        'Darajah': student[2] or darajah_name,
+                        'Book Review Name': '',
+                        'Grade': '',
+                        'Marks': '',
+                        'Hijri Month': '',
+                        'Remarks': '',
+                        'Academic Year': academic_year
+                    })
+            except Exception as e:
+                logger.error(f"Error pre-populating template from student_taqeem: {e}")
+            finally:
+                if conn:
+                    conn.close()
+                
+    if not data:
+        # Provide at least one empty row example if no students found or 'All'
+        data.append({k: '' for k in headers})
+        data[0]['Academic Year'] = academic_year
+        data[0]['Darajah'] = darajah_name if darajah_name != 'All' else '2 B M'
+        data[0]['Trno'] = 'EX12345'
+        data[0]['Student Name'] = 'Example Student'
+        
+    df = pd.DataFrame(data, columns=headers)
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Template')
+        
+        # Auto-adjust columns width
+        worksheet = writer.sheets['Template']
+        for i, col in enumerate(df.columns):
+            max_len = max(df[col].astype(str).map(len).max(), len(col)) + 2
+            worksheet.set_column(i, i, max_len)
+            
+    output.seek(0)
+    return output.read()
+
+
+def delete_book_review(review_name, darajah_name=None, academic_year=None):
+    """Delete book review marks by review name and darajah."""
+    conn = None
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        
+        query = "DELETE FROM book_review_marks WHERE book_review_name = ?"
+        params = [review_name]
+        
+        if darajah_name and darajah_name != 'All':
+            query += " AND darajah_name = ?"
+            params.append(darajah_name)
+            
+        if academic_year:
+            query += " AND academic_year = ?"
+            params.append(str(academic_year).replace('H', '').strip())
+            
+        cur.execute(query, params)
+        count = cur.rowcount
+        conn.commit()
+        
+        # After deletion, we might want to recalculate taqeem for affected students
+        # For simplicity, we trigger a global taqeem update or let it be manual
+        
+        return count
+    except Exception as e:
+        logger.error(f"Error deleting book reviews: {e}")
+        return 0
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_all_book_review_sessions():
+    """Get a list of unique review names, darajahs and months uploaded."""
+    conn = None
+    try:
+        conn = get_conn()
+        cur = conn.cursor()
+        cur.execute("""
+            SELECT book_review_name, darajah_name, hijri_month, academic_year, COUNT(*), MAX(uploaded_at)
+            FROM book_review_marks
+            GROUP BY book_review_name, darajah_name, academic_year
+            ORDER BY MAX(uploaded_at) DESC
+        """)
+        return [{
+            'name': r[0],
+            'darajah': r[1],
+            'month': r[2],
+            'academic_year': r[3],
+            'count': r[4],
+            'uploaded_at': r[5]
+        } for r in cur.fetchall()]
+    except Exception as e:
+        logger.error(f"Error listing review sessions: {e}")
+        return []
+    finally:
+        if conn:
+            conn.close()

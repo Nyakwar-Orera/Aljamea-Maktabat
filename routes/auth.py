@@ -220,6 +220,7 @@ def token_login():
         }
 
     darajah_name = user.get("darajah_name") or user.get("class_name")
+    branch_code = user.get("branch_code") or "AJSN"
 
     session.clear()
     session["logged_in"] = True
@@ -231,7 +232,7 @@ def token_login():
     session["profile_picture"] = user.get("profile_picture") or "images/avatar.png"
     session["branch_code"] = branch_code if role != "super_admin" else None
     session["is_super_admin"] = (role == "super_admin")
-    session["selected_ay"] = "current" # Default for token users
+    session["selected_ay"] = "current"  # Default for token users
 
     if role == "student":
         # Students log in via token — route to student portal

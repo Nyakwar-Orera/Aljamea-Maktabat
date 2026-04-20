@@ -1,112 +1,521 @@
 {% extends "super_admin/_sa_base.html" %}
 {% block title %}{{ page_title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .page-title-section {
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+    }
+    .page-title-section h1 {
+        font-weight: 800;
+        font-size: 1.85rem;
+        margin-bottom: 0.25rem;
+        color: var(--text-dark);
+    }
+    .page-title-section p {
+        color: var(--text-muted);
+        margin: 0;
+        font-size: 0.95rem;
+    }
+
+    .user-table-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-soft);
+        box-shadow: var(--shadow-sm);
+        overflow: hidden;
+        margin-top: 2rem;
+    }
+    .user-table-header {
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #fcf9f5;
+    }
+    .user-table-header h3 {
+        margin: 0;
+        font-weight: 800;
+        font-size: 1.1rem;
+        color: var(--text-dark);
+    }
+    
+    .branch-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        background: white;
+        border: 1px solid var(--border-soft);
+    }
+    
+    .role-badge {
+        font-size: 0.65rem;
+        font-weight: 800;
+        padding: 4px 10px;
+        border-radius: 50px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .sync-btn {
+        background: linear-gradient(135deg, #4F46E5 0%, #3730A3 100%);
+        color: white !important;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        text-decoration: none;
+    }
+    .sync-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(79, 70, 229, 0.4);
+    }
+    
+    .new-user-btn {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #d97706 100%);
+        color: white !important;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px var(--primary-glow);
+        text-decoration: none;
+    }
+    .new-user-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px var(--primary-glow);
+    }
+
+    .action-select {
+        background: var(--bg-body);
+        border: 1px solid var(--border-soft);
+        color: var(--text-main);
+        border-radius: 8px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .action-select:hover {
+        border-color: var(--primary-color);
+    }
+
+    .action-btn-sm {
+        background: var(--primary-soft);
+        color: var(--primary-color);
+        border: none;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        transition: all 0.2s;
+    }
+    .action-btn-sm:hover {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .kpi-section-title {
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--text-muted);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .kpi-section-title::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--border-soft);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>👤 Global User Management</h1>
-    <p>Manage users across all {{ campus_registry|length }} campus branches</p>
-  </div>
-  <div style="display:flex;gap:10px;align-items:center">
-    <form action="{{ url_for('super_admin_bp.sync_all_patrons') }}" method="post" 
-          onsubmit="return confirm('This will update the global student roster from all 5 campus databases. Continue?')">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
-      <button type="submit" class="nav-btn" style="background:#4F46E5;color:white;border:none">
-        <i class="bi bi-arrow-repeat"></i> Sync from Koha
-      </button>
-    </form>
-    <a href="{{ url_for('super_admin_bp.create_user') }}" class="nav-btn primary">
-      <i class="bi bi-person-plus"></i> New User
-    </a>
-  </div>
+<div class="page-title-section fade-in">
+    <div>
+        <h1>👤 Global User Management</h1>
+        <p>Unified administration for all campus library networks</p>
+    </div>
+    <div class="d-flex gap-3">
+        <form action="{{ url_for('super_admin_bp.sync_all_patrons') }}" method="post" 
+              onsubmit="return confirm('Deep sync will contact all 5 campus Koha databases to refresh the global roster. This may take a moment. Proceed?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+            <button type="submit" class="sync-btn">
+                <i class="bi bi-arrow-repeat"></i> Deep Sync from Koha
+            </button>
+        </form>
+        <a href="{{ url_for('super_admin_bp.create_user') }}" class="new-user-btn">
+            <i class="bi bi-person-plus-fill"></i> Create Administrative User
+        </a>
+    </div>
 </div>
 
-<div class="content-area">
-  <!-- Stats by branch -->
-  <div class="kpi-strip fade-in" style="margin-bottom:24px">
+<div class="row g-4 mb-5 fade-in delay-1">
+    <!-- Role Breakdown -->
+    <div class="col-12">
+        <div class="kpi-section-title">Operational Roles</div>
+    </div>
+    {% set super_admin_count = role_counts.get('super_admin', 0) %}
+    {% set admin_count = role_counts.get('admin', 0) %}
+    {% set teacher_count = role_counts.get('teacher', 0) %}
+    {% set student_count = role_counts.get('student', 0) %}
+    
+    <div class="col-md-3">
+        <div class="card kpi-card-fancy vibrant-gold" style="cursor: pointer;" onclick="showUserPopup('role', 'super_admin')">
+            <div class="card-body">
+                <div class="icon-wrapper"><i class="bi bi-shield-lock"></i></div>
+                <div class="kpi-label">Super Admins</div>
+                <div class="kpi-value">{{ super_admin_count }}</div>
+                <div class="kpi-subtext">Global oversight authority</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card-fancy vibrant-blue" style="cursor: pointer;" onclick="showUserPopup('role', 'admin')">
+            <div class="card-body">
+                <div class="icon-wrapper"><i class="bi bi-person-badge"></i></div>
+                <div class="kpi-label">Campus Admins</div>
+                <div class="kpi-value">{{ admin_count }}</div>
+                <div class="kpi-subtext">Branch-level administrators</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card-fancy vibrant-green" style="cursor: pointer;" onclick="showUserPopup('role', 'teacher')">
+            <div class="card-body">
+                <div class="icon-wrapper"><i class="bi bi-person-workspace"></i></div>
+                <div class="kpi-label">Class Teachers</div>
+                <div class="kpi-value">{{ teacher_count }}</div>
+                <div class="kpi-subtext">Reporting & pedagogy access</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card kpi-card-fancy vibrant-purple" style="cursor: pointer;" onclick="showUserPopup('role', 'student')">
+            <div class="card-body">
+                <div class="icon-wrapper"><i class="bi bi-people"></i></div>
+                <div class="kpi-label">Synced Students</div>
+                <div class="kpi-value">{{ student_count }}</div>
+                <div class="kpi-subtext">Read-only institutional access</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-5 fade-in delay-2">
+    <!-- Campus Distribution -->
+    <div class="col-12">
+        <div class="kpi-section-title">Campus Hub Distribution</div>
+    </div>
     {% for code in branch_order %}
-    {% set cfg = campus_registry.get(code, {}) %}
-    {% set count = users | selectattr('branch_code', 'equalto', code) | list | length %}
-    <div class="kpi-card" style="--kpi-color: {{ cfg.color }}">
-      <div class="kpi-label">{{ cfg.flag }} {{ cfg.short_name }}</div>
-      <div class="kpi-value">{{ count }}</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">users assigned</div>
-      <i class="bi bi-people kpi-icon"></i>
-    </div>
+        {% set cfg = campus_registry.get(code, {}) %}
+        {% set count = branch_counts.get(code, 0) %}
+        <div class="col">
+            <div class="sa-card text-center p-3" style="border-top: 4px solid {{ cfg.color }}; cursor: pointer;" onclick="showUserPopup('branch', '{{ code }}')">
+                <div style="font-size: 1.5rem; margin-bottom: 0.5rem">{{ cfg.flag }}</div>
+                <div style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase">{{ cfg.short_name }}</div>
+                <div style="font-size: 1.4rem; font-weight: 800; color: var(--text-dark); margin: 0.25rem 0">{{ count }}</div>
+                <div style="font-size: 0.6rem; color: var(--text-muted)">Assigned Users</div>
+            </div>
+        </div>
     {% endfor %}
-    <div class="kpi-card" style="--kpi-color:#94A3B8">
-      <div class="kpi-label">🌐 Global</div>
-      <div class="kpi-value">{{ users | selectattr('branch_code', 'none') | list | length }}</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">all branches</div>
-      <i class="bi bi-globe kpi-icon"></i>
+    <div class="col">
+        <div class="sa-card text-center p-3" style="border-top: 4px solid #94A3B8; cursor: pointer;" onclick="showUserPopup('branch', 'Global')">
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem">🌐</div>
+            <div style="font-size: 0.7rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase">Global</div>
+            <div style="font-size: 1.4rem; font-weight: 800; color: var(--text-dark); margin: 0.25rem 0">{{ branch_counts.get('Global', 0) }}</div>
+            <div style="font-size: 0.6rem; color: var(--text-muted)">Unrestricted Access</div>
+        </div>
     </div>
-  </div>
-
-  <!-- User Table -->
-  <div class="comparison-table-wrap fade-in delay-1">
-    <div class="ct-header">
-      <h3>All Users ({{ users|length }} total)</h3>
-      <a href="{{ url_for('super_admin_bp.create_user') }}" class="nav-btn primary">
-        <i class="bi bi-plus"></i> Add User
-      </a>
-    </div>
-    <div style="overflow-x:auto">
-    <table class="god-table">
-      <thead>
-        <tr>
-          <th>Username</th><th>Name</th><th>Role</th><th>Branch</th><th>Email</th><th>Last Login</th><th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for u in users %}
-        <tr>
-          <td style="font-family:monospace;font-size:12px;color:var(--accent-blue)">{{ u.username }}</td>
-          <td>{{ u.teacher_name or '—' }}</td>
-          <td>
-            {% set role_colors = {'super_admin': '#FBBF24', 'admin': '#38BDF8', 'hod': '#A78BFA', 'teacher': '#34D399', 'student': '#94A3B8'} %}
-            <span style="
-              background: {{ role_colors.get(u.role, '#888') }}18;
-              color: {{ role_colors.get(u.role, '#888') }};
-              border: 1px solid {{ role_colors.get(u.role, '#888') }}40;
-              border-radius: 20px; padding: 2px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing:.05em
-            ">{{ u.role | replace('_', ' ') | title }}</span>
-          </td>
-          <td>
-            {% set bc = u.branch_code %}
-            {% if bc and bc in campus_registry %}
-              {% set cfg = campus_registry[bc] %}
-              <span style="display:inline-flex;align-items:center;gap:4px;font-size:12px">
-                {{ cfg.flag }} {{ cfg.short_name }}
-              </span>
-            {% else %}
-              <span style="color:var(--text-muted);font-size:12px">🌐 All Branches</span>
-            {% endif %}
-          </td>
-          <td style="color:var(--text-muted);font-size:11px">{{ u.email or '—' }}</td>
-          <td style="color:var(--text-muted);font-size:11px">{{ u.last_login[:16] if u.last_login else 'Never' }}</td>
-          <td>
-            <form method="post"
-                  action="{{ url_for('super_admin_bp.toggle_user_branch', user_id=u.id) }}"
-                  style="display:flex;gap:6px;align-items:center">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
-              <select name="branch_code"
-                      style="background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:8px;padding:4px 8px;font-size:11px;cursor:pointer">
-                <option value="">🌐 All</option>
-                {% for code in branch_order %}
-                  {% set cfg2 = campus_registry.get(code, {}) %}
-                  <option value="{{ code }}" {% if u.branch_code == code %}selected{% endif %}>
-                    {{ cfg2.flag }} {{ cfg2.short_name }}
-                  </option>
-                {% endfor %}
-              </select>
-              <button type="submit" class="nav-btn" style="font-size:10px;padding:4px 10px">Set</button>
-            </form>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-    </div>
-  </div>
 </div>
+
+<!-- Main User Table -->
+<div class="user-table-card fade-in delay-3">
+    <div class="user-table-header">
+        <h3>Master Roster ({{ total_users }} Total Entities)</h3>
+        <div class="d-flex gap-2">
+            <div class="ms-auto">
+            <form action="{{ url_for('super_admin_bp.manage_users') }}" method="GET" class="input-group input-group-sm" style="width: 300px;">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" name="q" id="userGlobalSearch" class="form-control border-start-0 ps-0" 
+                       placeholder="Search all 4000+ entities..." value="{{ search_query }}">
+                <button type="submit" class="btn btn-primary btn-sm">Search</button>
+            </form>
+        </div>
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="sa-table" id="usersTable">
+            <thead>
+                <tr>
+                    <th>Identifier</th>
+                    <th>Full Identity</th>
+                    <th>Access Level</th>
+                    <th>Campus Hub</th>
+                    <th>Contact Link</th>
+                    <th>Registry Activity</th>
+                    <th class="text-end">Command</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr>
+                    <td>
+                        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--primary-color); font-weight: 700;">
+                            {{ u.username }}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-weight: 700; color: var(--text-dark)">{{ u.teacher_name or 'System User' }}</div>
+                        <div style="font-size: 0.7rem; color: var(--text-muted)">ID: #{{ u.id }}</div>
+                    </td>
+                    <td>
+                        {% if u.role == 'super_admin' %}
+                            <span class="role-badge" style="background: rgba(164, 90, 38, 0.1); color: #a45a26; border: 1px solid rgba(164, 90, 38, 0.2);">
+                                <i class="bi bi-star-fill me-1"></i> Super Admin
+                            </span>
+                        {% elif u.role == 'admin' %}
+                            <span class="role-badge" style="background: rgba(37, 99, 235, 0.1); color: #2563eb; border: 1px solid rgba(37, 99, 235, 0.2);">
+                                <i class="bi bi-shield-check me-1"></i> Admin
+                            </span>
+                        {% elif u.role == 'teacher' %}
+                            <span class="role-badge" style="background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid rgba(16, 185, 129, 0.2);">
+                                <i class="bi bi-mortarboard me-1"></i> Teacher
+                            </span>
+                        {% else %}
+                            <span class="role-badge" style="background: rgba(100, 116, 139, 0.1); color: #64748b; border: 1px solid rgba(100, 116, 139, 0.2);">
+                                <i class="bi bi-person me-1"></i> Student
+                            </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% set bc = u.branch_code %}
+                        {% if bc and bc in campus_registry %}
+                            {% set cfg = campus_registry[bc] %}
+                            <div class="branch-pill">
+                                <span>{{ cfg.flag }}</span>
+                                <span>{{ cfg.short_name }}</span>
+                            </div>
+                        {% else %}
+                            <div class="branch-pill" style="border-style: dashed; background: transparent;">
+                                <span>🌐</span>
+                                <span>Global</span>
+                            </div>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="font-size: 0.8rem; color: var(--text-muted)">
+                            <i class="bi bi-envelope-at me-1"></i> {{ u.email or '—' }}
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-size: 0.75rem; font-weight: 600;">
+                            {% if u.last_login %}
+                                <i class="bi bi-clock-history me-1 text-success"></i> {{ u.last_login[:16] }}
+                            {% else %}
+                                <i class="bi bi-dash-circle me-1 text-muted"></i> Never Active
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td class="text-end">
+                        <form method="post" action="{{ url_for('super_admin_bp.toggle_user_branch', user_id=u.id) }}" class="d-inline-flex gap-2">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
+                            <select name="branch_code" class="action-select">
+                                <option value="">🌐 Global</option>
+                                {% for code in branch_order %}
+                                    {% set cfg2 = campus_registry.get(code, {}) %}
+                                    <option value="{{ code }}" {% if u.branch_code == code %}selected{% endif %}>
+                                        {{ cfg2.short_name }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="action-btn-sm">Set</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Table Footer with Pagination -->
+    <div class="user-table-footer p-4 d-flex justify-content-between align-items-center bg-light border-top">
+        <div class="text-muted small">
+            Showing {{ users|length }} entities on page {{ current_page }} of {{ total_pages }}
+        </div>
+        <nav aria-label="Page navigation">
+            <ul class="pagination pagination-sm mb-0">
+                {% if current_page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('super_admin_bp.manage_users', page=current_page-1, q=search_query) }}" tabindex="-1">Previous</a>
+                </li>
+                {% endif %}
+                
+                {% set window = 2 %}
+                {% if current_page > window + 1 %}
+                    <li class="page-item {{ 'active' if current_page == 1 }}">
+                    <a class="page-link" href="{{ url_for('super_admin_bp.manage_users', page=1, q=search_query) }}">1</a>
+                </li>
+                    {% if current_page > window + 2 %}<li class="page-item disabled"><span class="page-link">...</span></li>{% endif %}
+                {% endif %}
+                
+                {% for p in range([1, current_page - window]|max, [total_pages, current_page + window]|min + 1) %}
+                    <li class="page-item {{ 'active' if p == current_page }}">
+                        <a class="page-link" href="{{ url_for('super_admin_bp.manage_users', page=p, q=search_query) }}">{{ p }}</a>
+                    </li>
+                {% endfor %}
+                
+                {% if current_page < total_pages - window %}
+                    {% if current_page < total_pages - window - 1 %}<li class="page-item disabled"><span class="page-link">...</span></li>{% endif %}
+                <li class="page-item {{ 'active' if current_page == total_pages }}">
+                    <a class="page-link" href="{{ url_for('super_admin_bp.manage_users', page=total_pages, q=search_query) }}">{{ total_pages }}</a>
+                </li>
+                {% endif %}
+                
+                {% if current_page < total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('super_admin_bp.manage_users', page=current_page+1, q=search_query) }}">Next</a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+    </div>
+</div>
+<!-- User List Popup Modal -->
+<div class="modal fade" id="userPopupModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4">
+                <h5 class="modal-title fw-800" id="userPopupTitle">User Roster</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 pt-3 pb-4">
+                <div id="userPopupContent">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const campusRegistry = {{ campus_registry | tojson | safe }};
+
+    function showUserPopup(type, value) {
+        const modal = new bootstrap.Modal(document.getElementById('userPopupModal'));
+        const titleEl = document.getElementById('userPopupTitle');
+        const contentEl = document.getElementById('userPopupContent');
+        
+        // Reset content
+        contentEl.innerHTML = `
+            <div class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+        
+        let url = '';
+        if (type === 'role') {
+            titleEl.innerText = (value.replace('_', ' ').charAt(0).toUpperCase() + value.replace('_', ' ').slice(1)) + ' Roster';
+            url = `/super-admin/api/users_by_role/${value}`;
+        } else {
+            const campusName = campusRegistry[value] ? campusRegistry[value].campus : value;
+            titleEl.innerText = campusName + ' Campus Roster';
+            url = `/super-admin/api/users_by_branch/${value}`;
+        }
+        
+        modal.show();
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    contentEl.innerHTML = '<div class="text-center py-5 text-muted">No users found in this category.</div>';
+                    return;
+                }
+                
+                let html = `
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="bg-light">
+                                <tr class="small fw-bold text-muted text-uppercase">
+                                    <th class="ps-3">Identity</th>
+                                    <th>Role</th>
+                                    <th>Campus</th>
+                                    <th class="pe-3">Class/Dept</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                data.forEach(user => {
+                    const bc = user.branch_code;
+                    const flag = (bc && campusRegistry[bc]) ? campusRegistry[bc].flag : '🌐';
+                    const branchName = (bc && campusRegistry[bc]) ? campusRegistry[bc].short_name : 'Global';
+                    
+                    const role = user.role;
+                    let roleHtml = '';
+                    if (role === 'super_admin') roleHtml = '<span class="badge bg-warning text-dark" style="font-size:10px">Super Admin</span>';
+                    else if (role === 'admin') roleHtml = '<span class="badge bg-primary" style="font-size:10px">Admin</span>';
+                    else if (role === 'teacher') roleHtml = '<span class="badge bg-success" style="font-size:10px">Teacher</span>';
+                    else roleHtml = '<span class="badge bg-secondary" style="font-size:10px">Student</span>';
+                    
+                    html += `
+                        <tr>
+                            <td class="ps-3">
+                                <div class="fw-800 text-dark">${user.name || 'System User'}</div>
+                                <div class="small text-muted font-monospace">${user.username}</div>
+                            </td>
+                            <td>${roleHtml}</td>
+                            <td><span class="badge bg-light text-dark border-0 shadow-xs" style="font-size:11px">${flag} ${branchName}</span></td>
+                            <td class="pe-3 fw-bold text-primary" style="font-size:0.85rem">${user.darajah_name || '—'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+                if (data.length >= 100) {
+                    html += '<div class="text-center text-muted small mt-2">Showing first 100 records only.</div>';
+                }
+                contentEl.innerHTML = html;
+            })
+            .catch(error => {
+                contentEl.innerHTML = `<div class="alert alert-danger">Error fetching data: ${error.message}</div>`;
+            });
+    }
+
+    $(document).ready(function() {
+        // We removed the local filter as we now have Global Server-Side Search
+    });
+</script>
 {% endblock %}

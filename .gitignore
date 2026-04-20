@@ -1,21 +1,68 @@
-# Python cache
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-# Virtual environment
+*.py[cod]
+*.so
+.Python
 venv/
 env/
+ENV/
+.venv
 
-# Environment variables
-.env
-
-# Databases
-appdata.db
+# Database
+*.db
+*.db-journal
+*.sqlite
 *.sqlite3
 
-# System
+# Environment
+.env
+.env.local
+.env.production
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Logs
+*.log
 app.log
+
+# Uploaded files
+static/uploads/digital_books/*
+!static/uploads/digital_books/.gitkeep
+static/images/profiles/*
+!static/images/profiles/.gitkeep
+
+# Temporary Excel files
+*.xlsx
+*.xls
+
+# Planning folder
+.planning/
+
+# Images (too large - keep only essential)
+*.jpg
+*.jpeg
+*.png
+!static/images/logo.png
+!static/images/avatar.png
+!static/images/favicon.ico
+
+# Backup files
+*.bak
+*.backup
+
+# Scratch/test files
+scratch/
+test_*.py
+
+# Super admin temp file
+super_admin.py
+EOF
+

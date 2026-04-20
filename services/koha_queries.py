@@ -203,6 +203,31 @@ def get_ay_bounds(hijri_year: Optional[int] = None) -> Tuple[Optional[date], Opt
         return _fallback_ay_bounds()
 
 
+def get_current_ay_year() -> int:
+    """
+    Determine the current Hijri academic year based on the Gregorian date.
+    Returns the Hijri year integer (e.g., 1447).
+    """
+    try:
+        from hijri_converter import convert
+        today = date.today()
+        h_today = convert.Gregorian(today.year, today.month, today.day).to_hijri()
+        current_hj = h_today.year
+
+        # Institutional calendar starts on Shawwal 1
+        shawwal_1_g = convert.Hijri(current_hj, 10, 1).to_gregorian()
+        if today < date(shawwal_1_g.year, shawwal_1_g.month, shawwal_1_g.day):
+            return current_hj - 1
+        return current_hj
+    except Exception:
+        # Fallback to current year based on month (April onwards is new AY)
+        today = date.today()
+        # 1447H starts March 20, 2026. This is a rough estimation.
+        if today >= date(2026, 3, 20): return 1447
+        if today >= date(2025, 4, 1): return 1446
+        return 1445
+
+
 def _fallback_ay_bounds() -> Tuple[date, date]:
     """
     Fallback calculation for Academic Year when Hijri conversion fails.
@@ -909,10 +934,17 @@ def get_issues_by_language(marhala_name: Optional[str] = None, hijri_year: Optio
     with get_db_cursor() as cur:
         query = """
             SELECT 
-                COALESCE(
-                    ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]'),
-                    'Unknown'
-                ) AS language,
+                CASE
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('ara', 'Arabic') THEN 'Arabic'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('eng', 'English') THEN 'English'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('msl','lud','msa', 'Lisan-ud-Dawat') THEN 'Lisan-ud-Dawat'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('urd', 'Urdu') THEN 'Urdu'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('fre', 'French') THEN 'French'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('per', 'Farsi') THEN 'Farsi'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('mul', 'Multilingual') THEN 'Multilingual'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('guj', 'Gujarati') THEN 'Gujarati'
+                    ELSE 'Other'
+                END AS language,
                 COUNT(*) AS count
             FROM statistics s
             JOIN items it ON s.itemnumber = it.itemnumber
@@ -921,6 +953,7 @@ def get_issues_by_language(marhala_name: Optional[str] = None, hijri_year: Optio
             LEFT JOIN categories c ON b.categorycode = c.categorycode
             WHERE s.type = 'issue'
               AND DATE(s.`datetime`) BETWEEN %s AND %s
+              AND ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') != ''
         """
         params = [start, end]
         if marhala_name:
@@ -940,6 +973,64 @@ def get_issues_by_language(marhala_name: Optional[str] = None, hijri_year: Optio
     output = (labels, values)
     marhala_stats_cache.set(cache_key, output)
     return output
+
+def get_subject_cloud(marhala_name: Optional[str] = None, hijri_year: Optional[int] = None, limit: int = 40):
+    """Get subject cloud data extracting MARC DDC 082 tags globally or per-marhala."""
+    cache_key = f"subject_cloud_{marhala_name}_{hijri_year}_{limit}"
+    cached = marhala_stats_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    start, end = get_ay_bounds(hijri_year)
+    if not start:
+        return []
+
+    with get_db_cursor() as cur:
+        query = """
+            SELECT
+                CASE
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '0' THEN '000 - Generalities'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '1' THEN '100 - Philosophy'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '2' THEN '200 - Religion'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '3' THEN '300 - Social Sciences'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '4' THEN '400 - Language'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '5' THEN '500 - Natural Sciences'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '6' THEN '600 - Technology'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '7' THEN '700 - The Arts'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '8' THEN '800 - Literature'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '9' THEN '900 - History & Geography'
+                    ELSE NULL
+                END AS upper_subject,
+                ExtractValue(bmd.metadata, '//datafield[@tag="650"]/subfield[@code="a"]') AS full_subject,
+                COUNT(DISTINCT s.itemnumber) AS issue_count
+            FROM statistics s
+            JOIN items it ON s.itemnumber = it.itemnumber
+            JOIN biblio_metadata bmd ON it.biblionumber = bmd.biblionumber
+            JOIN borrowers b ON s.borrowernumber = b.borrowernumber
+            LEFT JOIN categories c ON b.categorycode = c.categorycode
+            WHERE s.type = 'issue'
+              AND DATE(s.`datetime`) BETWEEN %s AND %s
+              AND ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]') != ''
+        """
+        params = [start, end]
+        if marhala_name:
+            query += " AND (c.description = %s OR b.categorycode = %s)"
+            params.extend([marhala_name, marhala_name])
+
+        query += """
+            GROUP BY upper_subject, full_subject
+            HAVING upper_subject IS NOT NULL
+            ORDER BY issue_count DESC
+            LIMIT %s
+        """
+        params.append(int(limit))
+        
+        cur.execute(query, params)
+        rows = cur.fetchall()
+
+    result = [r for r in rows if r.get('upper_subject')]
+    marhala_stats_cache.set(cache_key, result)
+    return result
 
 
 # -------------------------------
@@ -1175,7 +1266,8 @@ def get_academic_marhalas() -> List[str]:
         'S-CGB',  # Culture Générale (Std 3-4)
         'S-CGA',  # Culture Générale (Std 1-2)
         'S-CT',   # Collegiate II & Higher Studies (Std 8-11)
-        'S-DARS'  # Dars Burhani
+        'S-DARS', # Dars Burhani (Standard)
+        'S-DB'    # Dars Burhani (AJSM/Marol)
     ]
 
 

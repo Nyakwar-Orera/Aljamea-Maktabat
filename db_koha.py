@@ -244,7 +244,7 @@ def get_conn():
     try:
         from flask import session as _flask_session, has_request_context as _has_request_context
         if _has_request_context():
-            # Honor branch from session (assigned at login or by God Eye)
+            # Honor branch from session (assigned at login or by Head Office)
             bc = _flask_session.get("branch_code")
             if bc in Config.CAMPUS_REGISTRY:
                 return get_branch_conn(bc)

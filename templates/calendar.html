@@ -1,38 +1,112 @@
 {% extends "base.html" %}
 
-{% block title %}Hijri Calendar - Aljamea Library{% endblock %}
+{% block title %}Dawoodi Bohra Hijri Calendar - Aljamea Library{% endblock %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center bg-white p-4 rounded-4 shadow-sm border border-secondary border-opacity-10">
-            <div>
-                <h2 class="h3 mb-1 text-dark fw-bold">
-                    <i class="bi bi-calendar-event text-primary me-2"></i>Hijri Academic Calendar
-                </h2>
-                <p class="text-muted mb-0">Academic Year: {{ current_ay }}</p>
-            </div>
-            <div class="d-none d-md-block">
-                <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 px-3 py-2">
-                    <i class="bi bi-clock-history me-1"></i> Today: {{ today_hijri }}
-                </span>
-            </div>
-        </div>
-    </div>
-</div>
+<div class="container-fluid py-4">
 
-<div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-    <div class="card-body p-0">
-        <div class="ratio ratio-16x9" style="min-height: 750px;">
-            <iframe src="https://calendar.google.com/calendar/embed?src=fh0h90ic2lhhsst6088f2rlhc8%40group.calendar.google.com&ctz=Africa%2FNairobi" 
-                    style="border: 0" width="800" height="600" frameborder="0" scrolling="no"></iframe>
-        </div>
+  <!-- Header -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+    <div>
+      <h2 class="h3 mb-1 fw-bold" style="color:#a45a26">
+        <i class="bi bi-moon-stars-fill me-2"></i>Dawoodi Bohra Hijri Calendar
+      </h2>
+      <p class="text-muted mb-0">
+        Community & Academic Events — Academic Year: <strong>{{ current_ay }}</strong>
+      </p>
     </div>
-</div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <span class="badge px-3 py-2" style="background:rgba(164,90,38,0.1);color:#a45a26;border:1px solid rgba(164,90,38,0.3);font-size:0.85rem">
+        <i class="bi bi-calendar3 me-1"></i>Today: {{ today_hijri }}
+      </span>
+      <a href="https://calendar.google.com/calendar/ical/fh0h90ic2lhhsst6088f2rlhc8%40group.calendar.google.com/public/basic.ics"
+         class="btn btn-sm btn-outline-secondary rounded-pill" target="_blank">
+        <i class="bi bi-download me-1"></i>Subscribe (ICS)
+      </a>
+    </div>
+  </div>
 
-<div class="mt-4 text-center">
-    <p class="text-muted small">
-        <i class="bi bi-info-circle me-1"></i> This calendar shows important library and academic dates for the Hijri year.
-    </p>
+  <!-- Calendar Tabs -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="card-header bg-white border-bottom py-3 px-4">
+      <ul class="nav nav-pills gap-2" id="calendarTabs">
+        <li class="nav-item">
+          <button class="nav-link active rounded-pill px-4" data-bs-toggle="pill" data-bs-target="#calEmbed">
+            <i class="bi bi-calendar-month me-1"></i>Calendar View
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link rounded-pill px-4" data-bs-toggle="pill" data-bs-target="#calInfo">
+            <i class="bi bi-info-circle me-1"></i>Hijri Months Guide
+          </button>
+        </li>
+      </ul>
+    </div>
+    <div class="tab-content">
+      <!-- Embedded Google Calendar -->
+      <div class="tab-pane fade show active" id="calEmbed">
+        <div style="min-height:700px">
+          <iframe
+            src="https://calendar.google.com/calendar/embed?src=fh0h90ic2lhhsst6088f2rlhc8%40group.calendar.google.com&ctz=Africa%2FNairobi&showTitle=0&showNav=1&showDate=1&showPrint=0&showTabs=1&showCalendars=0&mode=MONTH&color=%23a45a26"
+            style="border:0;width:100%;min-height:700px"
+            frameborder="0"
+            scrolling="no"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
+
+      <!-- Hijri Months Reference -->
+      <div class="tab-pane fade" id="calInfo">
+        <div class="p-4">
+          <h5 class="fw-bold mb-4" style="color:#a45a26">
+            <i class="bi bi-book me-2"></i>Dawoodi Bohra Hijri Month Names
+          </h5>
+          <div class="row g-3">
+            {% set hijri_months = [
+              ('1', 'Muḥarram al-Harām', 'محرم الحرام', 'Sacred month — no warfare'),
+              ('2', 'Safar al-Muzaffar', 'صفر المظفر', 'Month of travels'),
+              ('3', "Rabī' al-Awwal", 'ربيع الأول', 'Birth of the Prophet ﷺ'),
+              ('4', "Rabī al-Ākhir", 'ربيع الآخر', 'Second spring'),
+              ('5', 'Jamādi al-Awwal', 'جمادى الأولى', 'Fifth month'),
+              ('6', 'Jamādi al-Ākhirah', 'جمادى الآخرة', 'Sixth month'),
+              ('7', 'Rajab al-Asab', 'رجب الأصب', 'Sacred — month of Isra Mi\'raj'),
+              ('8', "Sha'bān al-Karīm", 'شعبان الكريم', 'Preparation for Ramadan'),
+              ('9', 'Shehrullāh al-Moazzam', 'شهرالله المعظم', 'Month of fasting — Ramadan'),
+              ('10', 'Shawwāl al-Mukarram', 'شوال المكرم', 'Eid al-Fitr — AY Start'),
+              ('11', "Dhil-Qa'dah al-Harām", 'ذو القعدة الحرام', 'Sacred month of rest'),
+              ('12', 'Dhil-Hijjah al-Harām', 'ذو الحجة الحرام', 'Hajj & Eid al-Adha'),
+            ] %}
+            {% for num, name, arabic, desc in hijri_months %}
+            <div class="col-md-6 col-xl-4">
+              <div class="d-flex gap-3 p-3 rounded-3 border h-100" style="background:{% if loop.index in [1,7,11,12] %}rgba(164,90,38,0.05){% else %}#fff{% endif %}">
+                <div class="fw-bold rounded-circle d-flex align-items-center justify-content-center flex-shrink-0"
+                     style="width:36px;height:36px;background:rgba(164,90,38,0.12);color:#a45a26;font-size:0.85rem">
+                  {{ num }}
+                </div>
+                <div>
+                  <div class="fw-bold mb-0" style="color:#a45a26">{{ name }}</div>
+                  <div class="text-muted" style="font-size:0.9rem;direction:rtl;font-family:serif">{{ arabic }}</div>
+                  <div class="text-muted small">{{ desc }}</div>
+                  {% if num == '10' %}
+                  <span class="badge bg-success mt-1" style="font-size:10px">🎓 Academic Year Starts</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer Info -->
+  <div class="text-center text-muted small mt-2">
+    <i class="bi bi-moon-fill me-1" style="color:#a45a26"></i>
+    This calendar reflects the Dawoodi Bohra community Hijri calendar with academic and religious events.
+    The Academic Year runs from <strong>1 Shawwāl</strong> to <strong>29 Ramadān</strong>.
+  </div>
+
 </div>
 {% endblock %}

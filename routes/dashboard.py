@@ -347,7 +347,7 @@ def get_academic_marhalas_performance(hijri_year=None):
         conn = get_koha_conn()
         cur = conn.cursor(dictionary=True)  # Use dictionary cursor
 
-        academic_codes = ['S-CO', 'S-CGB', 'S-CGA', 'S-CT', 'S-DARS']
+        academic_codes = ['S-CO', 'S-CGB', 'S-CGA', 'S-CT', 'S-DARS', 'S-DB']
         if not academic_codes:
             return []
 
@@ -584,6 +584,7 @@ def get_all_darajahs_detailed(hijri_year=None):
         cur.execute("""
             SELECT 
                 COALESCE(std.attribute, b.branchcode) AS Darajah,
+                b.branchcode AS BranchCode,
                 MAX(COALESCE(c.description, b.categorycode)) AS Marhala,
                 COUNT(s.datetime) AS TotalIssues,
                 COUNT(DISTINCT b.borrowernumber) AS TotalStudents,
@@ -633,13 +634,25 @@ def get_all_darajahs_detailed(hijri_year=None):
         
         for row in rows:
             row["Marhala"] = format_marhala_display_name(row.get("Marhala", ""))
+            
+            # Engagement Calc
+            total_st = row.get("TotalStudents", 0)
+            active_st = row.get("ActiveStudents", 0)
+            participating_st = row.get("ParticipatingStudents", 0)
+            
+            row["MembershipPercent"] = round((active_st / total_st * 100), 1) if total_st > 0 else 0
+            row["BorrowerPercent"] = round((participating_st / active_st * 100), 1) if active_st > 0 else 0
+            
             avg_issues = row.get("AvgIssuesPerStudent") or 0
-            if avg_issues >= 5:
-                row["Efficiency"] = "Excellent"
+            if avg_issues >= 8:
+                row["Efficiency"] = "Elite"
                 row["EfficiencyColor"] = "success"
+            elif avg_issues >= 5:
+                row["Efficiency"] = "Excellent"
+                row["EfficiencyColor"] = "primary"
             elif avg_issues >= 3:
                 row["Efficiency"] = "Good"
-                row["EfficiencyColor"] = "primary"
+                row["EfficiencyColor"] = "info"
             elif avg_issues >= 1:
                 row["Efficiency"] = "Average"
                 row["EfficiencyColor"] = "warning"
@@ -980,6 +993,10 @@ def dashboard():
         flash("You must be logged in as an admin to view the Admin Analytics.", "danger")
         return redirect(url_for("auth_bp.login"))
 
+    if role == "super_admin" and not session.get("branch_code"):
+        # For super admin, if no branch is currently "active" in session, default to AJSN
+        session["branch_code"] = "AJSN"
+
     # --- Handle Filters ---
     if request.method == "POST":
         selected_marhala = (request.form.get("marhalaFilter") or "").strip()
@@ -1037,6 +1054,12 @@ def dashboard():
     t0 = time.time()
     lang_top = get_language_top25(selected_marhala)
     current_app.logger.info(f"⚡ get_language_top25 took: {time.time() - t0:.4f}s")
+    
+    t0 = time.time()
+    subject_cloud = KQ.get_subject_cloud(selected_marhala, hijri_year=hijri_year, limit=40)
+    if not subject_cloud:
+        subject_cloud = []
+    current_app.logger.info(f"⚡ get_subject_cloud took: {time.time() - t0:.4f}s")
     
     t0 = time.time()
     marhala_counts = get_marhala_counts()
@@ -1161,8 +1184,21 @@ def dashboard():
         overdue_count=kpi_data['overdue'],
         marhala_counts=marhala_counts,
         lang_labels=lang_labels,
-        lang_values=lang_values
+        lang_values=lang_values,
+        subject_cloud=subject_cloud
     )
+
+
+@bp.route("/set-academic-year", methods=["POST"])
+def set_academic_year():
+    """Set the academic year filter."""
+    if not session.get("logged_in"):
+        return redirect(url_for("auth_bp.login"))
+    
+    selected_ay = request.form.get("selected_ay", "current")
+    session["selected_ay"] = selected_ay
+    
+    return redirect(url_for("dashboard_bp.dashboard"))
 
 
 @bp.route("/api/patron-bifurcation")

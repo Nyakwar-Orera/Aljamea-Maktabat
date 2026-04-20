@@ -1,0 +1,87 @@
+/* static/css/golden-theme.css - Official Aljamea Maktabat Design System */
+:root {
+    --color-gold: #C5A059;
+    --color-gold-dark: #8B6914;
+    --color-gold-soft: #FCF5E8;
+    --color-brown: #4A3728;
+    --color-cream: #F5F0E6;
+    --color-bg: #F9F7F4;
+    --color-white: #FFFFFF;
+    --border-soft: rgba(197, 160, 89, 0.15);
+}
+
+body {
+    background-color: var(--color-bg);
+    color: var(--color-brown);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Typography ── */
+.text-golden { color: var(--color-gold); }
+.text-brown { color: var(--color-brown); }
+.fw-900 { font-weight: 900; }
+.fw-800 { font-weight: 800; }
+
+/* ── Buttons ── */
+.btn-golden {
+    background-color: var(--color-gold);
+    border-color: var(--color-gold);
+    color: var(--color-white);
+    font-weight: 700;
+}
+.btn-golden:hover {
+    background-color: var(--color-gold-dark);
+    border-color: var(--color-gold-dark);
+    color: var(--color-white);
+}
+.btn-outline-golden {
+    border-color: var(--color-gold);
+    color: var(--color-gold-dark);
+    font-weight: 700;
+}
+.btn-outline-golden:hover {
+    background-color: var(--color-gold);
+    color: var(--color-white);
+}
+
+/* ── Cards ── */
+.sa-kpi-card {
+    background: var(--color-white);
+    border-radius: 16px;
+    border: 1px solid var(--border-soft);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.sa-kpi-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(139, 105, 20, 0.1);
+}
+
+.bg-gradient-golden {
+    background: linear-gradient(135deg, var(--color-gold) 0%, var(--color-gold-dark) 100%);
+    color: white;
+}
+
+/* ── Global Scrollbar ── */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: var(--color-bg);
+}
+::-webkit-scrollbar-thumb {
+    background: var(--color-gold);
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-gold-dark);
+}
+
+/* ── Animations ── */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up {
+    animation: fadeIn 0.5s ease forwards;
+}

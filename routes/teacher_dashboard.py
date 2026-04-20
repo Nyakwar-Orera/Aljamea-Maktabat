@@ -507,7 +507,9 @@ def _get_darajah_book_review_grades(darajah_name, hijri_year=None):
         not_submitted = []
         try:
             from db_koha import get_branch_conn
-            conn_k = get_branch_conn()
+            # Get branch code from session
+            branch_code = session.get('branch_code', 'AJSN')
+            conn_k = get_branch_conn(branch_code)
             cur_k = conn_k.cursor(dictionary=True)
             cur_k.execute("""
                 SELECT DISTINCT
@@ -531,7 +533,7 @@ def _get_darajah_book_review_grades(darajah_name, hijri_year=None):
                     not_submitted.append({
                         'trno': trno,
                         'name': (st.get('full_name') or f'Student ({trno})').strip(),
-                        'marks': None,
+                        'marks': 0,
                         'remarks': '',
                         'grade': 'Not Submitted',
                         'submitted': False,
@@ -817,7 +819,8 @@ def _get_all_students_in_darajah(darajah_name: str, hijri_year=None):
         taqeem_data = {}
         try:
             conn_app = get_app_db_conn()
-            cur_app = conn_app.cursor(dictionary=True) if hasattr(conn_app, 'cursor') else conn_app.cursor()
+            # SQLite doesn't support dictionary=True in cursor()
+            cur_app = conn_app.cursor()
             
             ay_str = str(hijri_year or Config.CLEAN_ACADEMIC_YEAR())
             
@@ -1683,7 +1686,7 @@ def dashboard():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role not in ("teacher", "admin"):
+    if role not in ("teacher", "admin", "super_admin"):
         flash("You must be a darajah teacher or admin to view this dashboard.", "danger")
         return redirect(url_for("auth_bp.login"))
 
@@ -1747,7 +1750,7 @@ def dashboard():
             flash(extra_message, "warning")
 
         all_darajahs = []
-        if role == "admin":
+        if role in ("admin", "super_admin"):
             all_darajahs = get_all_darajahs()
 
         parsed_darajah = _parse_darajah_name(darajah_name or "")
@@ -1784,7 +1787,7 @@ def dashboard():
             review_grade_counts={'A': 0, 'B': 0, 'C': 0, 'D': 0, 'Not Submitted': 0},
             review_details=[],
             all_darajahs=all_darajahs,
-            is_admin=role == "admin",
+            is_admin=role in ("admin", "super_admin"),
             selected_ay=selected_ay,
             now_hijri=KQ.get_hijri_date_label(date.today()),
             OPAC_BASE=OPAC_BASE,
@@ -1794,7 +1797,7 @@ def dashboard():
 
     if not darajah_name:
         current_app.logger.warning(f"No darajah_name provided for user {username}")
-        if role == "admin":
+        if role in ("admin", "super_admin"):
             all_darajahs = get_all_darajahs()
             return render_template(
                 "teacher_dashboard_select.html",
@@ -1941,7 +1944,7 @@ def dashboard():
 
         # Academic Year Bounds
         all_darajahs = []
-        if role == "admin":
+        if role in ("admin", "super_admin"):
             all_darajahs = get_all_darajahs()
 
         # Map current month books to the students list
@@ -2014,7 +2017,7 @@ def dashboard():
             unique_titles_list=unique_titles_list,
             collections_summary=collections_summary,
             all_darajahs=all_darajahs,
-            is_admin=role == "admin",
+            is_admin=role in ("admin", "super_admin"),
             selected_ay=selected_ay,
             now_hijri=KQ.get_hijri_date_label(date.today()),
             OPAC_BASE=OPAC_BASE,
@@ -2038,7 +2041,7 @@ def darajah_explorer():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role != "admin":
+    if role not in ("admin", "super_admin"):
         flash("Admin access required for darajah explorer.", "danger")
         return redirect(url_for("dashboard_bp.dashboard"))
     
@@ -2139,7 +2142,7 @@ def quick_select():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role != "admin":
+    if role not in ("admin", "super_admin"):
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard_bp.dashboard"))
 
@@ -2158,7 +2161,7 @@ def api_darajahs():
         return jsonify({"error": "Not authenticated"}), 401
 
     role = (session.get("role") or "").lower()
-    if role != "admin":
+    if role not in ("admin", "super_admin"):
         return jsonify({"error": "Admin access required"}), 403
 
     try:
@@ -2180,7 +2183,7 @@ def search_student():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role not in ("teacher", "admin"):
+    if role not in ("teacher", "admin", "super_admin"):
         return redirect(url_for("auth_bp.login"))
 
     if role == "teacher":
@@ -2266,7 +2269,7 @@ def download_darajah_pdf():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role not in ("teacher", "admin"):
+    if role not in ("teacher", "admin", "super_admin"):
         return redirect(url_for("auth_bp.login"))
 
     if role == "teacher":

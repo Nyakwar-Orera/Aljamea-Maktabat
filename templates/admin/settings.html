@@ -376,10 +376,13 @@
                                     <label class="form-label small fw-bold">1. Standard User & Mapping Upload</label>
                                     <form id="bulkUploadForm">
                                         <div class="input-group">
-                                            <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                                            <input type="file" name="csv_file" class="form-control" accept=".csv,.xlsx,.xls" required>
                                             <button class="btn btn-success" type="submit"><i class="bi bi-upload"></i></button>
                                         </div>
-                                        <small class="text-muted">Columns: ITS, Name, Email, Darajah, Role, Class Teacher</small>
+                                        <div class="d-flex justify-content-between mt-1">
+                                            <small class="text-muted">Columns: ITS, Name, Email, Darajah, Role, Class Teacher</small>
+                                            <a href="{{ url_for('static', filename='templates/users_template.csv') }}" class="small text-decoration-none text-success fw-bold"><i class="bi bi-download me-1"></i>Template</a>
+                                        </div>
                                     </form>
                                 </div>
                                 
@@ -387,10 +390,13 @@
                                     <label class="form-label small fw-bold">2. Teacher-Darajah Mapping Overlay</label>
                                     <form id="teacherMappingUploadForm">
                                         <div class="input-group">
-                                            <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                                            <input type="file" name="csv_file" class="form-control" accept=".csv,.xlsx,.xls" required>
                                             <button class="btn btn-dark" type="submit"><i class="bi bi-upload"></i></button>
                                         </div>
-                                        <small class="text-muted">Overwrites existing teacher assignments. Columns: ITS, Darajah</small>
+                                        <div class="d-flex justify-content-between mt-1">
+                                            <small class="text-muted">Overwrites existing teacher assignments. Columns: ITS, Darajah</small>
+                                            <a href="{{ url_for('static', filename='templates/teachers_template.csv') }}" class="small text-decoration-none text-dark fw-bold"><i class="bi bi-download me-1"></i>Template</a>
+                                        </div>
                                     </form>
                                 </div>
 
@@ -398,10 +404,13 @@
                                     <label class="form-label small fw-bold">3. Book Review Marks Import</label>
                                     <form id="bookReviewUploadForm">
                                         <div class="input-group">
-                                            <input type="file" name="csv_file" class="form-control" accept=".csv" required>
+                                            <input type="file" name="csv_file" class="form-control" accept=".csv,.xlsx,.xls" required>
                                             <button class="btn btn-primary" type="submit"><i class="bi bi-upload"></i></button>
                                         </div>
-                                        <small class="text-muted">Academic Year data. Columns: ITS, Marks, Reviews</small>
+                                        <div class="d-flex justify-content-between mt-1">
+                                            <small class="text-muted">Academic Year data. Columns: ITS, Marks, Reviews</small>
+                                            <a href="{{ url_for('admin_bp.download_book_review_template') }}" class="small text-decoration-none text-primary fw-bold"><i class="bi bi-download me-1"></i>Excel Template</a>
+                                        </div>
                                     </form>
                                 </div>
                             </div>

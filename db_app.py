@@ -5,24 +5,25 @@ import os
 from config import Config
 
 
-def get_appdata_conn():
+def get_appdata_conn(db_path=None):
     """Create a fresh connection to appdata.db with WAL mode enabled."""
-    db_path = Config.APP_SQLITE_PATH
+    if not db_path:
+        db_path = Config.APP_SQLITE_PATH
     if not db_path:
         db_path = os.path.join(os.path.dirname(__file__), 'appdata.db')
     
     # Create a fresh connection each time
-    conn = sqlite3.connect(db_path, timeout=10)
+    conn = sqlite3.connect(db_path, timeout=30)
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA busy_timeout=30000")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.row_factory = sqlite3.Row
     return conn
 
 
-def get_conn():
+def get_conn(db_path=None):
     """Alias for get_appdata_conn(). Creates a fresh connection each call."""
-    return get_appdata_conn()
+    return get_appdata_conn(db_path)
 
 
 def close_conn(conn):

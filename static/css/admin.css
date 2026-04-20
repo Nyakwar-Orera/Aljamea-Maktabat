@@ -8,6 +8,8 @@
   --danger-gradient: linear-gradient(135deg, #f87171 0%, #dc2626 100%);
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(255, 255, 255, 0.3);
+}
+
 .btn-primary { background: var(--primary-gradient); border: none; }
 .btn-success { background: var(--secondary-gradient); border: none; }
 .btn-danger { background: var(--danger-gradient); border: none; }

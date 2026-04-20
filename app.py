@@ -115,7 +115,7 @@ def create_app():
     # ---- Register Blueprints ----
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
-    app.register_blueprint(super_admin_bp, url_prefix="/super_admin")   # God Eye
+    app.register_blueprint(super_admin_bp, url_prefix="/super-admin")   # Head Office
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
     app.register_blueprint(hod_dashboard_bp, url_prefix="/hod")
     app.register_blueprint(teacher_dashboard_bp, url_prefix="/teacher")

@@ -178,7 +178,7 @@ def _get_marhala_type_icon(marhala_name, marhala_code=None):
     """Get appropriate icon for marhala type."""
     # First check by code
     if marhala_code:
-        if marhala_code in ['S-CO', 'S-CGB', 'S-CGA', 'S-CT', 'S-DARS']:
+        if marhala_code in ['S-CO', 'S-CGB', 'S-CGA', 'S-CT', 'S-DARS', 'S-DB']:
             return "graduation-cap", "Academic"
         elif marhala_code in ['T', 'T-KG']:
             return "chalkboard-teacher", "Teaching Staff"
@@ -405,7 +405,7 @@ def get_all_marhalas_for_hod(hijri_year=None):
             
             # FIXED: Determine marhala type based on category code or description
             # Academic marhalas (including S-CO, S-DARS)
-            if categorycode in ['S-CO', 'S-CGB', 'S-CGA', 'S-CT', 'S-DARS']:
+            if categorycode in ['S-CO', 'S-CGB', 'S-CGA', 'S-CT', 'S-DARS', 'S-DB']:
                 marhala_type = "Academic"
                 icon = "graduation-cap"
                 color = MARHALA_TYPES["ACADEMIC"]["color"]
@@ -627,6 +627,67 @@ def _get_accurate_marhala_stats(marhala_code, hijri_year=None):
         except:
             pass
 
+def _get_marhala_subject_cloud(marhala_code, limit=40):
+    """
+    Fetch subject cloud data for a marhala — ALL books, no language filter.
+    Upper Subject: DDC category from MARC 082$a.
+    Full Subject Detail: MARC 650$a.
+    """
+    start, end = KQ.get_ay_bounds()
+    if not start or not marhala_code:
+        return []
+
+    conn = None
+    try:
+        conn = get_koha_conn()
+        cur = conn.cursor(dictionary=True)
+
+        query = """
+            SELECT
+                CASE
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '0' THEN '000 - Generalities'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '1' THEN '100 - Philosophy'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '2' THEN '200 - Religion'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '3' THEN '300 - Social Sciences'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '4' THEN '400 - Language'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '5' THEN '500 - Natural Sciences'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '6' THEN '600 - Technology'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '7' THEN '700 - The Arts'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '8' THEN '800 - Literature'
+                    WHEN LEFT(ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]'), 1) = '9' THEN '900 - History & Geography'
+                    ELSE NULL
+                END AS upper_subject,
+                ExtractValue(bmd.metadata, '//datafield[@tag="650"]/subfield[@code="a"]') AS full_subject,
+                COUNT(DISTINCT s.itemnumber) AS issue_count
+            FROM statistics s
+            JOIN borrowers b ON s.borrowernumber = b.borrowernumber
+            JOIN items it ON s.itemnumber = it.itemnumber
+            JOIN biblio bib ON it.biblionumber = bib.biblionumber
+            JOIN biblio_metadata bmd ON it.biblionumber = bmd.biblionumber
+            WHERE s.type = 'issue'
+              AND b.categorycode = %s
+              AND DATE(s.datetime) BETWEEN %s AND %s
+              AND ExtractValue(bmd.metadata, '//datafield[@tag="082"]/subfield[@code="a"]') != ''
+            GROUP BY upper_subject, full_subject
+            HAVING upper_subject IS NOT NULL
+            ORDER BY issue_count DESC
+            LIMIT %s
+        """
+        params = [marhala_code, start, end, int(limit)]
+        cur.execute(query, params)
+        rows = cur.fetchall()
+        cur.close()
+        return [r for r in rows if r.get('upper_subject')]
+    except Exception as e:
+        current_app.logger.error(f"Error getting subject cloud data: {e}")
+        return []
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except:
+                pass
+
 def _get_marhala_recent_activity(marhala_code, limit=10):
     """Get recent borrowing items for a specific marhala."""
     try:
@@ -635,6 +696,7 @@ def _get_marhala_recent_activity(marhala_code, limit=10):
         cur.execute("""
             SELECT 
                 CONCAT(COALESCE(b.surname, ''), ' ', COALESCE(b.firstname, '')) as StudentName,
+                b.borrowernumber,
                 trno.attribute as ITS,
                 COALESCE(std.attribute, b.branchcode) as Darajah,
                 bib.title as BookTitle,
@@ -681,6 +743,7 @@ def _get_marhala_overdue_books(marhala_code, limit=20):
         cur.execute("""
             SELECT 
                 CONCAT(COALESCE(b.surname, ''), ' ', COALESCE(b.firstname, '')) as StudentName,
+                b.borrowernumber,
                 COALESCE(std.attribute, b.branchcode) as Darajah,
                 bib.title as BookTitle,
                 DATEDIFF(CURDATE(), i.date_due) as DaysOverdue,
@@ -717,7 +780,7 @@ def _get_marhala_overdue_books(marhala_code, limit=20):
 # FIXED: GET MARHALA TOP TITLES
 # --------------------------------------------------
 def get_marhala_top_titles(marhala_code: str, lang_code: str, limit: int = 10, hijri_year=None):
-    """Get marhala-scoped top titles in Academic Year by language with OPAC links."""
+    """Get marhala-scoped top titles in Academic Year by language with OPAC links, Synopsis and Covers."""
     start, end = KQ.get_ay_bounds(hijri_year)
     
     if not start:
@@ -731,37 +794,29 @@ def get_marhala_top_titles(marhala_code: str, lang_code: str, limit: int = 10, h
         # Try to get category description
         cur.execute("SELECT description FROM categories WHERE categorycode = %s", (marhala_code,))
         category_row = cur.fetchone()
-        category_desc = category_row["description"] if category_row else marhala_code
         
-        # First, let's see if there are any issues for this marhala
-        cur.execute("""
-            SELECT COUNT(*) as total_issues
-            FROM statistics s
-            JOIN borrowers b ON s.borrowernumber = b.borrowernumber
-            WHERE s.type = 'issue'
-                AND DATE(s.`datetime`) BETWEEN %s AND %s
-                AND b.categorycode = %s
-        """, (start, end, marhala_code))
-        
-        total_issues_row = cur.fetchone()
-        total_issues = total_issues_row["total_issues"] if total_issues_row else 0
-        
-        if total_issues == 0:
-            # No issues for this marhala
-            return []
-        
-        # Now get top titles
+        # Now get top titles with rich metadata
         cur.execute(
             """
             SELECT
                 bib.biblionumber AS Biblio_ID,
                 bib.title        AS Title,
+                bib.author       AS Author,
+                biti.isbn        AS ISBN,
+                MAX(ci.imagenumber) AS LocalImageNumber,
                 GROUP_CONCAT(DISTINCT it.ccode ORDER BY it.ccode SEPARATOR ', ') AS Collections,
-                COUNT(*) AS Times_Issued
+                COUNT(*) AS Times_Issued,
+                TRIM(COALESCE(
+                    NULLIF(ExtractValue(bmd.metadata, '//datafield[@tag="520"]/subfield[@code="a"]'), ''),
+                    NULLIF(ExtractValue(bmd.metadata, '//datafield[@tag="504"]/subfield[@code="a"]'), ''),
+                    ''
+                )) AS Synopsis
             FROM statistics s
             JOIN borrowers b ON s.borrowernumber = b.borrowernumber
             JOIN items it ON s.itemnumber = it.itemnumber
             JOIN biblio bib ON it.biblionumber = bib.biblionumber
+            JOIN biblioitems biti ON bib.biblionumber = biti.biblionumber
+            LEFT JOIN cover_images ci ON bib.biblionumber = ci.biblionumber
             JOIN biblio_metadata bmd ON bib.biblionumber = bmd.biblionumber
             WHERE s.type = 'issue'
                 AND DATE(s.`datetime`) BETWEEN %s AND %s
@@ -770,7 +825,7 @@ def get_marhala_top_titles(marhala_code: str, lang_code: str, limit: int = 10, h
                       '//datafield[@tag="041"]/subfield[@code="a"]'
                     ) LIKE %s
                 AND b.categorycode = %s
-            GROUP BY bib.biblionumber, bib.title
+            GROUP BY bib.biblionumber, bib.title, bib.author, biti.isbn
             ORDER BY Times_Issued DESC
             LIMIT %s;
             """,
@@ -779,11 +834,25 @@ def get_marhala_top_titles(marhala_code: str, lang_code: str, limit: int = 10, h
         
         rows = cur.fetchall()
         language_label = "Arabic" if lang_code.startswith("ar") else "English"
+        opac_base = current_app.config.get("KOHA_OPAC_BASE_URL", "https://library-nairobi.jameasaifiyah.org")
         
         for r in rows:
             r["Language"] = language_label
             r["Title"] = _clean_title(r.get("Title", ""))
-            r["OPAC_URL"] = _generate_opac_url(r.get("Biblio_ID", ""))
+            r["Author"] = r.get("Author", "Unknown Author")
+            biblio_id = r.get("Biblio_ID")
+            r["OPAC_URL"] = _generate_opac_url(biblio_id)
+            
+            # Logic for CoverURL
+            local_img = r.get("LocalImageNumber")
+            isbn = str(r.get("ISBN") or "").replace("-", "").replace(" ", "").split(" ")[0] if r.get("ISBN") else ""
+            
+            if local_img and opac_base:
+                r["CoverURL"] = f"{opac_base}/cgi-bin/koha/opac-image.pl?biblionumber={biblio_id}&imagenumber={local_img}"
+            elif isbn and len(isbn) >= 10:
+                r["CoverURL"] = f"https://images-na.ssl-images-amazon.com/images/P/{isbn}.01.MZZZZZZZ.jpg"
+            else:
+                r["CoverURL"] = "/static/images/book-placeholder.png"
         
         return rows
         
@@ -886,6 +955,7 @@ def get_top_students_in_marhala(marhala_code: str, limit: int = 10):
         cur.execute("""
             SELECT 
                 b.borrowernumber,
+                b.cardnumber,
                 trno.attribute AS TRNumber,
                 CASE 
                     WHEN (b.surname IS NOT NULL AND b.surname != '' AND b.surname != 'None')
@@ -982,6 +1052,191 @@ def get_top_students_in_marhala(marhala_code: str, limit: int = 10):
         except:
             pass
 
+
+# --------------------------------------------------
+# NEW: GET TOP STUDENTS BY GENDER IN MARHALA
+# --------------------------------------------------
+def get_top_students_by_gender_in_marhala(marhala_code: str, sex: str, limit: int = 10, hijri_year=None):
+    """Get top students by gender in a marhala based on Academic Year issues."""
+    start, end = KQ.get_ay_bounds(hijri_year)
+    if not start or not marhala_code:
+        return []
+
+    sex_filter = 'M' if sex.upper() == 'M' else 'F'
+    
+    try:
+        conn = get_koha_conn()
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT 
+                b.borrowernumber,
+                b.cardnumber,
+                trno.attribute AS TRNumber,
+                b.sex,
+                CASE 
+                    WHEN (b.surname IS NOT NULL AND b.surname != '' AND b.surname != 'None')
+                         AND (b.firstname IS NOT NULL AND b.firstname != '' AND b.firstname != 'None')
+                    THEN CONCAT(b.surname, ' ', b.firstname)
+                    WHEN (b.surname IS NOT NULL AND b.surname != '' AND b.surname != 'None')
+                    THEN b.surname
+                    WHEN (b.firstname IS NOT NULL AND b.firstname != '' AND b.firstname != 'None')
+                    THEN b.firstname
+                    ELSE CONCAT('Student #', b.cardnumber)
+                END AS FullName,
+                COALESCE(std.attribute, b.branchcode) AS Darajah,
+                COUNT(*) AS Issues_AY
+            FROM statistics s
+            JOIN borrowers b ON b.borrowernumber = s.borrowernumber
+            LEFT JOIN borrower_attributes std
+                 ON std.borrowernumber = b.borrowernumber
+                AND std.code IN ('STD','CLASS','DAR','CLASS_STD')
+            LEFT JOIN borrower_attributes trno
+                 ON trno.borrowernumber = b.borrowernumber
+                AND trno.code = 'TRNO'
+            WHERE s.type = 'issue'
+              AND DATE(s.`datetime`) BETWEEN %s AND %s
+              AND b.categorycode = %s
+              AND b.sex = %s
+              AND (b.dateexpiry IS NULL OR b.dateexpiry >= CURDATE())
+            GROUP BY b.borrowernumber
+            ORDER BY Issues_AY DESC
+            LIMIT %s;
+        """, (start, end, marhala_code, sex_filter, limit))
+
+        rows = cur.fetchall()
+
+        for row in rows:
+            name = row.get("FullName")
+            if not name or str(name).strip() == "" or str(name).lower() == "none":
+                row["FullName"] = f"Student #{row.get('TRNumber') or 'Unknown'}"
+            else:
+                row["FullName"] = _clean_student_name(name)
+            
+            row["StudentName"] = row["FullName"]
+            if row.get("TRNumber"):
+                row["TRNumber"] = str(row["TRNumber"]).strip()
+
+        return rows
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting top students by gender in marhala {marhala_code}: {e}")
+        return []
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+
+# --------------------------------------------------
+# NEW: GET MARHALA LANGUAGE DISTRIBUTION
+# --------------------------------------------------
+def get_marhala_language_distribution(marhala_code: str, hijri_year=None):
+    """Get language distribution for a marhala."""
+    start, end = KQ.get_ay_bounds(hijri_year)
+    if not start or not marhala_code:
+        return [], []
+
+    try:
+        conn = get_koha_conn()
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT 
+                CASE
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('ara', 'Arabic') THEN 'Arabic'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('eng', 'English') THEN 'English'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('msl','lud','msa', 'Lisan-ud-Dawat') THEN 'Lisan-ud-Dawat'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('urd', 'Urdu') THEN 'Urdu'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('fre', 'French') THEN 'French'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('per', 'Farsi') THEN 'Farsi'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('mul', 'Multilingual') THEN 'Multilingual'
+                    WHEN ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') IN ('Gujarati') THEN 'Gujarati'
+                    ELSE 'Other'
+                END AS Language,
+                COUNT(*) AS Issues
+            FROM statistics s
+            JOIN borrowers b ON b.borrowernumber = s.borrowernumber
+            JOIN items it ON s.itemnumber = it.itemnumber
+            JOIN biblio_metadata bmd ON it.biblionumber = bmd.biblionumber
+            WHERE s.type = 'issue'
+              AND DATE(s.`datetime`) BETWEEN %s AND %s
+              AND b.categorycode = %s
+              AND ExtractValue(bmd.metadata, '//datafield[@tag="041"]/subfield[@code="a"]') != ''
+            GROUP BY Language
+            ORDER BY Issues DESC
+        """, (start, end, marhala_code))
+
+        rows = cur.fetchall()
+
+        labels = [r.get("Language", "Unknown") for r in rows]
+        values = [r.get("Issues", 0) for r in rows]
+
+        return labels, values
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting language distribution for marhala {marhala_code}: {e}")
+        return [], []
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+
+# --------------------------------------------------
+# NEW: GET MARHALA FICTION VS NON-FICTION STATS
+# --------------------------------------------------
+def get_marhala_fiction_stats(marhala_code: str, hijri_year=None):
+    """Get fiction vs non-fiction statistics for a marhala."""
+    start, end = KQ.get_ay_bounds(hijri_year)
+    if not start or not marhala_code:
+        return {"fiction": 0, "nonfiction": 0}
+
+    try:
+        conn = get_koha_conn()
+        cur = conn.cursor(dictionary=True)
+
+        cur.execute("""
+            SELECT 
+                COALESCE(SUM(CASE 
+                    WHEN LOWER(it.itemnotes) LIKE '%fiction%' OR LOWER(it.biblioitems.itemnotes) LIKE '%fiction%'
+                    THEN 1 ELSE 0 
+                END), 0) AS FictionCount,
+                COALESCE(SUM(CASE 
+                    WHEN LOWER(it.itemnotes) NOT LIKE '%fiction%' OR LOWER(it.biblioitems.itemnotes) NOT LIKE '%fiction%'
+                    THEN 1 ELSE 0 
+                END), 0) AS NonFictionCount
+            FROM statistics s
+            JOIN items it ON s.itemnumber = it.itemnumber
+            JOIN biblioitems ON it.biblionumber = biblioitems.biblionumber
+            JOIN borrowers b ON b.borrowernumber = s.borrowernumber
+            WHERE s.type = 'issue'
+              AND DATE(s.`datetime`) BETWEEN %s AND %s
+              AND b.categorycode = %s
+        """, (start, end, marhala_code))
+
+        row = cur.fetchone()
+
+        return {
+            "fiction": row.get("FictionCount", 0) if row else 0,
+            "nonfiction": row.get("NonFictionCount", 0) if row else 0
+        }
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting fiction stats for marhala {marhala_code}: {e}")
+        return {"fiction": 0, "nonfiction": 0}
+    finally:
+        try:
+            cur.close()
+            conn.close()
+        except:
+            pass
+
+
 # --------------------------------------------------
 # FIXED: GET NON-ACADEMIC MARHALA DISPLAY NAME
 # --------------------------------------------------
@@ -1051,7 +1306,7 @@ def dashboard():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role not in ("hod", "admin"):
+    if role not in ("hod", "admin", "super_admin"):
         return redirect(url_for("auth_bp.login"))
 
     if role == "hod":
@@ -1075,7 +1330,7 @@ def dashboard():
             flash(extra_message, "warning")
 
         all_marhalas = []
-        if role == "admin":
+        if role in ("admin", "super_admin"):
             all_marhalas = get_all_marhalas_for_hod(hijri_year=hijri_year)
 
         available_years = KQ.get_available_academic_years()
@@ -1115,7 +1370,7 @@ def dashboard():
             today_greg=today.strftime("%d %B %Y"),
             ay_period_label=ay_period,
             all_marhalas=all_marhalas,
-            is_admin=role == "admin",
+            is_admin=role in ("admin", "super_admin"),
             selected_ay=selected_ay,
             available_years=available_years,
             darajahs_in_marhala=[],
@@ -1138,7 +1393,7 @@ def dashboard():
         )
     
     if not marhala_name:
-        if role == "admin":
+        if role in ("admin", "super_admin"):
             return redirect(url_for("hod_dashboard_bp.marhala_explorer"))
         else:
             return _render_empty_dashboard("⚠️ Your account is not linked to any marhala.")
@@ -1282,6 +1537,18 @@ def dashboard():
 
     # Get top students in marhala
     top_students = get_top_students_in_marhala(marhala_code, limit=5) if stats_available else []
+    
+    # Get top 10 male students with photos
+    top_students_male = get_top_students_by_gender_in_marhala(marhala_code, 'M', limit=10, hijri_year=hijri_year) if stats_available else []
+    
+    # Get top 10 female students with photos
+    top_students_female = get_top_students_by_gender_in_marhala(marhala_code, 'F', limit=10, hijri_year=hijri_year) if stats_available else []
+    
+    # Get language distribution for chart
+    lang_labels, lang_values = get_marhala_language_distribution(marhala_code, hijri_year=hijri_year)
+    
+    # Get fiction vs non-fiction stats
+    fiction_data = get_marhala_fiction_stats(marhala_code, hijri_year=hijri_year)
 
     # Build summary table - Top 10 Darajah Performance
     summary_table = []
@@ -1370,12 +1637,17 @@ def dashboard():
 
     # Get all marhalas for admin selector
     all_marhalas = []
-    if role == "admin":
+    if role in ("admin", "super_admin"):
         all_marhalas = get_all_marhalas_for_hod()
 
     # Get detailed activities and overdues for HOD parity
     recent_activities = _get_marhala_recent_activity(marhala_code, limit=10)
     overdue_books_list = _get_marhala_overdue_books(marhala_code, limit=20)
+    
+    # Subject Cloud map
+    subject_cloud = _get_marhala_subject_cloud(marhala_code, limit=40)
+    if not subject_cloud:
+        subject_cloud = []
 
     return render_template(
         "hod_dashboard.html",
@@ -1384,7 +1656,7 @@ def dashboard():
         username=username,
         total_borrowers=total_borrowers,
         active_borrowers=active_borrowers,
-        total_issues_ay=total_issues_ay,
+        ay_issues=total_issues_ay,
         total_fees_ay=total_fees_ay,
         currently_issued=currently_issued,
         overdues_now=overdues_now,
@@ -1404,7 +1676,7 @@ def dashboard():
         summary_table=summary_table,
         darajah_stats=darajah_stats, # Pass darajah_stats for the table
         total_darajahs=total_darajahs,
-        engagement_index=engagement_index,
+        ay_velocity=engagement_index,
         overdue_rate=overdue_rate,
         today_hijri=today_hijri,
         today_greg=today_greg,
@@ -1433,7 +1705,14 @@ def dashboard():
         sorted_years=sorted_years,
         # Placeholders for template
         recent_activities=recent_activities,
-        overdue_books_list=overdue_books_list
+        overdue_books_list=overdue_books_list,
+        # New enhanced variables
+        top_students_male=top_students_male,
+        top_students_female=top_students_female,
+        lang_labels=lang_labels,
+        lang_values=lang_values,
+        fiction_data=fiction_data,
+        subject_cloud=subject_cloud
     )
 
 # --------------------------------------------------
@@ -1446,7 +1725,7 @@ def admin_select():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role != "admin":
+    if role not in ("admin", "super_admin"):
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard_bp.dashboard"))
 
@@ -1479,7 +1758,7 @@ def marhala_explorer():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role != "admin":
+    if role not in ("admin", "super_admin"):
         flash("Admin access required for marhala explorer.", "danger")
         return redirect(url_for("dashboard_bp.dashboard"))
     
@@ -1579,7 +1858,7 @@ def quick_select():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role != "admin":
+    if role not in ("admin", "super_admin"):
         flash("Admin access required.", "danger")
         return redirect(url_for("dashboard_bp.dashboard"))
 
@@ -1597,7 +1876,7 @@ def debug_marhala(marhala_code):
         return "Not logged in", 401
     
     role = (session.get("role") or "").lower()
-    if role not in ("hod", "admin"):
+    if role not in ("hod", "admin", "super_admin"):
         return "Access denied", 403
     
     output = []
@@ -1715,7 +1994,7 @@ def api_marhalas():
         return jsonify({"error": "Not authenticated"}), 401
 
     role = (session.get("role") or "").lower()
-    if role != "admin":
+    if role not in ("admin", "super_admin"):
         return jsonify({"error": "Admin access required"}), 403
 
     try:
@@ -1738,7 +2017,7 @@ def search():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role not in ("hod", "admin"):
+    if role not in ("hod", "admin", "super_admin"):
         return redirect(url_for("auth_bp.login"))
 
     query = (request.args.get("q") or "").strip()
@@ -1813,7 +2092,7 @@ def download_marhala_pdf():
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role not in ("hod", "admin"):
+    if role not in ("hod", "admin", "super_admin"):
         return redirect(url_for("auth_bp.login"))
 
     if role == "hod":
@@ -1856,7 +2135,7 @@ def download_darajah_pdf(darajah_name):
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role not in ("hod", "admin"):
+    if role not in ("hod", "admin", "super_admin"):
         return redirect(url_for("auth_bp.login"))
 
     # Get darajah report data
@@ -1906,7 +2185,7 @@ def student_details(identifier):
         return redirect(url_for("auth_bp.login"))
 
     role = (session.get("role") or "").lower()
-    if role not in ("hod", "admin"):
+    if role not in ("hod", "admin", "super_admin"):
         flash("You must be a Head of Department to view this page.", "danger")
         return redirect(url_for("auth_bp.login"))
 
@@ -1918,3 +2197,9 @@ def student_details(identifier):
         current_app.logger.error(f"Error in student_details: {str(e)}", exc_info=True)
         flash(f'Error loading student details: {str(e)}', 'danger')
         return redirect(url_for('hod_dashboard_bp.dashboard'))
+
+@bp.route("/student/<identifier>/download")
+def download_student_pdf(identifier):
+    """Download student activity report stub."""
+    flash("PDF Report generation is being optimized. Please check back later.", "info")
+    return redirect(url_for('hod_dashboard_bp.student_details', identifier=identifier))

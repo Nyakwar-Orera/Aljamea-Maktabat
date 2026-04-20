@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "super_admin/_sa_base.html" if session.get('role')|lower == 'superadmin' else "base.html" %}
 
 {% block content %}
 {% if error %}
@@ -506,6 +506,15 @@
         </div>
         <div class="kpi-label" style="color: #06b6d4;">Programs Attended</div>
         <div class="kpi-value" style="color: #06b6d4;">{{ m.get("ProgramParticipationCount", 0) }}</div>
+      </div>
+
+      <!-- Taqeem Marks -->
+      <div class="kpi-card animate__animated animate__fadeInUp" style="animation-delay: 500ms;">
+        <div class="kpi-icon-box" style="background: rgba(164, 90, 38, 0.1); color: #a45a26;">
+          <i class="bi bi-award-fill"></i>
+        </div>
+        <div class="kpi-label" style="color: #a45a26;">Taqeem Marks</div>
+        <div class="kpi-value" style="color: #a45a26;">{{ taqeem.get("total", 0) if taqeem else 0 }}</div>
       </div>
     </div>
 

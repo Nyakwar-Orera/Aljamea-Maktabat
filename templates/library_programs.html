@@ -286,6 +286,23 @@
                        value="{{ current_academic_year }}" required>
               </div>
               <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Review Session Name</label>
+                <input type="text" name="review_name" class="form-control form-control-sm"
+                       placeholder="e.g. Term 1 Review" list="sessionHints">
+                <datalist id="sessionHints">
+                  <option value="Initial Upload">
+                  <option value="Final Submission">
+                </datalist>
+              </div>
+            </div>
+            <div class="row g-2 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label small fw-semibold">Marks Out Of (Scale to 30)</label>
+                <input type="number" name="max_marks" class="form-control form-control-sm" 
+                       value="30" min="1" step="0.5">
+                <div class="form-text x-small">e.g. 100 if marks in file are percentages</div>
+              </div>
+              <div class="col-sm-6">
                 <label class="form-label small fw-semibold">File Type</label>
                 <select name="file_type" class="form-select form-select-sm">
                   <option value="">Auto-detect</option>
@@ -293,6 +310,13 @@
                   <option value="excel">Excel</option>
                 </select>
               </div>
+            </div>
+            <div class="mb-3">
+               <div class="form-check form-switch">
+                 <input class="form-check-input" type="checkbox" id="overwriteMode" name="overwrite" value="true">
+                 <label class="form-check-label small fw-semibold" for="overwriteMode">Overwrite Existing (Correction Mode)</label>
+               </div>
+               <div class="form-text x-small text-warning">If checked, existing marks for the same student and session will be replaced.</div>
             </div>
               <label class="form-label small fw-semibold">Select File</label>
               <input type="file" name="csv_file" class="form-control form-control-sm" accept=".csv,.xlsx,.xls" required>
@@ -359,6 +383,31 @@
               <button class="btn btn-success btn-sm rounded-pill px-3" onclick="window.open('/api/export_taqeem', '_blank')">
                   <i class="bi bi-file-spreadsheet me-1"></i> Export CSV
               </button>
+          </div>
+      </div>
+      <div class="card-body border-bottom bg-light p-3">
+          <div class="row g-2 align-items-end">
+              <div class="col-md-3">
+                  <label class="form-label small fw-bold text-muted">Filter by Darajah</label>
+                  <select id="overviewDarajahFilter" class="form-select form-select-sm rounded-pill border-primary-subtle">
+                      <option value="All">All Darajahs</option>
+                      {% for d in all_darajahs %}
+                      <option value="{{ d }}">{{ d }}</option>
+                      {% endfor %}
+                  </select>
+              </div>
+              <div class="col-md-4">
+                  <label class="form-label small fw-bold text-muted">Review Session (Selection)</label>
+                  <select id="overviewReviewFilter" class="form-select form-select-sm rounded-pill border-primary-subtle">
+                      <option value="current">📊 Aggregate / Current Taqeem</option>
+                      <!-- Dynamic options filled by loadReviewSessions() -->
+                  </select>
+              </div>
+              <div class="col-md-auto ms-auto">
+                  <button class="btn btn-primary btn-sm rounded-pill px-4" onclick="loadTaqeemOverviewLocal()">
+                      <i class="bi bi-filter me-1"></i> Apply Filters
+                  </button>
+              </div>
           </div>
       </div>
       <div class="card-body p-0">
@@ -1229,8 +1278,12 @@
      STUDENT PROGRESS OVERVIEW
   ══════════════════════════════ */
   function loadTaqeemOverviewLocal() {
-    showToast('Loading Progress Overview...', 'info', '');
-    window.csrfFetch('/api/get_taqeem_overview')
+    const darajah = document.getElementById('overviewDarajahFilter').value;
+    const review = document.getElementById('overviewReviewFilter').value;
+    
+    showToast('Filtering data...', 'info', '');
+    let url = `/api/get_taqeem_overview?darajah_name=${encodeURIComponent(darajah)}&review_name=${encodeURIComponent(review)}`;
+    window.csrfFetch(url)
       .then(r => r.json())
       .then(res => {
         const tbody = document.getElementById('taqeem-overview-tbody');
@@ -1251,12 +1304,6 @@
 
         const rows = res.data.map(row => {
             return `<tr>
-              <td><div class="fw-bold">${row.name || 'Unknown'}</div><div class="small text-muted">${row.username}</div></td>
-              <td>${row.class_name || 'System'}</td>
-              <td>${row.total_pd_marks || 0}</td>
-              <td>${row.total_review_marks || 0}</td>
-              <td>${row.total_program_marks || 0}</td>
-              <td><span class="badge ${getBadgeClass(row.grand_total)}">${row.grand_total || 0}%</span></td>
               <td class="text-end pe-4">
                 <a href="/student_profile/${row.username}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
                   <i class="bi bi-eye me-1"></i>View
@@ -1280,7 +1327,11 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Calculating...';
     
-    window.csrfFetch('/api/recalc_all_taqeem', { method: 'POST', body: JSON.stringify({}), headers: { 'Content-Type': 'application/json' } })
+    window.csrfFetch('/api/recalc_all_taqeem', { 
+        method: 'POST', 
+        body: JSON.stringify({}), 
+        headers: { 'Content-Type': 'application/json' } 
+    })
       .then(r => r.json())
       .then(res => {
          if (res.success) {
@@ -1298,5 +1349,28 @@
          btn.innerHTML = originalText;
       });
   }
+
+  function loadReviewSessions() {
+    window.csrfFetch('/api/get_review_sessions')
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.sessions) {
+          const select = document.getElementById('overviewReviewFilter');
+          const initialOption = select.options[0];
+          select.innerHTML = '';
+          select.appendChild(initialOption);
+          
+          res.sessions.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.name;
+            opt.textContent = `📅 ${s.name} (${new Date(s.timestamp).toLocaleDateString()}) - ${s.count} recs`;
+            select.appendChild(opt);
+          });
+        }
+      });
+  }
+
+  // Initial load
+  loadReviewSessions();
 </script>
 {% endblock %}

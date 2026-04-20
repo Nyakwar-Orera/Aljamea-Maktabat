@@ -10,7 +10,8 @@ from flask import (
     current_app,
     request,
     jsonify,
-    Response
+    Response,
+    flash
 )
 from db_koha import get_koha_conn
 from db_app import get_conn as get_app_conn
@@ -52,7 +53,17 @@ _DARAJAH_MAX_CACHE = None
 
 @bp.route("/photo/<int:borrowernumber>")
 def patron_photo(borrowernumber):
-    conn = get_koha_conn()
+    branch = request.args.get('branch')
+    if branch:
+        from db_koha import get_branch_conn
+        conn = get_branch_conn(branch)
+        # Handle mock or offline branch
+        from db_koha import _MockConnection
+        if isinstance(conn, _MockConnection):
+            return redirect(url_for('static', filename='images/avatar.png'))
+    else:
+        conn = get_koha_conn()
+        
     cur = conn.cursor(dictionary=True)
     try:
         cur.execute("SELECT mimetype, imagefile FROM patronimage WHERE borrowernumber = %s", (borrowernumber,))
@@ -989,7 +1000,12 @@ def student(identifier):
         )
 
     if not info.get("Taqeem"):
-        info["Taqeem"] = _calculate_simple_taqeem(info)
+        ay_label = Config.CURRENT_ACADEMIC_YEAR().replace('H', '').strip()
+        db_taqeem = _get_student_taqeem_from_db(identifier, ay_label)
+        if db_taqeem:
+            info["Taqeem"] = db_taqeem
+        else:
+            info["Taqeem"] = _calculate_simple_taqeem(info)
 
     opac_base = get_opac_base_url()
     

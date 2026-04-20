@@ -1,8 +1,9 @@
 {% extends "super_admin/_sa_base.html" %}
 
-{% block title %}God Eye — Global Command Center{% endblock %}
+{% block title %}Head Office Sighat ul-Jamea | Global Network{% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
 <style>
   /* ═══ GOD EYE SPECIFIC STYLES — all built on var(--primary-color) ═══ */
 
@@ -19,159 +20,104 @@
   /* ─── KPI Row ─── */
   .kpi-row-global {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: 1.25rem;
     margin-bottom: 2.5rem;
   }
 
-  /* ─── Branch Explorer Grid (like darajah/marhala explorers) ─── */
-  .branch-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
-  }
-
-  .branch-card {
-    background: white;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-soft);
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
-    cursor: pointer;
-    text-decoration: none !important;
-    color: inherit !important;
-    display: block;
-  }
-
-  .branch-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.12);
-    border-color: var(--primary-color);
-  }
-
-  .branch-card-header {
-    padding: 1.25rem 1.5rem 1rem;
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    border-bottom: 1px solid var(--border-soft);
-  }
-
-  .branch-flag-circle {
-    width: 52px;
-    height: 52px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.75rem;
-    background: var(--primary-soft);
-    flex-shrink: 0;
-  }
-
-  .branch-card-body {
-    padding: 1.1rem 1.5rem 1.4rem;
-  }
-
-  .branch-stat-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.4rem 0;
-    border-bottom: 1px solid #f8f8f8;
-    font-size: 0.82rem;
-  }
-
-  .branch-stat-row:last-child { border-bottom: none; }
-
-  .branch-stat-label { color: var(--text-muted); font-weight: 600; }
-  .branch-stat-value { font-weight: 800; color: var(--text-main); }
-
-  .branch-card-footer {
-    padding: 0.85rem 1.5rem;
-    background: var(--bg-body);
-    border-top: 1px solid var(--border-soft);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  /* ─── Campus Rankings ─── */
-  .rank-item {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-    padding: 0.75rem 1rem;
-    border-radius: 12px;
-    background: var(--bg-body);
-    margin-bottom: 0.6rem;
-    transition: all 0.2s;
-  }
-
-  .rank-item:hover { background: var(--primary-soft); }
-
-  .rank-number {
-    font-size: 1rem;
-    font-weight: 900;
-    color: var(--text-muted);
-    width: 24px;
-    text-align: center;
-    flex-shrink: 0;
-  }
-
-  .rank-item.rank-1 .rank-number { color: #f59e0b; font-size: 1.2rem; }
-  .rank-item.rank-2 .rank-number { color: #94a3b8; font-size: 1.1rem; }
-  .rank-item.rank-3 .rank-number { color: #cd7f32; font-size: 1.05rem; }
-
-  /* ─── Star Patrons ─── */
-  .global-patron-card {
-    border-radius: 14px;
-    border: 1px solid var(--border-soft);
-    background: white;
-    padding: 0.85rem;
-    text-align: center;
-    text-decoration: none !important;
-    color: inherit !important;
-    transition: all 0.25s;
-    display: block;
-  }
-
-  .global-patron-card:hover {
-    background: var(--bg-cream);
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--primary-color);
-  }
-
-  .global-patron-photo {
-    width: 80px;
-    height: 100px;
-    object-fit: cover;
-    border-radius: 8px;
-    border: 2px solid var(--border-soft);
-    box-shadow: var(--shadow-sm);
-  }
-
   /* ─── Subject Cloud ─── */
+  .subject-cloud-container {
+    min-height: 320px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
+    padding: 20px;
+  }
+
   .subject-tag {
     display: inline-block;
-    padding: 4px 14px;
-    border-radius: 20px;
+    padding: 8px 18px;
+    border-radius: 40px;
     font-weight: 700;
-    margin: 4px;
-    transition: all 0.2s;
-    background: var(--primary-soft);
-    color: var(--primary-color);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: var(--bg-body);
+    border: 1px solid var(--border-soft);
+    color: var(--text-main);
+    cursor: pointer;
+    text-decoration: none;
   }
 
   .subject-tag:hover {
-    background: var(--primary-color);
-    color: white;
     transform: scale(1.05);
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+    box-shadow: 0 6px 14px var(--primary-glow);
   }
 
-  /* ─── Top Books ─── */
+  .subject-tag-lg {
+    font-size: 1.2rem;
+    padding: 10px 24px;
+  }
+
+  .subject-tag-md {
+    font-size: 1rem;
+    padding: 8px 20px;
+  }
+
+  .subject-tag-sm {
+    font-size: 0.85rem;
+    padding: 6px 16px;
+  }
+
+  .subject-tag-xs {
+    font-size: 0.75rem;
+    padding: 5px 14px;
+  }
+
+  .subject-tag-top {
+    background: var(--primary-soft) !important;
+    border-color: var(--primary-color) !important;
+    color: var(--primary-color) !important;
+  }
+
+  .lang-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+
+  .lang-legend-item:hover {
+    background: var(--primary-soft);
+    transform: translateX(4px);
+  }
+
+  .lang-color-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .lang-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .lang-value {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--primary-color);
+    margin-left: auto;
+  }
+
   .book-item {
     display: flex;
     align-items: center;
@@ -190,79 +136,118 @@
     transform: translateX(4px);
   }
 
-  .book-cover-thumb {
-    width: 42px;
-    height: 58px;
-    border-radius: 6px;
-    object-fit: cover;
-    background: #f1ebe0;
-    flex-shrink: 0;
+  .rank-item {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    background: var(--bg-body);
+    margin-bottom: 0.6rem;
+    transition: all 0.2s;
   }
 
-  /* ─── Fiction/Non-fiction chart ─── */
-  .fiction-bar {
-    height: 10px;
-    border-radius: 5px;
-    background: linear-gradient(90deg, var(--primary-color), #d97706);
-    transition: width 0.8s ease;
+  .rank-item:hover {
+    background: var(--primary-soft);
   }
 
-  .fiction-bar.nonfiction {
-    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  .rank-number {
+    font-size: 1rem;
+    font-weight: 900;
+    color: var(--text-muted);
+    width: 28px;
+    text-align: center;
   }
 
-  /* ─── Language table ─── */
-  .lang-progress {
-    height: 8px;
-    border-radius: 4px;
-    background: #f1f5f9;
-    overflow: hidden;
-  }
-  .lang-bar {
-    height: 100%;
-    border-radius: 4px;
-    background: linear-gradient(90deg, var(--primary-color), #d97706);
-    transition: width 0.6s ease;
+  .rank-1 .rank-number {
+    color: #f59e0b;
+    font-size: 1.3rem;
   }
 
-  /* ─── Darajah Explorer Table ─── */
-  .darajah-table-container {
-    max-height: 520px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border-soft) transparent;
+  .rank-2 .rank-number {
+    color: #94a3b8;
+    font-size: 1.2rem;
   }
 
-  /* ─── Mobile responsive ─── */
-  @media (max-width: 1400px) { .kpi-row-global { grid-template-columns: repeat(3, 1fr); } }
-  @media (max-width: 992px)  { .kpi-row-global { grid-template-columns: repeat(2, 1fr); } }
-  @media (max-width: 576px)  { .kpi-row-global { grid-template-columns: repeat(2, 1fr); } }
+  .rank-3 .rank-number {
+    color: #cd7f32;
+    font-size: 1.15rem;
+  }
+
+  .global-patron-card {
+    border-radius: 14px;
+    border: 1px solid var(--border-soft);
+    background: white;
+    padding: 0.85rem;
+    text-align: center;
+    transition: all 0.25s;
+    display: block;
+    text-decoration: none !important;
+    color: inherit !important;
+  }
+
+  .global-patron-card:hover {
+    background: var(--bg-cream);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--primary-color);
+  }
+
+  @media (max-width: 1600px) {
+    .kpi-row-global {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 992px) {
+    .kpi-row-global {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 576px) {
+    .kpi-row-global {
+      grid-template-columns: repeat(1, 1fr);
+    }
+  }
+
+  @keyframes godblink {
+
+    0%,
+    100% {
+      opacity: 1
+    }
+
+    50% {
+      opacity: 0.4
+    }
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="fade-in">
 
-  <!-- ══════════════════════════════════════════════════════
-       HEADER
-  ══════════════════════════════════════════════════════ -->
+  <!-- HEADER -->
   <div class="dashboard-header mb-4">
     <div class="row align-items-center">
       <div class="col-lg-6">
         <div class="mb-1 d-flex gap-2 align-items-center">
-          <span class="badge text-white px-3 py-1 rounded-pill fw-800" style="font-size:10px; background:var(--primary-color)">SUPER ADMIN</span>
+          <span class="badge text-white px-3 py-1 rounded-pill fw-800"
+            style="font-size:10px; background:var(--primary-color)">SUPER ADMIN</span>
           <span class="text-muted small fw-bold">Global Command Center</span>
         </div>
         <h1 class="display-6 fw-bold mb-2">
-          <span class="gradient-text">📊 God Eye Analytics Dashboard</span>
+          <span class="gradient-text">📊 Head Office Sighat ul-Jamea</span>
         </h1>
         <div class="d-flex align-items-center gap-3">
           <div class="date-badge">
             <i class="bi bi-calendar3 me-2"></i>
             {% if selected_branch and selected_branch != 'all' %}
-              {{ (campus_registry.get(selected_branch, {})).get('flag','') }} {{ (campus_registry.get(selected_branch, {})).get('branch_name') or (campus_registry.get(selected_branch, {})).get('short_name','') }}
+            {{ (campus_registry.get(selected_branch, {})).get('flag','') }} {{ (campus_registry.get(selected_branch,
+            {})).get('branch_name') or (campus_registry.get(selected_branch, {})).get('short_name','') }}
             {% else %}
-              {{ branch_summaries|selectattr('status','equalto','online')|list|length }} Online Branches
+            {{ branch_summaries|selectattr('status','equalto','online')|list|length }} Online Branches
             {% endif %}
             · {{ current_academic_year }}
           </div>
@@ -270,25 +255,26 @@
       </div>
       <div class="col-lg-6 mt-3 mt-lg-0">
         <div class="d-flex flex-wrap justify-content-lg-end align-items-center gap-3">
-          <!-- Academic Year Toggle -->
           <div class="ay-toggle-wrapper shadow-sm">
-            <form action="{{ url_for('super_admin_bp.change_ay') }}" method="POST" id="ayToggleForm">
+            <form action="{{ url_for('auth_bp.change_ay') }}" method="POST" id="ayToggleForm">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
               <input type="hidden" name="academic_year" id="ayValue">
               <button type="button" class="ay-toggle-btn {% if selected_ay == 'current' %}active{% endif %}"
-                      onclick="setAY('current')">Active Year</button>
+                onclick="setAY('current')">Active Year</button>
               {% if available_years %}
               <div class="btn-group">
-                <button type="button" class="ay-toggle-btn dropdown-toggle {% if selected_ay != 'current' %}active{% endif %}"
-                        data-bs-toggle="dropdown" aria-expanded="false">
+                <button type="button"
+                  class="ay-toggle-btn dropdown-toggle {% if selected_ay != 'current' %}active{% endif %}"
+                  data-bs-toggle="dropdown" aria-expanded="false">
                   {% if selected_ay == 'current' %}Past Years{% else %}AY {{ selected_ay }}H{% endif %}
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="border-radius:14px">
                   {% for yr in available_years %}
                   <li>
                     <a class="dropdown-item py-2 px-3 {% if selected_ay == yr.hijri_year|string %}active{% endif %}"
-                       href="javascript:void(0)" onclick="setAY('{{ yr.hijri_year }}')">
-                      <i class="bi bi-clock-history me-2 opacity-50"></i> AY {{ yr.hijri_year }}H ({{ yr.label.split('(')[1].rstrip(')') if '(' in yr.label else yr.label }})
+                      href="javascript:void(0)" onclick="setAY('{{ yr.hijri_year }}')">
+                      <i class="bi bi-clock-history me-2 opacity-50"></i> AY {{ yr.hijri_year }}H ({{
+                      yr.label.split('(')[1].rstrip(')') if '(' in yr.label else yr.label }})
                     </a>
                   </li>
                   {% endfor %}
@@ -298,29 +284,30 @@
             </form>
           </div>
 
-          <!-- Marhala Filter (Global — applies when in branch view) -->
-          <form action="{{ url_for('super_admin_bp.god_eye') }}" method="GET" class="d-flex align-items-center gap-2" id="branchFilterForm">
-            <div class="input-group shadow-sm" style="border-radius:50px; overflow:hidden; max-width:230px">
-              <span class="input-group-text bg-white border-end-0 ps-3" style="border-radius:50px 0 0 50px">
-                <i class="bi bi-compass text-primary" style="color:var(--primary-color)!important"></i>
-              </span>
-              <select name="branch" class="form-select border-start-0 py-2 fw-600" onchange="this.form.submit()"
-                      style="min-width:160px; border-radius:0 50px 50px 0; font-size:0.85rem">
-                <option value="all" {% if not selected_branch or selected_branch == 'all' %}selected{% endif %}>🌐 All Campuses</option>
-                {% for code in branch_order %}
+          <div class="branch-selector-wrapper shadow-sm">
+            <form action="{{ url_for('super_admin_bp.god_eye') }}" method="GET" id="branchFilterForm"
+              class="d-flex align-items-center">
+              <div class="input-group" style="border-radius:50px; overflow:hidden;">
+                <span class="input-group-text bg-white border-end-0 ps-3"><i
+                    class="bi bi-compass text-primary"></i></span>
+                <select name="branch" class="form-select border-start-0 py-2 fw-bold" onchange="this.form.submit()"
+                  style="min-width:180px; border-radius:0 50px 50px 0; font-size:0.85rem; cursor: pointer;">
+                  <option value="all" {% if not selected_branch or selected_branch=='all' %}selected{% endif %}>🌐
+                    Global Network</option>
+                  {% for code in branch_order %}
                   {% set b = campus_registry.get(code, {}) %}
                   {% if b %}
-                  <option value="{{ code }}" {% if selected_branch == code %}selected{% endif %}>
-                    {{ b.flag }} {{ b.short_name }}
-                  </option>
+                  <option value="{{ code }}" {% if selected_branch==code %}selected{% endif %}>{{ b.flag }} {{
+                    b.short_name }}</option>
                   {% endif %}
-                {% endfor %}
-              </select>
-            </div>
-          </form>
+                  {% endfor %}
+                </select>
+              </div>
+            </form>
+          </div>
 
           <button class="btn btn-primary rounded-circle shadow-sm" onclick="window.location.reload()"
-                  style="width:42px; height:42px; background:var(--primary-color); border-color:var(--primary-color)">
+            style="width:42px; height:42px; background:var(--primary-color); border-color:var(--primary-color)">
             <i class="bi bi-arrow-clockwise"></i>
           </button>
         </div>
@@ -328,370 +315,404 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       SECTION 1: GLOBAL KPI CARDS
-  ══════════════════════════════════════════════════════ -->
+  <!-- GLOBAL KPI CARDS -->
   <div class="kpi-row-global mb-5">
-    <!-- Global Patrons -->
-    <div>
-      <div class="card kpi-card-fancy vibrant-blue shadow-sm h-100" onclick="window.openKpiModal('patrons')">
-        <div class="card-body">
-          <div class="icon-wrapper"><i class="bi bi-people-fill"></i></div>
-          <div class="kpi-label">Global Patrons</div>
-          <div class="kpi-value">{{ "{:,}".format(global_kpis.total_patrons or 0) }}</div>
-          <div class="kpi-subtext"><i class="bi bi-circle-fill me-1" style="font-size:6px;vertical-align:middle"></i> {{ "{:,}".format(global_kpis.active_patrons or 0) }} Active Members</div>
-        </div>
+    <div class="card kpi-card-fancy vibrant-blue shadow-sm" onclick="window.openKpiModal('patrons')">
+      <div class="card-body">
+        <div class="icon-wrapper"><i class="bi bi-people-fill"></i></div>
+        <div class="kpi-label">Global Patrons</div>
+        <div class="kpi-value">{{ "{:,}".format(global_kpis.total_patrons or 0) }}</div>
+        <div class="kpi-subtext">&bull; {{ "{:,}".format(global_kpis.active_patrons or 0) }} Active</div>
       </div>
     </div>
-
-    <!-- Global Issues -->
-    <div>
-      <div class="card kpi-card-fancy vibrant-green shadow-sm h-100" onclick="window.openKpiModal('issues')">
-        <div class="card-body">
-          <div class="icon-wrapper"><i class="bi bi-book-fill"></i></div>
-          <div class="kpi-label">Books Issued (AY)</div>
-          <div class="kpi-value">{{ "{:,}".format(global_kpis.total_issues or 0) }}</div>
-          <div class="kpi-subtext">Cross-campus library activity</div>
-        </div>
+    <div class="card kpi-card-fancy vibrant-green shadow-sm" onclick="window.openKpiModal('issues')">
+      <div class="card-body">
+        <div class="icon-wrapper"><i class="bi bi-book-fill"></i></div>
+        <div class="kpi-label">Books Issued (AY)</div>
+        <div class="kpi-value">{{ "{:,}".format(global_kpis.total_issues or 0) }}</div>
+        <div class="kpi-subtext">Total Activity</div>
       </div>
     </div>
-
-    <!-- Currently Issued -->
-    <div>
-      <div class="card kpi-card-fancy vibrant-purple shadow-sm h-100">
-        <div class="card-body">
-          <div class="icon-wrapper"><i class="bi bi-arrow-left-right"></i></div>
-          <div class="kpi-label">Currently Issued</div>
-          <div class="kpi-value">{{ "{:,}".format(global_kpis.currently_issued or 0) }}</div>
-          <div class="kpi-subtext">Active borrowings now</div>
-        </div>
+    <div class="card kpi-card-fancy vibrant-indigo shadow-sm"
+      style="background: linear-gradient(135deg, #4f46e5, #4338ca);">
+      <div class="card-body">
+        <div class="icon-wrapper"><i class="bi bi-lightning-charge-fill"></i></div>
+        <div class="kpi-label">Today's Activity</div>
+        <div class="kpi-value" style="font-size:1.5rem">{{ global_kpis.today_checkouts or 0 }} / {{
+          global_kpis.today_checkins or 0 }}</div>
+        <div class="kpi-subtext">Checkouts / Checkins</div>
       </div>
     </div>
-
-    <!-- Catalog Titles -->
-    <div>
-      <div class="card kpi-card-fancy vibrant-orange shadow-sm h-100" onclick="window.openKpiModal('catalog')">
-        <div class="card-body">
-          <div class="icon-wrapper"><i class="bi bi-collection-fill"></i></div>
-          <div class="kpi-label">Catalog Titles</div>
-          <div class="kpi-value">{{ "{:,}".format(global_kpis.total_titles or 0) }}</div>
-          <div class="kpi-subtext">Across all campuses</div>
-        </div>
+    <div class="card kpi-card-fancy vibrant-red shadow-sm" onclick="window.openKpiModal('overdue')">
+      <div class="card-body">
+        <div class="icon-wrapper"><i class="bi bi-exclamation-triangle-fill"></i></div>
+        <div class="kpi-label">Global Overdue</div>
+        <div class="kpi-value">{{ global_kpis.overdue or 0 }}</div>
+        <div class="kpi-subtext">Action Needed</div>
       </div>
     </div>
-
-    <!-- Global Overdue -->
-    <div>
-      <div class="card kpi-card-fancy vibrant-red shadow-sm h-100" onclick="window.openKpiModal('overdue')">
-        <div class="card-body">
-          <div class="icon-wrapper"><i class="bi bi-exclamation-triangle-fill"></i></div>
-          <div class="kpi-label">Global Overdue</div>
-          <div class="kpi-value">{{ global_kpis.overdue or 0 }}</div>
-          <div class="kpi-subtext">Requires follow-up</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Top Campus -->
-    <div>
-      <div class="card kpi-card-fancy vibrant-gold shadow-sm h-100">
-        <div class="card-body">
-          <div class="icon-wrapper"><i class="bi bi-trophy-fill"></i></div>
-          <div class="kpi-label">Top Campus</div>
-          <div class="kpi-value" style="font-size:1.6rem">{{ global_kpis.top_branch or '—' }}</div>
-          <div class="kpi-subtext">{{ "{:,}".format(global_kpis.top_branch_issues or 0) }} issues this AY</div>
-        </div>
+    <div class="card kpi-card-fancy vibrant-orange shadow-sm" onclick="window.openKpiModal('catalog')">
+      <div class="card-body">
+        <div class="icon-wrapper"><i class="bi bi-collection-fill"></i></div>
+        <div class="kpi-label">Catalog Titles</div>
+        <div class="kpi-value">{{ "{:,}".format(global_kpis.total_titles or 0) }}</div>
+        <div class="kpi-subtext">Central Inventory</div>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       SECTION 2: BORROWING TRENDS + LANGUAGE DISTRIBUTION
-  ══════════════════════════════════════════════════════ -->
+    <!-- GLOBAL NETWORK STATUS -->
+  <div class="col-12 mb-5">
+    <div class="alert alert-info border-0 shadow-sm rounded-4 p-4 d-flex align-items-center justify-content-between gap-4" style="background:var(--bg-body)">
+      <div class="d-flex align-items-center gap-4">
+        <div class="flex-shrink-0 bg-white shadow-sm p-3 rounded-circle" style="width:70px;height:70px;display:flex;align-items:center;justify-content:center">
+          <i class="bi bi-lightning-charge-fill text-warning fs-1"></i>
+        </div>
+        <div>
+          <h5 class="fw-900 mb-1" style="color:var(--text-main)">Global Network Status</h5>
+          <p class="mb-0 text-muted fw-bold" style="font-size:0.85rem">
+            Polling <strong>{{ branch_summaries|selectattr('status','equalto','online')|list|length }}</strong> active campus instances. Real-time synchronization healthy.
+          </p>
+        </div>
+      </div>
+      <div>
+        <span class="status-live fw-800" style="font-size:12px; padding: 6px 16px;">
+          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#10b981;margin-right:6px;vertical-align:middle;animation:godblink 1.5s infinite"></span>
+          SYSTEMS NOMINAL
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 2: GLOBAL BORROWING VELOCITY + CAMPUS RANKINGS -->
   <div class="row g-4 mb-5">
-    <div class="col-xl-6">
+    <div class="col-xl-8">
       <div class="chart-card shadow-sm h-100">
         <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-graph-up-arrow me-2" style="color:var(--primary-color)"></i> Borrowing Trends (8-Week)</div>
-          <span class="badge border text-muted p-2 px-3 rounded-pill fw-800" style="font-size:9px">CROSS-CAMPUS</span>
+          <div class="chart-title"><i class="bi bi-graph-up-arrow me-2" style="color:var(--primary-color)"></i> Global Borrowing Velocity (Full AY)</div>
+          <div class="d-flex gap-2">
+            <button onclick="openTrendModal()" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 fw-bold text-uppercase" style="font-size:10px; letter-spacing:0.5px;">Analyze Growth</button>
+          </div>
         </div>
-        <div style="height:320px">
+        <div style="height:350px" class="p-3">
           <canvas id="velocityTrendChart"></canvas>
         </div>
       </div>
     </div>
-    <div class="col-xl-6">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-translate me-2 text-purple"></i> Issues by Language ({{ primary_cfg.short_name }})</div>
-          <button class="view-data-btn" onclick="openChartTableModal('language')">View Table</button>
-        </div>
-        <div style="height:320px">
-          <canvas id="languageIssuesChart"></canvas>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════
-       SECTION 3: CAMPUS RANKINGS + BRANCH EXPLORER
-  ══════════════════════════════════════════════════════ -->
-  <div class="row g-4 mb-5">
-    <!-- Campus Rankings -->
-    <div class="col-xl-3">
+    <div class="col-xl-4">
       <div class="chart-card shadow-sm h-100">
         <div class="chart-header">
           <div class="chart-title"><i class="bi bi-stars me-2 text-warning"></i> Campus Rankings</div>
           <span class="text-muted small fw-bold">By AY Issues</span>
         </div>
-        <div>
+        <div class="p-3 d-flex flex-column justify-content-center h-100" style="padding-bottom: 30px !important;">
           {% set online_branches = branch_summaries | selectattr('status','equalto','online') | list %}
           {% set ranked = online_branches | sort(attribute='total_issues', reverse=True) %}
           {% for b in ranked[:5] %}
-          <div class="rank-item rank-{{ loop.index }}">
-            <div class="rank-number">
-              {% if loop.index == 1 %}🥇
-              {% elif loop.index == 2 %}🥈
-              {% elif loop.index == 3 %}🥉
-              {% else %}{{ loop.index }}{% endif %}
-            </div>
+          <div class="rank-item rank-{{ loop.index }} mb-3">
+            <div class="rank-number">{{ loop.index }}</div>
             <span class="fs-4">{{ b.flag }}</span>
             <div class="flex-grow-1">
-              <div class="fw-800 small">{{ b.short_name }}</div>
-              <div class="text-muted" style="font-size:11px; font-weight:700">{{ "{:,}".format(b.total_issues or 0) }} Issues</div>
+              <div class="fw-900" style="font-size:0.95rem">{{ b.short_name }}</div>
+              <div class="text-primary" style="font-size:12px; font-weight:800">{{ "{:,}".format(b.total_issues or 0) }} Issues</div>
             </div>
-            <div class="text-end">
-              <div style="font-size:10px; font-weight:800; color:var(--primary-color)">
-                {{ ((b.total_issues or 0) / (b.active_patrons or 1)) | round(1) }}x
-              </div>
-            </div>
+            {% if loop.first %}
+            <div class="ms-auto"><i class="bi bi-trophy-fill fa-lg text-warning" style="filter: drop-shadow(0 2px 4px rgba(245, 158, 11, 0.4));"></i></div>
+            {% endif %}
           </div>
           {% endfor %}
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- Branch Explorer (full cards, like Darajah Explorer) -->
-    <div class="col-xl-9">
+  <!-- SECTION 3 & 4: STAR PATRONS & TOP BOOKS -->
+  <div class="row g-4 mb-5">
+    <div class="col-xl-6">
       <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-compass-fill me-2" style="color:var(--primary-color)"></i> Branch Explorer</div>
-          <div class="d-flex gap-2">
-            <input type="text" id="branchSearch" class="form-control form-control-sm border-0 rounded-pill px-3"
-                   style="width:220px; background:var(--bg-body); font-size:0.83rem"
-                   placeholder="Search campus…" onkeyup="filterBranchCards()">
-            <a href="{{ url_for('super_admin_bp.compare_branches') }}"
-               class="btn btn-sm rounded-pill px-4 fw-800 shadow-sm"
-               style="background:var(--primary-color); color:white; font-size:0.8rem">
-              Compare Matrix
+    <div class="chart-header">
+      <div class="chart-title"><i class="bi bi-star-fill text-success me-2"></i> Global Star Patrons (Top Performers)
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <ul class="nav nav-pills" id="globalPatronTab">
+          <li class="nav-item"><button class="nav-link active py-1 px-3 rounded-pill" style="font-size:0.8rem"
+              data-bs-toggle="pill" data-bs-target="#global-male-patrons">Male</button></li>
+          <li class="nav-item"><button class="nav-link py-1 px-3 rounded-pill ms-2" style="font-size:0.8rem"
+              data-bs-toggle="pill" data-bs-target="#global-female-patrons">Female</button></li>
+        </ul>
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary btn-sm rounded-pill dropdown-toggle px-3" type="button"
+            data-bs-toggle="dropdown">
+            <i class="fas fa-file-pdf me-1"></i> Global Export
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0" style="border-radius:12px">
+            <li><a class="dropdown-item py-2"
+                href="{{ url_for('reports_bp.export_top_stars', sex='M', scope='global', limit=20) }}"><i
+                  class="fas fa-male me-2 text-primary"></i> Export Top Boys (Global)</a></li>
+            <li><a class="dropdown-item py-2"
+                href="{{ url_for('reports_bp.export_top_stars', sex='F', scope='global', limit=20) }}"><i
+                  class="fas fa-female me-2 text-danger"></i> Export Top Girls (Global)</a></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="tab-content">
+      <div class="tab-pane fade show active" id="global-male-patrons">
+        <div class="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-3 p-3">
+          {% for student in top_students_global_male %}
+          <div class="col">
+            <a href="/students/{{ student.cardnumber or student.borrowernumber }}" class="global-patron-card">
+              <div class="position-relative mb-2 mx-auto"
+                style="width:100px; height:130px; border-radius:12px; overflow:hidden">
+                <img src="/students/photo/{{ student.borrowernumber }}?branch={{ student.branch_code }}"
+                  onerror="this.onerror=null; this.src='https://api.dicebear.com/7.x/initials/svg?seed={{ student.StudentName | replace(' ','+') }}&backgroundColor=a45a26,d97706,b45309&backgroundType=gradientLinear'"
+                  style="width:100%; height:100%; object-fit:cover">
+                <span class="position-absolute top-0 end-0 badge rounded-circle"
+                  style="width:24px;height:24px;line-height:24px;margin:5px;background:var(--primary-color);color:white;font-size:10px;font-weight:900">{{
+                  loop.index }}</span>
+              </div>
+              <div class="fw-900 text-dark text-truncate small mb-0">{{ student.StudentName }}</div>
+              <div class="fw-bold mb-1" style="color:var(--primary-color); font-size:10px">{{ student.branch_name }}
+              </div>
+              <div class="fw-bold px-2 py-1 rounded-pill d-inline-block"
+                style="font-size:11px; color:#059669; background:#ecfdf5">🏆 {{ student.BooksIssued }} Issues</div>
             </a>
           </div>
-        </div>
-
-        <div class="branch-grid" id="branchCardGrid">
-          {% for b in branch_summaries | sort(attribute='total_issues', reverse=True) %}
-          <a href="{{ url_for('super_admin_bp.switch_branch', branch_code=b.branch_code) }}"
-             class="branch-card branch-card-item"
-             data-name="{{ (b.branch_name or b.short_name or '') | lower }} {{ b.branch_code | lower }}"
-             title="Click to enter {{ b.branch_name or b.short_name }} Admin Dashboard">
-            <div class="branch-card-header">
-              <div class="branch-flag-circle" style="background: {{ b.color }}22">
-                <span>{{ b.flag }}</span>
-              </div>
-              <div class="flex-grow-1">
-                <div class="fw-800" style="font-size:0.95rem; color:var(--text-main)">{{ b.branch_name or b.short_name or 'Unknown' }}</div>
-                <div class="text-muted fw-bold" style="font-size:0.75rem">{{ b.branch_code }}</div>
-                <div class="mt-1">
-                  {% if b.status == 'online' %}
-                    <span class="status-live"><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:#10b981;margin-right:4px;vertical-align:middle;animation:godblink 1.5s infinite"></span>LIVE</span>
-                  {% else %}
-                    <span class="status-offline">OFFLINE</span>
-                  {% endif %}
-                </div>
-              </div>
-              <div class="text-end">
-                <div class="fw-900 fs-4" style="color:{{ b.color }}">{{ "{:,}".format(b.total_issues or 0) }}</div>
-                <div style="font-size:10px; color:var(--text-muted); font-weight:700">ISSUES</div>
-              </div>
-            </div>
-            <div class="branch-card-body">
-              <div class="branch-stat-row">
-                <span class="branch-stat-label"><i class="bi bi-people me-1"></i>Active Patrons</span>
-                <span class="branch-stat-value">{{ "{:,}".format(b.active_patrons or 0) }}</span>
-              </div>
-              <div class="branch-stat-row">
-                <span class="branch-stat-label"><i class="bi bi-collection me-1"></i>Catalog Titles</span>
-                <span class="branch-stat-value">{{ "{:,}".format(b.total_titles or 0) }}</span>
-              </div>
-              <div class="branch-stat-row">
-                <span class="branch-stat-label"><i class="bi bi-exclamation-circle me-1"></i>Overdue</span>
-                <span class="branch-stat-value {% if (b.overdue or 0) > 0 %}text-danger{% endif %}">{{ b.overdue or 0 }}</span>
-              </div>
-              <div class="branch-stat-row">
-                <span class="branch-stat-label"><i class="bi bi-speedometer2 me-1"></i>Velocity</span>
-                <span class="branch-stat-value">
-                  {% set vel = ((b.total_issues or 0) / (b.active_patrons or 1)) | round(1) %}
-                  {% if vel >= 5 %}<span class="badge bg-success">{{ vel }}x Excellent</span>
-                  {% elif vel >= 2 %}<span class="badge text-white" style="background:var(--primary-color)">{{ vel }}x Good</span>
-                  {% else %}<span class="badge bg-light text-muted">{{ vel }}x Normal</span>
-                  {% endif %}
-                </span>
-              </div>
-            </div>
-            <div class="branch-card-footer">
-              <span style="font-size:0.78rem; color:var(--text-muted); font-weight:700">
-                <i class="bi bi-arrow-right-circle-fill me-1" style="color:var(--primary-color)"></i>
-                Click to Enter Dashboard
-              </span>
-              <span style="font-size:0.75rem; color:var(--text-muted)">{{ b.country or '' }}</span>
-            </div>
-          </a>
           {% endfor %}
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════════════════
-       SECTION 4: DARAJAH DISTRIBUTION + KEY INSIGHTS
-  ══════════════════════════════════════════════════════ -->
-  <div class="row g-4 mb-5">
-    <div class="col-xl-7">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-bar-chart-fill me-2 text-info"></i> Darajah Distribution — {{ primary_cfg.short_name }}</div>
-          <button class="view-data-btn" onclick="openChartTableModal('darajah')">View Table</button>
-        </div>
-        <div style="height:400px">
-          <canvas id="darajahDistributionChart"></canvas>
-        </div>
-      </div>
-    </div>
-    <div class="col-xl-5">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-lightbulb-fill text-warning me-2"></i> Intelligence & Insights</div>
-        </div>
-        <div>
-          {% if insights %}
-            {% for insight in insights %}
-            <div class="insight-pill">
-              <div class="d-flex align-items-center gap-3">
-                <div class="rounded-circle p-2" style="background:var(--primary-soft)">
-                  <i class="bi bi-lightning-fill" style="color:var(--primary-color)"></i>
-                </div>
-                <span class="fw-bold" style="font-size:0.88rem">{{ insight }}</span>
+      <div class="tab-pane fade" id="global-female-patrons">
+        <div class="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-3 p-3">
+          {% for student in top_students_global_female %}
+          <div class="col">
+            <a href="/students/{{ student.cardnumber or student.borrowernumber }}" class="global-patron-card">
+              <div class="position-relative mb-2 mx-auto"
+                style="width:100px; height:130px; border-radius:12px; overflow:hidden">
+                <img src="/students/photo/{{ student.borrowernumber }}?branch={{ student.branch_code }}"
+                  onerror="this.onerror=null; this.src='https://api.dicebear.com/7.x/initials/svg?seed={{ student.StudentName | replace(' ','+') }}&backgroundColor=8b5cf6,ec4899,7c3aed&backgroundType=gradientLinear'"
+                  style="width:100%; height:100%; object-fit:cover">
+                <span class="position-absolute top-0 end-0 badge rounded-circle"
+                  style="width:24px;height:24px;line-height:24px;margin:5px;background:#ec4899;color:white;font-size:10px;font-weight:900">{{
+                  loop.index }}</span>
               </div>
-            </div>
-            {% endfor %}
-          {% else %}
-            <div class="text-center py-4 text-muted">
-              <i class="bi bi-hourglass-split fs-3 mb-2 d-block opacity-25"></i>
-              Generating global insights…
-            </div>
-          {% endif %}
-
-          <div class="mt-3 p-3 rounded-4" style="background:var(--primary-soft); border:1px solid var(--border-soft)">
-            <h6 class="fw-bold mb-2" style="color:var(--primary-color)"><i class="bi bi-info-circle me-2"></i>Global View</h6>
-            <p class="small text-muted mb-0">
-              Showing analytics for <strong>{{ primary_cfg.short_name }}</strong>.
-              Use the Branch Explorer above to drill into any campus's full dashboard.
-            </p>
+              <div class="fw-900 text-dark text-truncate small mb-0">{{ student.StudentName }}</div>
+              <div class="fw-bold mb-1" style="color:var(--primary-color); font-size:10px">{{ student.branch_name }}
+              </div>
+              <div class="fw-bold px-2 py-1 rounded-pill d-inline-block"
+                style="font-size:11px; color:#059669; background:#ecfdf5">🏆 {{ student.BooksIssued }} Issues</div>
+            </a>
           </div>
-        </div>
-      </div>
-    </div>
-  </div>
+          {% endfor %}
+        </div> <!-- End row inside tab-pane -->
+      </div> <!-- End global-female-patrons tab-pane -->
+    </div> <!-- End tab-content -->
+  </div> <!-- End chart-card h-100 -->
+</div> <!-- End col-xl-6 -->
 
-  <!-- ══════════════════════════════════════════════════════
-       SECTION 5: MARHALA DISTRIBUTION + GLOBAL STAR PATRONS
-  ══════════════════════════════════════════════════════ -->
-  <div class="row g-4 mb-5">
-    <div class="col-xl-4">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-layers-fill text-warning me-2"></i> Marhala Distribution</div>
-          <button class="view-data-btn" onclick="openChartTableModal('marhala')">View Table</button>
-        </div>
-        <div style="height:380px">
-          <canvas id="marhalaDistributionChart"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <!-- Global Star Patrons -->
-    <div class="col-xl-8">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-star-fill text-success me-2"></i> Global Star Patrons (Top Performers)</div>
-          <ul class="nav nav-pills" id="globalPatronTab">
-            <li class="nav-item"><button class="nav-link active py-1 px-3 rounded-pill" style="font-size:0.8rem" data-bs-toggle="pill" data-bs-target="#global-male-patrons">Male</button></li>
-            <li class="nav-item"><button class="nav-link py-1 px-3 rounded-pill ms-2" style="font-size:0.8rem" data-bs-toggle="pill" data-bs-target="#global-female-patrons">Female</button></li>
+<div class="col-xl-6">
+  <div class="chart-card shadow-sm h-100">
+    <div class="chart-header">
+          <div class="chart-title"><i class="bi bi-book-fill me-2" style="color:var(--primary-color)"></i> Global Top 10
+            Books</div>
+          <ul class="nav nav-pills" id="topBooksTab">
+            <li class="nav-item"><button class="nav-link active py-1 px-3 rounded-pill" style="font-size:0.8rem" data-bs-toggle="pill" data-bs-target="#all-top-books">All</button></li>
+            <li class="nav-item"><button class="nav-link py-1 px-3 rounded-pill ms-2" style="font-size:0.8rem" data-bs-toggle="pill" data-bs-target="#arabic-top-books">Arabic</button></li>
+            <li class="nav-item"><button class="nav-link py-1 px-3 rounded-pill ms-2" style="font-size:0.8rem" data-bs-toggle="pill" data-bs-target="#english-top-books">English</button></li>
+            <li class="nav-item"><button class="nav-link py-1 px-3 rounded-pill ms-2" style="font-size:0.8rem" data-bs-toggle="pill" data-bs-target="#urdu-top-books">Urdu</button></li>
+            <li class="nav-item"><button class="nav-link py-1 px-3 rounded-pill ms-2" style="font-size:0.8rem" data-bs-toggle="pill" data-bs-target="#lisan-top-books">Lisan</button></li>
           </ul>
         </div>
         <div class="tab-content">
-          <!-- Male Patrons -->
-          <div class="tab-pane fade show active" id="global-male-patrons">
-            <div class="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-5 p-2">
-              {% for student in top_students_global_male %}
+          <!-- All Top Books -->
+          <div class="tab-pane fade show active p-3" id="all-top-books">
+            <div class="row row-cols-1 row-cols-md-2 g-3">
+              {% for book in top_books_all[:10] %}
               <div class="col">
-                <a href="/students/{{ student.cardnumber or student.borrowernumber }}" class="global-patron-card h-100">
-                  <div class="text-muted mb-1 fw-bold" style="font-size:10px">{{ student.cardnumber or student.borrowernumber }}</div>
-                  <div class="position-relative mb-2 mx-auto" style="width:80px;height:100px">
-                    <img src="/students/{{ student.borrowernumber }}/photo"
-                         onerror="this.onerror=null; this.src='https://api.dicebear.com/7.x/initials/svg?seed={{ student.StudentName | replace(' ','+') }}&backgroundColor=a45a26,d97706,b45309&backgroundType=gradientLinear'"
-                         alt="{{ student.StudentName }}"
-                         class="global-patron-photo">
-                    <span class="position-absolute top-0 end-0 badge rounded-circle"
-                          style="width:20px;height:20px;padding:0;font-size:9px;line-height:20px;margin:-5px -5px 0 0;border:2px solid #fff;background:var(--primary-color)">{{ loop.index }}</span>
+                <div class="book-item" style="cursor:pointer;" 
+                     data-book-title="{{ book.title | escape }}" 
+                     data-book-author="{{ book.author | escape }}" 
+                     data-book-cover="{{ book.CoverURL or '/static/images/book-placeholder.png' }}" 
+                     data-book-issues="{{ book.issue_count }} issues" 
+                     data-book-synopsis="{{ (book.synopsis or '') | truncate(300) | escape }}" 
+                     data-book-opac="{{ book.OPAC_URL or '#' }}"
+                     onclick="window.showBookDetailModalFromData(this)">
+                  <div style="width:55px;height:75px;border-radius:6px;flex-shrink:0;overflow:hidden;background:#f1ebe0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                    <img src="{{ book.CoverURL or '/static/images/book-placeholder.png' }}"
+                      style="width:100%;height:100%;object-fit:cover"
+                      onerror="this.onerror=null; if(this.src.indexOf('amazon')>-1){this.src='/static/images/book-placeholder.png'}else{this.src='/static/images/book-placeholder.png'}">
                   </div>
-                  <div class="fw-bold text-dark text-truncate small mb-0" title="{{ student.StudentName }}">{{ student.StudentName }}</div>
-                  <div class="small fw-bold mb-1" style="color:var(--primary-color)">{{ student.Class or '—' }}</div>
-                  <div class="fw-bold" style="font-size:11px; color:#059669">🏆 {{ student.BooksIssued }} Issues</div>
-                  {% if student.branch_flag %}
-                  <div class="mt-1" style="font-size:10px; color:var(--text-muted)">{{ student.branch_flag }} {{ student.branch_name }}</div>
-                  {% endif %}
-                </a>
+                  <div class="flex-grow-1 min-w-0">
+                    <div class="fw-800 text-truncate mb-1" style="font-size:0.82rem;color:var(--text-main)" title="{{ book.title }}">{{ book.title }}</div>
+                    <div class="text-muted text-truncate mb-1" style="font-size:0.7rem">{{ book.author }}</div>
+                    {% if book.synopsis %}
+                    <div class="text-muted mb-1" style="font-size:0.68rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ book.synopsis }}</div>
+                    {% endif %}
+                    <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                      <span class="badge bg-primary px-2" style="font-size:9px">{{ book.issue_count }} ISSUES</span>
+                      {% if book.branches %}
+                      {% for br in book.branches[:3] %}
+                      <span class="badge border text-dark" style="font-size:8px;background:var(--bg-body)">{{ br.flag }} {{ br.name }}</span>
+                      {% endfor %}
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
               </div>
               {% endfor %}
-              {% if not top_students_global_male %}
-              <div class="col-12 text-center py-5 text-muted">
-                <i class="bi bi-person-x fs-3 mb-2 d-block opacity-25"></i>
-                <p class="small">No male star patron data available.</p>
-              </div>
+              {% if not top_books_all %}
+              <div class="col-12 text-center text-muted py-4"><i class="bi bi-book fa-2x opacity-25 mb-2"></i><p>No global book data available.</p></div>
               {% endif %}
             </div>
           </div>
-
-          <!-- Female Patrons -->
-          <div class="tab-pane fade" id="global-female-patrons">
-            <div class="row g-2 row-cols-2 row-cols-md-3 row-cols-lg-5 p-2">
-              {% for student in top_students_global_female %}
+          <!-- Arabic Top Books -->
+          <div class="tab-pane fade p-3" id="arabic-top-books">
+            <div class="row row-cols-1 row-cols-md-2 g-3">
+               {% for book in top_books_arabic[:10] %}
               <div class="col">
-                <a href="/students/{{ student.cardnumber or student.borrowernumber }}" class="global-patron-card h-100">
-                  <div class="text-muted mb-1 fw-bold" style="font-size:10px">{{ student.cardnumber or student.borrowernumber }}</div>
-                  <div class="position-relative mb-2 mx-auto" style="width:80px;height:100px">
-                    <img src="/students/{{ student.borrowernumber }}/photo"
-                         onerror="this.onerror=null; this.src='https://api.dicebear.com/7.x/initials/svg?seed={{ student.StudentName | replace(' ','+') }}&backgroundColor=8b5cf6,ec4899,7c3aed&backgroundType=gradientLinear'"
-                         alt="{{ student.StudentName }}"
-                         class="global-patron-photo">
-                    <span class="position-absolute top-0 end-0 badge rounded-circle"
-                          style="width:20px;height:20px;padding:0;font-size:9px;line-height:20px;margin:-5px -5px 0 0;border:2px solid #fff;background:#ec4899">{{ loop.index }}</span>
+                <div class="book-item" style="cursor:pointer;"
+                     data-book-title="{{ book.title | escape }}" 
+                     data-book-author="{{ book.author | escape }}" 
+                     data-book-cover="{{ book.CoverURL or '/static/images/book-placeholder.png' }}" 
+                     data-book-issues="{{ book.issues }} issues" 
+                     data-book-synopsis="{{ (book.synopsis or '') | truncate(300) | escape }}" 
+                     data-book-opac="{{ book.OPAC_URL or '#' }}"
+                     onclick="window.showBookDetailModalFromData(this)">
+                  <div style="width:55px;height:75px;border-radius:6px;flex-shrink:0;overflow:hidden;background:#f1ebe0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                    <img src="{{ book.CoverURL or '/static/images/book-placeholder.png' }}"
+                      style="width:100%;height:100%;object-fit:cover"
+                      onerror="this.onerror=null;this.src='/static/images/book-placeholder.png'">
                   </div>
-                  <div class="fw-bold text-dark text-truncate small mb-0" title="{{ student.StudentName }}">{{ student.StudentName }}</div>
-                  <div class="small fw-bold mb-1" style="color:var(--primary-color)">{{ student.Class or '—' }}</div>
-                  <div class="fw-bold" style="font-size:11px; color:#059669">🏆 {{ student.BooksIssued }} Issues</div>
-                  {% if student.branch_flag %}
-                  <div class="mt-1" style="font-size:10px; color:var(--text-muted)">{{ student.branch_flag }} {{ student.branch_name }}</div>
-                  {% endif %}
-                </a>
+                  <div class="flex-grow-1 min-w-0">
+                    <div class="fw-800 text-truncate mb-1" style="font-size:0.82rem;color:var(--text-main)" title="{{ book.title }}">{{ book.title }}</div>
+                    <div class="text-muted text-truncate mb-1" style="font-size:0.7rem">{{ book.author }}</div>
+                    {% if book.synopsis %}
+                    <div class="text-muted mb-1" style="font-size:0.68rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ book.synopsis }}</div>
+                    {% endif %}
+                    <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                      <span class="badge bg-warning text-dark px-2" style="font-size:9px">🌙 ARABIC</span>
+                      <span class="badge bg-primary px-2" style="font-size:9px">{{ book.issues }} ISSUES</span>
+                      {% if book.branch_flag %}<span class="badge border text-dark" style="font-size:8px;background:var(--bg-body)">{{ book.branch_flag }} {{ book.branch_name }}</span>{% endif %}
+                    </div>
+                  </div>
+                </div>
               </div>
               {% endfor %}
-              {% if not top_students_global_female %}
-              <div class="col-12 text-center py-5 text-muted">
-                <i class="bi bi-person-x fs-3 mb-2 d-block opacity-25"></i>
-                <p class="small">No female star patron data available.</p>
+              {% if not top_books_arabic %}
+              <div class="col-12 text-center text-muted py-4"><p>No Arabic book data.</p></div>
+              {% endif %}
+            </div>
+          </div>
+          <!-- English Top Books -->
+          <div class="tab-pane fade p-3" id="english-top-books">
+            <div class="row row-cols-1 row-cols-md-2 g-3">
+               {% for book in top_books_english[:10] %}
+              <div class="col">
+                <div class="book-item" style="cursor:pointer;"
+                     data-book-title="{{ book.title | escape }}" 
+                     data-book-author="{{ book.author | escape }}" 
+                     data-book-cover="{{ book.CoverURL or '/static/images/book-placeholder.png' }}" 
+                     data-book-issues="{{ book.issues }} issues" 
+                     data-book-synopsis="{{ (book.synopsis or '') | truncate(300) | escape }}" 
+                     data-book-opac="{{ book.OPAC_URL or '#' }}"
+                     onclick="window.showBookDetailModalFromData(this)">
+                  <div style="width:55px;height:75px;border-radius:6px;flex-shrink:0;overflow:hidden;background:#f1ebe0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                    <img src="{{ book.CoverURL or '/static/images/book-placeholder.png' }}"
+                      style="width:100%;height:100%;object-fit:cover"
+                      onerror="this.onerror=null;this.src='/static/images/book-placeholder.png'">
+                  </div>
+                  <div class="flex-grow-1 min-w-0">
+                    <div class="fw-800 text-truncate mb-1" style="font-size:0.82rem;color:var(--text-main)" title="{{ book.title }}">{{ book.title }}</div>
+                    <div class="text-muted text-truncate mb-1" style="font-size:0.7rem">{{ book.author }}</div>
+                    {% if book.synopsis %}
+                    <div class="text-muted mb-1" style="font-size:0.68rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ book.synopsis }}</div>
+                    {% endif %}
+                    <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                      <span class="badge bg-info text-dark px-2" style="font-size:9px">🇬🇧 ENGLISH</span>
+                      <span class="badge bg-primary px-2" style="font-size:9px">{{ book.issues }} ISSUES</span>
+                      {% if book.branch_flag %}<span class="badge border text-dark" style="font-size:8px;background:var(--bg-body)">{{ book.branch_flag }} {{ book.branch_name }}</span>{% endif %}
+                    </div>
+                  </div>
+                </div>
               </div>
+              {% endfor %}
+              {% if not top_books_english %}
+              <div class="col-12 text-center text-muted py-4"><p>No English book data.</p></div>
+              {% endif %}
+            </div>
+          </div>
+          <!-- Urdu Top Books -->
+          <div class="tab-pane fade p-3" id="urdu-top-books">
+            <div class="row row-cols-1 row-cols-md-2 g-3">
+               {% for book in top_books_urdu[:10] %}
+              <div class="col">
+                <div class="book-item" style="cursor:pointer;"
+                     data-book-title="{{ book.title | escape }}" 
+                     data-book-author="{{ book.author | escape }}" 
+                     data-book-cover="{{ book.CoverURL or '/static/images/book-placeholder.png' }}" 
+                     data-book-issues="{{ book.issues }} issues" 
+                     data-book-synopsis="{{ (book.synopsis or '') | truncate(300) | escape }}" 
+                     data-book-opac="{{ book.OPAC_URL or '#' }}"
+                     onclick="window.showBookDetailModalFromData(this)">
+                  <div style="width:55px;height:75px;border-radius:6px;flex-shrink:0;overflow:hidden;background:#f1ebe0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                    <img src="{{ book.CoverURL or '/static/images/book-placeholder.png' }}"
+                      style="width:100%;height:100%;object-fit:cover"
+                      onerror="this.onerror=null;this.src='/static/images/book-placeholder.png'">
+                  </div>
+                  <div class="flex-grow-1 min-w-0">
+                    <div class="fw-800 text-truncate mb-1" style="font-size:0.82rem;color:var(--text-main)" title="{{ book.title }}">{{ book.title }}</div>
+                    <div class="text-muted text-truncate mb-1" style="font-size:0.7rem">{{ book.author }}</div>
+                    {% if book.synopsis %}
+                    <div class="text-muted mb-1" style="font-size:0.68rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ book.synopsis }}</div>
+                    {% endif %}
+                    <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                      <span class="badge bg-success text-white px-2" style="font-size:9px">🇵🇰 URDU</span>
+                      <span class="badge bg-primary px-2" style="font-size:9px">{{ book.issues }} ISSUES</span>
+                      {% if book.branch_flag %}<span class="badge border text-dark" style="font-size:8px;background:var(--bg-body)">{{ book.branch_flag }} {{ book.branch_name }}</span>{% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+              {% if not top_books_urdu %}
+              <div class="col-12 text-center text-muted py-4"><p>No Urdu book data.</p></div>
+              {% endif %}
+            </div>
+          </div>
+          <!-- Lisan Top Books -->
+          <div class="tab-pane fade p-3" id="lisan-top-books">
+            <div class="row row-cols-1 row-cols-md-2 g-3">
+               {% for book in top_books_lisan[:10] %}
+              <div class="col">
+                <div class="book-item" style="cursor:pointer;"
+                     data-book-title="{{ book.title | escape }}" 
+                     data-book-author="{{ book.author | escape }}" 
+                     data-book-cover="{{ book.CoverURL or '/static/images/book-placeholder.png' }}" 
+                     data-book-issues="{{ book.issues }} issues" 
+                     data-book-synopsis="{{ (book.synopsis or '') | truncate(300) | escape }}" 
+                     data-book-opac="{{ book.OPAC_URL or '#' }}"
+                     onclick="window.showBookDetailModalFromData(this)">
+                  <div style="width:55px;height:75px;border-radius:6px;flex-shrink:0;overflow:hidden;background:#f1ebe0;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                    <img src="{{ book.CoverURL or '/static/images/book-placeholder.png' }}"
+                      style="width:100%;height:100%;object-fit:cover"
+                      onerror="this.onerror=null;this.src='/static/images/book-placeholder.png'">
+                  </div>
+                  <div class="flex-grow-1 min-w-0">
+                    <div class="fw-800 text-truncate mb-1" style="font-size:0.82rem;color:var(--text-main)" title="{{ book.title }}">{{ book.title }}</div>
+                    <div class="text-muted text-truncate mb-1" style="font-size:0.7rem">{{ book.author }}</div>
+                    {% if book.synopsis %}
+                    <div class="text-muted mb-1" style="font-size:0.68rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ book.synopsis }}</div>
+                    {% endif %}
+                    <div class="d-flex align-items-center gap-1 flex-wrap mt-1">
+                      <span class="badge bg-purple text-white px-2" style="font-size:9px" style="background-color:#8b5cf6">🌺 LISAN</span>
+                      <span class="badge bg-primary px-2" style="font-size:9px">{{ book.issues }} ISSUES</span>
+                      {% if book.branch_flag %}<span class="badge border text-dark" style="font-size:8px;background:var(--bg-body)">{{ book.branch_flag }} {{ book.branch_name }}</span>{% endif %}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+              {% if not top_books_lisan %}
+              <div class="col-12 text-center text-muted py-4"><p>No Lisan book data.</p></div>
               {% endif %}
             </div>
           </div>
@@ -700,253 +721,177 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       SECTION 6: CLASS-WISE PERFORMANCE + TOP BOOKS
-  ══════════════════════════════════════════════════════ -->
+  <!-- SECTION 5: MARHALA & SUBJECT INTELLIGENCE -->
   <div class="row g-4 mb-5">
-    <!-- Class-wise Table (Darajah Explorer) -->
-    <div class="col-xl-8">
+    <div class="col-xl-6">
       <div class="chart-card shadow-sm h-100">
         <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-table text-info me-2"></i> Class-wise Performance — {{ primary_cfg.short_name }}</div>
-          <div class="d-flex gap-2">
-            <input type="text" id="darajahSearch" class="form-control form-control-sm rounded-pill"
-                   style="font-size:0.82rem; max-width:180px" placeholder="Filter class…" onkeyup="filterDarajahs()">
-          </div>
+          <div class="chart-title"><i class="bi bi-building me-2 text-info"></i> Global Marhala Distribution</div>
+          <button onclick="window.openMarhalaMatrix()" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-bold text-uppercase" style="font-size:10px; letter-spacing:0.5px;">Detailed Breakdown</button>
         </div>
-        <div class="darajah-table-container">
-          <table class="table table-hover align-middle mb-0">
-            <thead class="sticky-top" style="background:#f9f7f4">
-              <tr class="small text-uppercase">
-                <th style="color:var(--text-muted);font-size:0.72rem;font-weight:800;padding:0.85rem 1rem">Class</th>
-                <th style="color:var(--text-muted);font-size:0.72rem;font-weight:800;padding:0.85rem 1rem">Marhala</th>
-                <th class="text-center" style="color:var(--text-muted);font-size:0.72rem;font-weight:800;padding:0.85rem 1rem">Issues</th>
-                <th class="text-center" style="color:var(--text-muted);font-size:0.72rem;font-weight:800;padding:0.85rem 1rem">Avg</th>
-                <th class="text-center" style="color:var(--text-muted);font-size:0.72rem;font-weight:800;padding:0.85rem 1rem">Status</th>
-              </tr>
-            </thead>
-            <tbody id="darajahsTableBody">
-              {% for row in class_perf %}
-              <tr class="darajah-row" data-name="{{ row.Darajah | lower if row.Darajah else '' }}" data-marhala="{{ row.Marhala | lower if row.Marhala else '' }}">
-                <td class="ps-3 fw-bold" style="color:var(--text-dark)">{{ row.Darajah }}</td>
-                <td><span class="badge bg-light text-muted border" style="font-size:11px">{{ row.Marhala }}</span></td>
-                <td class="text-center fw-bold" style="color:var(--primary-color)">{{ row.TotalIssues or row.Issues or 0 }}</td>
-                <td class="text-center fw-bold">{{ "%.1f" | format(row.AvgIssuesPerStudent or 0) }}</td>
-                <td class="text-center">
-                  {% set val = row.AvgIssuesPerStudent or 0 %}
-                  <div class="progress" style="height:6px;width:60px;margin:0 auto">
-                    <div class="progress-bar bg-{{ 'success' if val > 5 else ('primary' if val > 3 else 'warning') }}"
-                         style="width:{{ [val * 10, 100] | min }}%"></div>
-                  </div>
-                </td>
-              </tr>
-              {% else %}
-              <tr>
-                <td colspan="5" class="text-center py-5 text-muted">
-                  <i class="bi bi-database-x fs-3 d-block mb-2 opacity-25"></i>
-                  No class data available for this campus.
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="card-body p-4 w-100 d-flex flex-column justify-content-center">
+          <div style="height:420px; position: relative; width: 100%;">
+            <canvas id="marhalaChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
-
-    <!-- Global Top 10 Books -->
-    <div class="col-xl-4">
+    <div class="col-xl-6">
       <div class="chart-card shadow-sm h-100">
         <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-book-fill me-2" style="color:var(--primary-color)"></i> Global Top 10 Books</div>
+          <div class="chart-title"><i class="bi bi-tags-fill me-2" style="color:var(--primary-color)"></i> Global Subject Intelligence</div>
+          <button onclick="openSubjectDetailedModal()" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 fw-bold text-uppercase" style="font-size:10px; letter-spacing:0.5px;">Detailed Cloud</button>
         </div>
-        <div style="max-height:520px; overflow-y:auto; scrollbar-width:thin">
-          {% for book in top_books_all %}
-          <div class="book-item">
-            <div style="width:42px;height:58px;border-radius:6px;flex-shrink:0;overflow:hidden;background:#f1ebe0">
-              <img src="{{ book.CoverURL or '/static/images/book-placeholder.png' }}"
-                   alt="Cover"
-                   style="width:100%;height:100%;object-fit:cover"
-                   onerror="this.src='/static/images/book-placeholder.png'">
-            </div>
-            <div class="flex-grow-1 min-w-0">
-              <div class="fw-800 text-truncate" style="font-size:0.82rem; color:var(--text-main)">{{ book.title }}</div>
-              <div class="text-muted text-truncate" style="font-size:0.7rem">{{ book.author }}</div>
-              <div class="mt-1 d-flex gap-1 flex-wrap">
-                <span class="badge border text-muted p-1 px-2" style="font-size:8px;font-weight:800">{{ book.branch_flag }} {{ book.branch_name }}</span>
-                <span class="badge p-1 px-2 text-white" style="font-size:8px;font-weight:800;background:var(--primary-color)">{{ book.issue_count }} ISSUES</span>
-              </div>
-            </div>
-          </div>
-          {% else %}
-          <div class="text-center py-5 text-muted">
-            <i class="bi bi-book fs-3 d-block mb-2 opacity-25"></i>
-            <p class="small">No book data available.</p>
-          </div>
-          {% endfor %}
+        <div class="card-body p-4 w-100 h-100 d-flex flex-column justify-content-center" style="position:relative; min-height: 420px;">
+          <canvas id="subjectCloudCanvas" style="width:100%;height:420px;"></canvas>
+          <div id="subjectCloudEmpty" class="d-none text-center text-muted" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);">No subject data found.</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ══════════════════════════════════════════════════════
-       SECTION 7: LANGUAGE-WISE REPORT + FICTION/NON-FICTION
-  ══════════════════════════════════════════════════════ -->
+  <!-- SECTION 6: LANGUAGE DISTRIBUTION & FICTION VS NON-FICTION -->
   <div class="row g-4 mb-5">
-    <!-- Language Report Table -->
-    <div class="col-xl-7">
+    <div class="col-xl-6">
       <div class="chart-card shadow-sm h-100">
         <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-translate me-2 text-purple"></i> Language-wise Report — {{ primary_cfg.short_name }}</div>
+          <div class="chart-title"><i class="bi bi-globe me-2 text-primary"></i> Global Issues by Language</div>
+          <button onclick="window.openLanguageMatrix()" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 fw-bold text-uppercase" style="font-size:10px; letter-spacing:0.5px;">View Matrix</button>
         </div>
-        <div>
-          {% if lang_stats %}
-            {% set max_val = lang_stats | map(attribute='issue_count') | max | default(1) %}
-            {% for lang in lang_stats %}
-            <div class="mb-3">
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="fw-700" style="font-size:0.88rem">{{ lang.language or 'Unknown' }}</span>
-                <span class="badge text-white rounded-pill px-2" style="background:var(--primary-color); font-size:11px; font-weight:800">{{ "{:,}".format(lang.issue_count or 0) }}</span>
-              </div>
-              <div class="lang-progress">
-                <div class="lang-bar" style="width:{{ ((lang.issue_count or 0) / max_val * 100) | round(1) }}%"></div>
-              </div>
-            </div>
-            {% endfor %}
+        <div class="card-body position-relative pb-4" style="min-height:300px">
+          {% if not lang_stats %}
+            <div class="text-center py-5 text-muted"><p>No language data available.</p></div>
           {% else %}
-            <div class="text-center py-5 text-muted">
-              <i class="bi bi-translate fs-3 d-block mb-2 opacity-25"></i>
-              <p class="small">No language data available.</p>
+          <div class="row align-items-center h-100">
+            <div class="col-md-6 mb-4 mb-md-0" style="height:250px">
+              <canvas id="languageIssuesChart"></canvas>
             </div>
+            <div class="col-md-6">
+              <div id="langLegendContainer" class="mt-2"></div>
+            </div>
+          </div>
           {% endif %}
         </div>
       </div>
     </div>
-
-    <!-- Fiction vs Non-Fiction -->
-    <div class="col-xl-5">
+    
+    <div class="col-xl-6">
       <div class="chart-card shadow-sm h-100">
         <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-bookmark-fill me-2" style="color:var(--primary-color)"></i> Fiction & Non-Fiction — This Jamea</div>
+          <div class="chart-title"><i class="bi bi-pie-chart-fill me-2 text-orange"></i> Fiction vs Non-Fiction</div>
+          <button onclick="window.openFictionModal()" class="btn btn-sm btn-outline-warning text-dark rounded-pill px-3 py-1 fw-bold text-uppercase" style="font-size:10px; letter-spacing:0.5px; border-color: #f59e0b !important;">View Breakdown</button>
         </div>
-        <div>
-          {% set fiction_ct    = fiction_stats.fiction or 0 %}
-          {% set nonfiction_ct = fiction_stats.nonfiction or 0 %}
-          {% set total_fn = fiction_ct + nonfiction_ct %}
-          {% if total_fn > 0 %}
-            {% set fiction_pct    = ((fiction_ct / total_fn) * 100) | round(1) %}
-            {% set nonfiction_pct = ((nonfiction_ct / total_fn) * 100) | round(1) %}
-
-            <div class="text-center mb-4">
-              <canvas id="fictionChart" style="max-height:220px"></canvas>
-            </div>
-
-            <div class="mb-3">
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="fw-700" style="font-size:0.9rem"><span class="me-2" style="color:var(--primary-color)">●</span>Fiction</span>
-                <div>
-                  <span class="fw-800 me-2" style="color:var(--primary-color)">{{ "{:,}".format(fiction_ct) }}</span>
-                  <span class="text-muted" style="font-size:0.8rem">({{ fiction_pct }}%)</span>
-                </div>
-              </div>
-              <div class="lang-progress">
-                <div class="fiction-bar" style="width:{{ fiction_pct }}%"></div>
-              </div>
-            </div>
-            <div class="mb-3">
-              <div class="d-flex justify-content-between align-items-center mb-1">
-                <span class="fw-700" style="font-size:0.9rem"><span class="me-2" style="color:#6366f1">●</span>Non-Fiction</span>
-                <div>
-                  <span class="fw-800 me-2" style="color:#6366f1">{{ "{:,}".format(nonfiction_ct) }}</span>
-                  <span class="text-muted" style="font-size:0.8rem">({{ nonfiction_pct }}%)</span>
-                </div>
-              </div>
-              <div class="lang-progress">
-                <div class="fiction-bar nonfiction" style="width:{{ nonfiction_pct }}%"></div>
-              </div>
-            </div>
-
-            <div class="mt-4 p-3 rounded-4" style="background:var(--primary-soft)">
-              <div class="fw-800 small mb-1" style="color:var(--primary-color)">Total Circulation</div>
-              <div class="fw-900 fs-3" style="color:var(--primary-color)">{{ "{:,}".format(total_fn) }}</div>
-              <div class="text-muted small">Books borrowed this AY</div>
-            </div>
-          {% else %}
-            <div class="text-center py-5 text-muted">
-              <i class="bi bi-book-half fs-3 d-block mb-2 opacity-25"></i>
-              <p class="small">No fiction/non-fiction data available.</p>
-            </div>
-          {% endif %}
+        <div class="card-body p-4">
+          <div style="height:300px">
+            <canvas id="fictionChart"></canvas>
+          </div>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- ══════════════════════════════════════════════════════
-       SUBJECT CLOUD + BRANCH STOCK TABLE
-  ══════════════════════════════════════════════════════ -->
+  
   <div class="row g-4 mb-5">
-    <div class="col-xl-7">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-tags-fill me-2" style="color:var(--primary-color)"></i> Subject Intelligence ({{ primary_cfg.short_name }})</div>
-        </div>
-        <div class="d-flex flex-wrap justify-content-center align-items-center p-3" style="min-height:260px">
-          {% if subject_cloud %}
-            {% set max_count = subject_cloud[0].issue_count if subject_cloud else 1 %}
-            {% for item in subject_cloud %}
-              <span class="subject-tag"
-                    style="font-size:{{ ((item.issue_count / max_count) * 1.4 + 0.75) | round(2) }}rem;
-                           opacity:{{ ((item.issue_count / max_count) * 0.7 + 0.3) | round(2) }}">
-                {{ item.upper_subject }}
-              </span>
-            {% endfor %}
-          {% else %}
-            <div class="text-center text-muted py-4">
-              <i class="bi bi-tags fs-3 d-block mb-2 opacity-25"></i>
-              <p class="small">No subject data available.</p>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-
-    <!-- Branch-wise Stock Count -->
-    <div class="col-xl-5">
-      <div class="chart-card shadow-sm h-100">
-        <div class="chart-header">
-          <div class="chart-title"><i class="bi bi-boxes me-2 text-success"></i> Branch-wise Stock</div>
-          <span class="badge border text-muted p-2 rounded-pill fw-800" style="font-size:9px">CATALOG TITLES</span>
-        </div>
-        <div>
-          {% for b in branch_summaries | sort(attribute='total_titles', reverse=True) %}
-          {% if b.status == 'online' %}
-          <div class="d-flex align-items-center justify-content-between p-3 rounded-4 mb-2"
-               style="background:var(--bg-body); border:1px solid var(--border-soft)">
+      <div class="col-12">
+        <div class="chart-card shadow-sm">
+          <div class="chart-header border-bottom px-4">
+            <div class="chart-title fw-bold"><i class="fas fa-table text-info me-2"></i> Detailed Darajah Statistics (Global Network)</div>
             <div class="d-flex align-items-center gap-3">
-              <span class="fs-5">{{ b.flag }}</span>
-              <div>
-                <div class="fw-800 small">{{ b.short_name }}</div>
-                <div class="text-muted" style="font-size:10px; font-weight:700">{{ b.branch_code }}</div>
+              <div class="input-group input-group-sm rounded-pill overflow-hidden border shadow-sm" style="width: 300px;">
+                <span class="input-group-text bg-white border-0"><i class="fas fa-search text-muted"></i></span>
+                <input type="text" id="globalDarajahSearch" class="form-control border-0" placeholder="Filter darajahs, branches...">
               </div>
             </div>
-            <div class="text-end">
-              <div class="fw-900" style="font-size:1.1rem; color:var(--primary-color)">{{ "{:,}".format(b.total_titles or 0) }}</div>
-              <div style="font-size:9px; color:var(--text-muted); font-weight:700">TITLES</div>
-            </div>
           </div>
-          {% endif %}
-          {% endfor %}
+          <div class="p-3">
+            <table id="detailedDarajahDataTable" class="table table-hover align-middle mb-0 display responsive nowrap" style="width:100%">
+              <thead class="bg-light">
+                <tr class="small text-muted fw-bold">
+                  <th class="ps-4">Darajah</th>
+                  <th>Branch / Campuses</th>
+                  <th class="text-center">Total Students</th>
+                  <th class="text-center">Active Borrowers</th>
+                  <th class="text-center">Total Issues</th>
+                  <th class="text-center">Issues/Student</th>
+                  <th class="text-center">Benchmark</th>
+                  <th class="text-center pe-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in detailed_darajahs %}
+                <tr class="small" onclick="showDarajahBreakdown('{{ row.darajah | replace("'","\\x27") }}', {{ row.branches | tojson | forceescape }})" style="cursor:pointer">
+                  <td class="ps-4 fw-bold text-dark">{{ row.darajah }}</td>
+                  <td>
+                    <span class="badge border text-dark px-2 py-1 rounded-pill" style="font-size:10px; background:var(--bg-body)">
+                      🌐 {{ row.branch_count }} Campuses
+                    </span>
+                  </td>
+                  <td class="text-center fw-bold text-muted">{{ row.total_students or 0 }}</td>
+                  <td class="text-center">
+                    <span class="badge bg-soft-success text-success px-3 py-1 rounded-pill fw-bold" style="font-size:11px; background:rgba(16, 185, 129, 0.1)">
+                      {{ row.active_borrowers or 0 }}
+                    </span>
+                  </td>
+                  <td class="text-center fw-900" style="color:var(--primary-color); font-size:1.1rem">{{ row.issues or 0 }}</td>
+                  <td class="text-center">
+                    {% set rate = row.rate or 0 %}
+                    <div class="d-flex align-items-center justify-content-center gap-2">
+                      <span class="fw-bold">{{ "%.2f"|format(rate) }}</span>
+                      <div class="progress" style="height:4px; width:40px; background:rgba(0,0,0,0.05)">
+                        <div class="progress-bar bg-primary" style="width: {{ [rate * 10, 100]|min }}%;"></div>
+                      </div>
+                    </div>
+                  </td>
+                  <td class="text-center pe-2">
+                    <span class="badge bg-{{ 'success' if rate > 8 else ('primary' if rate > 5 else ('info' if rate > 3 else ('warning' if rate > 1 else 'danger'))) }} rounded-pill px-3 py-2" style="font-size: 0.65rem;">
+                      {{ 'ELITE' if rate > 8 else ('EXCEL' if rate > 5 else ('GOOD' if rate > 3 else ('AVG' if rate > 1 else 'LOW'))) }}
+                    </span>
+                  </td>
+                  <td class="text-center pe-4">
+                    <button class="btn btn-xs btn-outline-primary rounded-pill px-3 py-1" style="font-size:0.7rem">
+                      Breakdown
+                    </button>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
-  </div>
 
 </div>
 
-<!-- ══════════════════════════════════════════════════════
-     CHART DATA MODAL
-══════════════════════════════════════════════════════ -->
+<!-- Modals -->
+<!-- Book Detail Modal -->
+<div class="modal fade" id="bookDetailModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px">
+    <div class="modal-content border-0 shadow-2xl rounded-4 overflow-hidden">
+      <div class="modal-header border-0" style="background:linear-gradient(135deg,#a45a26,#c27a40)">
+        <h5 class="modal-title fw-bold text-white" id="bookDetailModalTitle">Book Details</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body p-0">
+        <div class="d-flex gap-0">
+          <div id="bookDetailCover" style="width:130px;min-height:180px;flex-shrink:0;background:#f1ebe0">
+            <img id="bookDetailImg" src="" style="width:130px;height:180px;object-fit:cover" onerror="this.src='/static/images/book-placeholder.png'">
+          </div>
+          <div class="p-4 flex-grow-1">
+            <h6 id="bookDetailAuthor" class="text-muted mb-2" style="font-size:0.8rem"></h6>
+            <div id="bookDetailIssues" class="mb-3"></div>
+            <p id="bookDetailSynopsis" class="text-muted" style="font-size:0.83rem;line-height:1.6"></p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer bg-light border-0 gap-2">
+        <a id="bookDetailOpacLink" href="#" target="_blank" class="btn btn-primary rounded-pill px-4">
+          <i class="bi bi-box-arrow-up-right me-2"></i>View in OPAC
+        </a>
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="modal fade" id="chartDataModal" tabindex="-1">
   <div class="modal-dialog modal-lg modal-dialog-centered">
     <div class="modal-content border-0 shadow-lg rounded-4">
@@ -957,7 +902,9 @@
       <div class="modal-body p-0">
         <div class="table-responsive">
           <table class="table table-hover mb-0" id="chartDataTable">
-            <thead class="bg-light"><tr id="chartDataHeaders"></tr></thead>
+            <thead class="bg-light">
+              <tr id="chartDataHeaders"></tr>
+            </thead>
             <tbody id="chartDataBody"></tbody>
           </table>
         </div>
@@ -969,7 +916,6 @@
   </div>
 </div>
 
-<!-- KPI Metric Modal -->
 <div class="modal fade" id="kpiModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content border-0 shadow-2xl rounded-4">
@@ -985,50 +931,27 @@
   </div>
 </div>
 
-<!-- Blink animation for live status -->
-<style>@keyframes godblink{0%,100%{opacity:1}50%{opacity:0.4}}</style>
 {% endblock %}
 
 {% block scripts %}
-<!-- JSON Data Bridges -->
-<script id="trendDataJson" type="application/json">
-  {{ comparison | tojson | safe }}
-</script>
-<script id="darajahDataJson" type="application/json">
-  {"labels": {{ darajah_labels | tojson | safe }}, "male": {{ darajah_male_values | tojson | safe }}, "female": {{ darajah_female_values | tojson | safe }}}
-</script>
-<script id="marhalaDataJson" type="application/json">
-  {"labels": {{ marhala_labels | tojson | safe }}, "values": {{ marhala_values | tojson | safe }}}
-</script>
-<script id="langDataJson" type="application/json">
-  {"labels": {{ lang_labels | tojson | safe }}, "values": {{ lang_values | tojson | safe }}}
-</script>
-<script id="fictionDataJson" type="application/json">
-  {"fiction": {{ (fiction_stats.fiction or 0) | tojson | safe }}, "nonfiction": {{ (fiction_stats.nonfiction or 0) | tojson | safe }}}
-</script>
-
+<script src="https://cdnjs.cloudflare.com/ajax/libs/wordcloud2.js/1.2.2/wordcloud2.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', () => {
+    const PRIMARY = '#a45a26';
 
-  const PRIMARY = '#a45a26';
+    const langLabels = {{ lang_chart_labels | tojson | safe }};
+    const langValues = {{ lang_chart_values | tojson | safe }};
+    const langColors = {{ lang_chart_colors | tojson | safe }};
+    const fictionData = {{ fiction_stats | tojson | safe }};
+    const branchDataArr = {{ branch_summaries | tojson | safe }};
+    const trendData = {{ comparison | tojson | safe }};
 
-  // ── Chart.js defaults ──
   Chart.defaults.font.family = "'Inter', system-ui, sans-serif";
   Chart.defaults.font.weight = '600';
-  const commonOpts = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { labels: { usePointStyle: true, font: { family: "'Inter'" } } } }
-  };
 
-  // ── Parse data ──
-  const trendData    = JSON.parse(document.getElementById('trendDataJson').textContent);
-  const darajahData  = JSON.parse(document.getElementById('darajahDataJson').textContent);
-  const marhalaData  = JSON.parse(document.getElementById('marhalaDataJson').textContent);
-  const langData     = JSON.parse(document.getElementById('langDataJson').textContent);
-  const fictionData  = JSON.parse(document.getElementById('fictionDataJson').textContent);
-
-  // ── 1. Velocity Trend Chart (multi-branch lines) ──
+  // Velocity Trend Chart
   const trendCtx = document.getElementById('velocityTrendChart');
   if (trendCtx && trendData.weekly_overview && trendData.weekly_overview.length) {
     new Chart(trendCtx, {
@@ -1036,169 +959,367 @@ document.addEventListener('DOMContentLoaded', () => {
       data: {
         labels: trendData.week_labels || [],
         datasets: trendData.weekly_overview.map(b => ({
-          label: b.label,
-          data: b.data,
-          borderColor: b.color,
-          backgroundColor: b.color + '15',
-          borderWidth: 2.5,
-          tension: 0.4,
-          pointRadius: 3,
-          fill: true,
+          label: b.label, data: b.data, borderColor: b.color, backgroundColor: b.color + '15',
+          borderWidth: 3, tension: 0.4, pointRadius: 4, pointHoverRadius: 7, pointBackgroundColor: b.color,
+          pointBorderColor: '#fff', pointBorderWidth: 2, fill: true,
         }))
       },
-      options: {
-        ...commonOpts,
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { size: 10, weight: '700' } } },
-          y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10, weight: '700' } } }
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        onClick: (e, active) => {
+          if (active.length > 0) {
+            window.openTrendModal();
+          }
         },
-        plugins: {
-          ...commonOpts.plugins,
-          legend: { position: 'top', align: 'end', labels: { boxWidth: 10, font: { size: 10, weight: '800' } } },
-          tooltip: { padding: 12, cornerRadius: 10, backgroundColor: '#1e293b' }
-        }
+        plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 10, font: { size: 10 } } } } 
       }
     });
   }
 
-  // ── 2. Language Doughnut ──
+  // Language Doughnut Chart
   const langCtx = document.getElementById('languageIssuesChart');
-  if (langCtx && langData.labels.length) {
+  if (langCtx && langLabels.length) {
     new Chart(langCtx, {
       type: 'doughnut',
-      data: {
-        labels: langData.labels,
-        datasets: [{
-          data: langData.values,
-          backgroundColor: [PRIMARY, '#6366f1', '#10b981', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'],
-          borderWidth: 2
-        }]
-      },
-      options: { ...commonOpts, cutout: '70%', plugins: { legend: { position: 'bottom' } } }
+      data: { labels: langLabels, datasets: [{ data: langValues, backgroundColor: langColors, borderWidth: 2, hoverOffset: 15 }] },
+      options: { responsive: true, maintainAspectRatio: false, cutout: '70%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.raw.toLocaleString()} issues` } } } }
     });
+
+    const legendContainer = document.getElementById('langLegendContainer');
+    if (legendContainer) {
+      let legendHtml = '<div class="row g-2">';
+      langLabels.forEach((label, i) => {
+        legendHtml += `<div class="col-6"><div class="lang-legend-item" onclick="window.showLanguagePopup('${label}')"><div class="lang-color-dot" style="background: ${langColors[i % langColors.length]}"></div><div class="lang-label">${label}</div><div class="lang-value">${langValues[i].toLocaleString()}</div></div></div>`;
+      });
+      legendHtml += '</div>';
+      legendContainer.innerHTML = legendHtml;
+    }
   }
 
-  // ── 3. Darajah Distribution (stacked bar) ──
-  const darajahCtx = document.getElementById('darajahDistributionChart');
-  if (darajahCtx && darajahData.labels.length) {
-    new Chart(darajahCtx, {
-      type: 'bar',
-      data: {
-        labels: darajahData.labels,
-        datasets: [
-          { label: 'Issues (Boys)',  data: darajahData.male,   backgroundColor: 'rgba(164,90,38,0.8)',  borderRadius: 4 },
-          { label: 'Issues (Girls)', data: darajahData.female, backgroundColor: 'rgba(236,72,153,0.8)', borderRadius: 4 }
-        ]
-      },
-      options: {
-        ...commonOpts,
-        scales: {
-          y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Total Issues' } },
-          x: { stacked: true }
-        },
-        plugins: { ...commonOpts.plugins, tooltip: {
-          callbacks: {
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.raw} issues`,
-            footer: items => ` Total: ${items.reduce((a,b)=>a+b.raw,0)} issues`
-          }
-        }}
-      }
-    });
-  }
-
-  // ── 4. Marhala Polar Area ──
-  const marhalaCtx = document.getElementById('marhalaDistributionChart');
-  if (marhalaCtx && marhalaData.labels.length) {
-    new Chart(marhalaCtx, {
-      type: 'polarArea',
-      data: {
-        labels: marhalaData.labels,
-        datasets: [{
-          data: marhalaData.values,
-          backgroundColor: [
-            'rgba(164,90,38,0.7)', 'rgba(99,102,241,0.7)', 'rgba(16,185,129,0.7)',
-            'rgba(245,158,11,0.7)', 'rgba(239,68,68,0.7)', 'rgba(59,130,246,0.7)'
-          ]
-        }]
-      },
-      options: { ...commonOpts, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
-    });
-  }
-
-  // ── 5. Fiction Doughnut ──
+  // Fiction Chart
   const fictionCtx = document.getElementById('fictionChart');
   if (fictionCtx && (fictionData.fiction + fictionData.nonfiction) > 0) {
     new Chart(fictionCtx, {
-      type: 'doughnut',
-      data: {
-        labels: ['Fiction', 'Non-Fiction'],
-        datasets: [{
-          data: [fictionData.fiction, fictionData.nonfiction],
-          backgroundColor: [PRIMARY, '#6366f1'],
-          borderWidth: 2
-        }]
-      },
-      options: { ...commonOpts, cutout: '65%', plugins: { legend: { position: 'bottom' } } }
+      type: 'pie',
+      data: { labels: ['Fiction', 'Non-Fiction'], datasets: [{ data: [fictionData.fiction, fictionData.nonfiction], backgroundColor: [PRIMARY, '#6366f1'], borderWidth: 2, hoverOffset: 15 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true } } } }
     });
   }
 
-  // ── Academic Year toggle ──
-  window.setAY = function(yr) {
+  // Marhala Bar Chart
+  const marhalaLabels = {{ marhala_labels | tojson | safe }};
+  const marhalaValues = {{ marhala_values | tojson | safe }};
+  const marhalaCtx = document.getElementById('marhalaChart');
+  if (marhalaCtx && marhalaLabels.length) {
+    const marhalaColors = ['#7fb1fc', '#52cc99', '#fbb959', '#f27e80', '#b18ff9', '#f9a8d4', '#4b5563', '#a45a26'];
+    new Chart(marhalaCtx, {
+      type: 'polarArea',
+      data: {
+        labels: marhalaLabels,
+        datasets: [{ label: 'Issues', data: marhalaValues, backgroundColor: marhalaColors }]
+      },
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        onClick: (e, active) => {
+          if (active.length > 0) {
+            const index = active[0].index;
+            window.openMarhalaPopup(marhalaLabels[index]);
+          }
+        },
+        plugins: { 
+          legend: { 
+            position: 'bottom',
+            labels: { boxWidth: 12, usePointStyle: false }
+          }
+        } 
+      }
+    });
+  }
+
+  window.setAY = function (yr) {
     document.getElementById('ayValue').value = yr;
     document.getElementById('ayToggleForm').submit();
   };
 
-  // ── Branch card search ──
-  window.filterBranchCards = function() {
-    const q = document.getElementById('branchSearch').value.toLowerCase();
-    document.querySelectorAll('.branch-card-item').forEach(card => {
-      card.style.display = card.dataset.name.includes(q) ? '' : 'none';
+  // --- DATATABLE INITIALIZATION ---
+  function initDarajahDataTable() {
+    const table = $('#detailedDarajahDataTable').DataTable({
+      pageLength: 10,
+      order: [[4, "desc"]], // Sort by Total Issues (Index 4) by default
+      language: {
+        search: "_INPUT_",
+        searchPlaceholder: "Search darajahs, branches...",
+        lengthMenu: "Show _MENU_ Darajahs"
+      },
+      dom: '<"row align-items-center justify-content-between mb-3"<"col-auto"l><"col-auto"f>>rt<"d-flex justify-content-between align-items-center mt-3"ip>',
+      columnDefs: [
+        { targets: [2, 3, 4, 5, 6], className: 'text-center' }
+      ]
     });
-  };
 
-  // ── Darajah table filter ──
-  window.filterDarajahs = function() {
-    const q = document.getElementById('darajahSearch').value.toLowerCase();
-    document.querySelectorAll('.darajah-row').forEach(r => {
-      r.style.display = (r.dataset.name.includes(q) || r.dataset.marhala.includes(q)) ? '' : 'none';
+    // Custom search binding
+    $('#globalDarajahSearch').on('keyup', function() {
+      table.search(this.value).draw();
     });
-  };
+  }
 
-  // ── Chart data table modal ──
-  window.openChartTableModal = function(type) {
+  initDarajahDataTable();
+
+  window.showLanguagePopup = function (langName) {
     const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
-    const title = document.getElementById('chartDataTitle');
-    const head  = document.getElementById('chartDataHeaders');
-    const body  = document.getElementById('chartDataBody');
-    let htmlHead = '', htmlBody = '';
+    document.getElementById('chartDataTitle').innerHTML = `Global Circulation: ${langName} Language`;
+    document.getElementById('chartDataHeaders').innerHTML = '<th>Campus</th><th class="text-end">Books Issued</th><th class="text-end">Percentage</th>';
+    fetch(`/god-eye/api/language-details?lang=${encodeURIComponent(langName)}`)
+      .then(res => res.json())
+      .then(data => {
+        let bodyHtml = '';
+        const total = data.total || 0;
+        const branches = Object.entries(data.branches || {}).sort((a, b) => b[1] - a[1]);
+        branches.forEach(([branch, count]) => {
+          const percent = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+          bodyHtml += `<tr><td class="fw-bold">${branch}</td><td class="text-end fw-900 text-primary">${count.toLocaleString()}</td><td class="text-end text-muted small">${percent}%</td></tr>`;
+        });
+        document.getElementById('chartDataBody').innerHTML = bodyHtml || '<tr><td colspan="3" class="text-center text-muted py-4">No detailed data available</td></tr>';
+        modal.show();
+      })
+      .catch(() => { modal.show(); });
+  };
 
-    if (type === 'language') {
-      title.innerText = 'Issues by Language';
-      htmlHead = '<th>Language</th><th class="text-end">Books Issued</th>';
-      htmlBody = langData.labels.map((l,i) => `<tr><td>${l}</td><td class="text-end fw-bold">${langData.values[i]}</td></tr>`).join('');
-    } else if (type === 'darajah') {
-      title.innerText = 'Darajah Distribution Details';
-      htmlHead = '<th>Darajah</th><th class="text-end">Boys</th><th class="text-end">Girls</th><th class="text-end">Total</th>';
-      htmlBody = darajahData.labels.map((l,i) => `<tr><td>${l}</td><td class="text-end">${darajahData.male[i]}</td><td class="text-end">${darajahData.female[i]}</td><td class="text-end fw-bold">${darajahData.male[i]+darajahData.female[i]}</td></tr>`).join('');
-    } else if (type === 'marhala') {
-      title.innerText = 'Marhala Distribution Details';
-      htmlHead = '<th>Marhala</th><th class="text-end">Books Issued</th>';
-      htmlBody = marhalaData.labels.map((l,i) => `<tr><td>${l}</td><td class="text-end fw-bold">${marhalaData.values[i]}</td></tr>`).join('');
-    }
-
-    head.innerHTML = htmlHead;
-    body.innerHTML = htmlBody;
+  window.showSubjectDetails = function (subject, count) {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataTitle').innerHTML = `Subject Intelligence: ${subject}`;
+    document.getElementById('chartDataHeaders').innerHTML = '<th>Metric</th><th class="text-end">Value</th>';
+    document.getElementById('chartDataBody').innerHTML = `<tr><td class="fw-bold">Total Issues</td><td class="text-end fw-900 text-primary">${count.toLocaleString()}</td></tr>`;
     modal.show();
   };
 
-  // ── KPI Modal ──
-  window.openKpiModal = function(type) {
+    window.openFictionModal = function () {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataTitle').innerHTML = "Fiction vs Non-Fiction Analytical Split";
+    document.getElementById('chartDataHeaders').innerHTML = '<th>Category</th><th class="text-end">Issues</th><th class="text-end">Percentage</th>';
+    
+    let total = fictionData.fiction + fictionData.nonfiction;
+    let fic_pct = total > 0 ? ((fictionData.fiction / total) * 100).toFixed(1) : 0;
+    let non_pct = total > 0 ? ((fictionData.nonfiction / total) * 100).toFixed(1) : 0;
+    
+    let html = `
+      <tr><td class="fw-bold"><span style="color:#a45a26;">●</span> Fiction</td><td class="text-end fw-900 text-primary">${fictionData.fiction.toLocaleString()}</td><td class="text-end text-muted small">${fic_pct}%</td></tr>
+      <tr><td class="fw-bold"><span style="color:#6366f1;">●</span> Non-Fiction</td><td class="text-end fw-900 text-primary">${fictionData.nonfiction.toLocaleString()}</td><td class="text-end text-muted small">${non_pct}%</td></tr>
+      <tr class="table-light"><td class="fw-bold">Total Circulation Analyzed</td><td class="text-end fw-900 text-dark">${total.toLocaleString()}</td><td class="text-end text-muted small">100%</td></tr>
+    `;
+    document.getElementById('chartDataBody').innerHTML = html;
+    modal.show();
+  };
+
+  window.openLanguageMatrix = function () {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataTitle').innerHTML = "Global Language Circulation Matrix";
+    document.getElementById('chartDataHeaders').innerHTML = '<th>Language</th><th class="text-end">Total Issues</th>';
+    let html = '';
+    langLabels.forEach((l, i) => { html += `<tr><td class="fw-bold">${l}</td><td class="text-end fw-900 text-primary">${langValues[i].toLocaleString()}</td></tr>`; });
+    document.getElementById('chartDataBody').innerHTML = html;
+    modal.show();
+  };
+
+  window.openMarhalaPopup = function (marhalaName) {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataTitle').innerHTML = `Global Circulation: ${marhalaName}`;
+    document.getElementById('chartDataHeaders').innerHTML = '<th>Campus</th><th class="text-end">Books Issued</th><th class="text-end">Percentage</th>';
+    
+    let branches_data = [];
+    let total = 0;
+    branchDataArr.forEach(b => {
+      if(b.top_marhalas) {
+        const mObj = b.top_marhalas.find(m => (m.marhala || m.Marhala) === marhalaName);
+        if (mObj) {
+          let issues = mObj.issues || mObj.Issues || 0;
+          branches_data.push({ branch: b.short_name, count: issues });
+          total += issues;
+        }
+      }
+    });
+    
+    branches_data.sort((a,b) => b.count - a.count);
+    
+    let bodyHtml = '';
+    branches_data.forEach(item => {
+      const percent = total > 0 ? ((item.count / total) * 100).toFixed(1) : 0;
+      bodyHtml += `<tr><td class="fw-bold">${item.branch}</td><td class="text-end fw-900 text-primary">${item.count.toLocaleString()}</td><td class="text-end text-muted small">${percent}%</td></tr>`;
+    });
+    
+    document.getElementById('chartDataBody').innerHTML = bodyHtml || '<tr><td colspan="3" class="text-center text-muted py-4">No detailed data available</td></tr>';
+    modal.show();
+  };
+
+  window.openMarhalaMatrix = function () {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataTitle').innerHTML = "Global Marhala Circulation Matrix";
+    document.getElementById('chartDataHeaders').innerHTML = '<th>Marhala</th><th class="text-end">Total Issues</th><th class="text-end">Percentage</th>';
+    
+    let total = marhalaValues.reduce((a, b) => a + b, 0);
+    let html = '';
+    marhalaLabels.forEach((l, i) => { 
+      let percent = total > 0 ? ((marhalaValues[i] / total) * 100).toFixed(1) : 0;
+      html += `<tr><td class="fw-bold"><a href="javascript:void(0)" onclick="window.openMarhalaPopup('${l}')" class="text-decoration-none">${l}</a></td><td class="text-end fw-900 text-primary">${marhalaValues[i].toLocaleString()}</td><td class="text-end text-muted small">${percent}%</td></tr>`; 
+    });
+    document.getElementById('chartDataBody').innerHTML = html;
+    modal.show();
+  };
+
+  window.openSubjectDetailedModal = function () {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataTitle').innerHTML = "Global Subject Intelligence Matrix";
+    document.getElementById('chartDataHeaders').innerHTML = '<th>Classification / Subject</th><th class="text-end">Issues</th>';
+    let html = '';
+    const subjects = {{ subject_cloud | tojson | safe
+  }};
+  subjects.forEach(s => { html += `<tr><td class="fw-bold">${s.display_name || s.Subject}</td><td class="text-end fw-900 text-primary">${s.issue_count.toLocaleString()}</td></tr>`; });
+  document.getElementById('chartDataBody').innerHTML = html || '<tr><td colspan="2" class="text-center text-muted">No subject data available</td></tr>';
+  modal.show();
+    };
+
+  window.openTrendModal = function () {
+    const modal = new bootstrap.Modal(document.getElementById('chartDataModal'));
+    document.getElementById('chartDataTitle').innerHTML = "Global Monthly Borrowing Trends (Full AY)";
+    let headers = "<th>Month</th>";
+    trendData.weekly_overview.forEach(b => { headers += `<th>${b.label}</th>`; });
+    headers += "<th>Global Total</th>";
+    document.getElementById('chartDataHeaders').innerHTML = headers;
+    let rows = "";
+    trendData.week_labels.forEach((month, idx) => {
+      let row = `<tr><td class="fw-bold">${month}</td>`;
+      let monthTotal = 0;
+      trendData.weekly_overview.forEach(b => {
+        const val = b.data[idx] || 0;
+        row += `<td>${val.toLocaleString()}</td>`;
+        monthTotal += val;
+      });
+      row += `<td class="fw-bold text-primary text-end">${monthTotal.toLocaleString()}</td></tr>`;
+      rows += row;
+    });
+    document.getElementById('chartDataBody').innerHTML = rows;
+    modal.show();
+  };
+
+  window.openKpiModal = function (type) {
     const modal = new bootstrap.Modal(document.getElementById('kpiModal'));
-    document.getElementById('kpiModalTitle').innerText = type.replace('_',' ').toUpperCase() + ' — GLOBAL ANALYSIS';
-    document.getElementById('kpiModalBody').innerHTML = '<div class="spinner-border" style="color:var(--primary-color)"></div><p class="mt-2 text-muted fw-bold">Loading global intelligence…</p>';
+    const metricLabels = { 'patrons': 'Active Patrons', 'issues': 'AY Issues', 'overdue': 'Overdues', 'catalog': 'Total Titles' };
+    document.getElementById('kpiModalTitle').innerText = (metricLabels[type] || type.toUpperCase()) + ' — CAMPUS BREAKDOWN';
+    let html = `<div class="table-responsive border rounded-3 overflow-hidden"><table class="table table-hover table-striped align-middle border"><thead class="bg-light shadow-sm"><tr><th class="ps-3">Campus</th><th class="text-center">Status</th><th class="text-end pe-3">Value</th></tr></thead><tbody>`;
+    const onlineBranches = branchDataArr.filter(b => b.status === 'online');
+    onlineBranches.forEach(b => {
+      let val = type === 'patrons' ? b.active_patrons : type === 'issues' ? b.total_issues : type === 'overdue' ? b.overdue : b.total_titles;
+      html += `<tr><td class="ps-3 fw-bold"><span class="me-2">${b.flag}</span> ${b.short_name}</td><td class="text-center"><span class="badge bg-success-soft text-success" style="font-size:10px">ONLINE</span></td><td class="text-end pe-3 fw-900 text-primary fs-5">${(val || 0).toLocaleString()}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+    document.getElementById('kpiModalBody').innerHTML = html;
     modal.show();
   };
 
-});
+  window.showBookDetailModal = function(title, author, cover, issues, synopsis, opac) {
+    document.getElementById('bookDetailModalTitle').innerText = title || "Book Details";
+    document.getElementById('bookDetailAuthor').innerText = author || "Unknown Author";
+    document.getElementById('bookDetailImg').src = cover || '/static/images/book-placeholder.png';
+    document.getElementById('bookDetailIssues').innerHTML = `<span class="badge bg-primary px-3 py-1 rounded-pill" style="font-size:0.8rem">${issues}</span>`;
+    document.getElementById('bookDetailSynopsis').innerText = synopsis || 'No synopsis available.';
+    document.getElementById('bookDetailOpacLink').href = opac || '#';
+    const modal = new bootstrap.Modal(document.getElementById('bookDetailModal'));
+    modal.show();
+  };
+
+    // --- Subject Cloud Logic ---
+  (function () {
+    try {
+      const db_subjects = {{ subject_cloud | tojson | safe }};
+      var canvas = document.getElementById('subjectCloudCanvas');
+      var emptyEl = document.getElementById('subjectCloudEmpty');
+
+      if (canvas && db_subjects && db_subjects.length) {
+        var words = db_subjects.map(function(s) {
+           return [s.display_name || s.Subject, parseInt(s.issue_count)];
+        });
+        
+        var maxCnt = Math.max.apply(null, words.map(function (w) { return w[1]; }));
+        if (maxCnt === 0) maxCnt = 1;
+        var w = canvas.parentElement.offsetWidth || 500;
+        canvas.width = w;
+        canvas.height = 420;
+
+        var palette = ['#a45a26', '#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
+
+        WordCloud(canvas, {
+          list: words.map(function (w) {
+            var ratio = w[1] / maxCnt;
+            // Moderately scale words so they are clear without breaking out of canvas
+            return [w[0], Math.round(14 + Math.pow(ratio, 0.6) * 45)];
+          }),
+          gridSize: Math.round(10 * w / 500),
+          weightFactor: 1,
+          fontFamily: "'Inter', sans-serif",
+          fontWeight: 'bold',
+          color: function () { return palette[Math.floor(Math.random() * palette.length)]; },
+          rotateRatio: 0.15, // Light diagonal tilt
+          rotationSteps: 2,
+          backgroundColor: 'transparent',
+          shrinkToFit: true,
+          drawOutOfBound: false,
+          minSize: 10,
+          shape: 'square',
+          click: function(item) {
+             window.showSubjectDetails(item[0], item[1]);
+          }
+        });
+      } else {
+         if(canvas) canvas.style.display = 'none';
+         if(emptyEl) emptyEl.classList.remove('d-none');
+      }
+    } catch (e) {
+      console.warn("Subject cloud error:", e);
+    }
+  })();
+
+
+  window.showBookDetailModalFromData = function(el) {
+    window.showBookDetailModal(
+      el.dataset.bookTitle,
+      el.dataset.bookAuthor,
+      el.dataset.bookCover,
+      el.dataset.bookIssues,
+      el.dataset.bookSynopsis,
+      el.dataset.bookOpac
+    );
+  };
+
+  });
+  function showDarajahBreakdown(darajahName, branches) {
+    document.getElementById('chartDataTitle').innerText = `${darajahName} - Campus Breakdown`;
+    document.getElementById('chartDataHeaders').innerHTML = `
+      <th class="ps-3">Campus</th>
+      <th class="text-center">Students</th>
+      <th class="text-center">Issues</th>
+      <th class="text-center">Active</th>
+      <th class="text-end pe-3">Actions</th>
+    `;
+    
+    let bodyHtml = '';
+    branches.forEach(b => {
+      bodyHtml += `
+        <tr>
+          <td class="fw-bold ps-3"><span class="badge border text-dark me-2" style="background:var(--bg-body)">${b.branch_flag}</span> ${b.branch_name}</td>
+          <td class="text-center text-muted fw-bold">${b.total_students}</td>
+          <td class="text-center fw-900 text-primary">${b.issues}</td>
+          <td class="text-center text-success fw-bold">${b.active_borrowers}</td>
+          <td class="text-end pe-3">
+            <a href="/super-admin/teleport/${b.branch_code}/${encodeURIComponent(darajahName)}" class="btn btn-sm btn-primary rounded-pill px-3" style="font-size:0.7rem">Dashboard</a>
+          </td>
+        </tr>
+      `;
+    });
+    
+    document.getElementById('chartDataBody').innerHTML = bodyHtml;
+    new bootstrap.Modal(document.getElementById('chartDataModal')).show();
+  }
 </script>
 {% endblock %}

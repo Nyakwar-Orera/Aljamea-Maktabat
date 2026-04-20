@@ -69,6 +69,7 @@
                 <option value="marhala_wise">🏫 Marhala-wise Report</option>
                 {% endif %}
                 <option value="individual">👤 Individual Student</option>
+                <option value="taqeem_wise">🏆 Student Taqeem (Marks)</option>
                 <option value="top_books">📖 Top 25 English Books</option>
                 <option value="top_arabic">📕 Top 25 Arabic Books</option>
               </select>
@@ -883,7 +884,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // ─── Field visibility ─────────────────────────────────────────────
   function toggleFields() {
     const t = reportTypeEl.value;
-    const showDarajah = (t === "darajah_wise");
+    const showDarajah = (t === "darajah_wise" || t === "taqeem_wise");
     const showMarhala = (t === "marhala_wise");
     const showIndiv   = (t === "individual");
     darajahField?.classList.toggle("d-none", !showDarajah);
@@ -943,6 +944,17 @@ document.addEventListener("DOMContentLoaded", function () {
         { label:"PDF (Landscape)", url: MARHALA_PDFL.replace("__M__", mE), icon:"bi-file-pdf",          cls:"text-danger" },
         { label:"Excel",           url: MARHALA_XLS.replace("__M__", mE),  icon:"bi-file-excel",        cls:"text-success" },
         { label:"CSV",             url: MARHALA_CSV.replace("__M__", mE),  icon:"bi-file-earmark-text", cls:"text-primary" },
+      ];
+    } else if (type === "taqeem_wise") {
+      // Use taqeem export endpoints instead of darajah if they exist, or reuse darajah with a flag
+      // Currently using existing darajah export logic for Taqeem if applicable
+      const T_PDF = "{{ url_for('reports_bp.export_taqeem_pdf', darajah_val='__D__') }}";
+      const T_XLS = "{{ url_for('reports_bp.export_taqeem_excel', darajah_val='__D__') }}";
+      const T_CSV = "{{ url_for('reports_bp.export_taqeem_csv', darajah_val='__D__') }}";
+      items = [
+        { label:"PDF Report", url: T_PDF.replace("__D__", dE),  icon:"bi-file-pdf",          cls:"text-danger" },
+        { label:"Excel Export",url: T_XLS.replace("__D__", dE),  icon:"bi-file-excel",        cls:"text-success" },
+        { label:"CSV Data",    url: T_CSV.replace("__D__", dE),  icon:"bi-file-earmark-text", cls:"text-primary" },
       ];
     } else if (type === "top_books") {
       items = [

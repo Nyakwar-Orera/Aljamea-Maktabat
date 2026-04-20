@@ -1,138 +1,256 @@
 {% extends "super_admin/_sa_base.html" %}
 {% block title %}{{ page_title }}{% endblock %}
 
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+    .form-card {
+        background: white;
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-soft);
+        box-shadow: var(--shadow-sm);
+        padding: 2.5rem;
+    }
+    .form-section-header {
+        margin-bottom: 2rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-soft);
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .form-section-header i {
+        font-size: 1.5rem;
+        color: var(--primary-color);
+        background: var(--primary-soft);
+        width: 45px;
+        height: 45px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+    }
+    .form-section-header h3 {
+        margin: 0;
+        font-weight: 800;
+        font-size: 1.25rem;
+        color: var(--text-dark);
+    }
+    
+    .custom-label {
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        margin-bottom: 0.5rem;
+    }
+    
+    .custom-input, .custom-select {
+        width: 100%;
+        background: #fcf9f5;
+        border: 1px solid var(--border-soft);
+        color: var(--text-dark);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: all 0.2s;
+        outline: none;
+    }
+    .custom-input:focus, .custom-select:focus {
+        border-color: var(--primary-color);
+        background: white;
+        box-shadow: 0 0 0 4px var(--primary-soft);
+    }
+    
+    .guide-card {
+        background: var(--bg-cream);
+        border-radius: var(--radius-lg);
+        border: 1px solid var(--border-soft);
+        padding: 1.5rem;
+        height: 100%;
+    }
+    .guide-item {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 1.25rem;
+    }
+    .guide-icon {
+        font-size: 1.25rem;
+        flex-shrink: 0;
+        margin-top: 2px;
+    }
+    .guide-text h5 {
+        font-size: 0.9rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        color: var(--text-dark);
+    }
+    .guide-text p {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        margin: 0;
+        line-height: 1.5;
+    }
+    
+    .submit-btn {
+        background: linear-gradient(135deg, var(--primary-color) 0%, #d97706 100%);
+        color: white;
+        border: none;
+        padding: 0.85rem 2rem;
+        border-radius: 12px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.3s;
+        box-shadow: 0 4px 12px var(--primary-glow);
+    }
+    .submit-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px var(--primary-glow);
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="page-header">
-  <div>
-    <h1>➕ Create New User</h1>
-    <p>Add a user to any campus branch with a specific role</p>
-  </div>
-  <a href="{{ url_for('super_admin_bp.manage_users') }}" class="nav-btn">
-    <i class="bi bi-arrow-left"></i> Back to Users
-  </a>
+<div class="row fade-in">
+    <div class="col-12 mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('super_admin_bp.manage_users') }}" class="text-decoration-none text-muted fw-bold">User Management</a></li>
+                <li class="breadcrumb-item active fw-bold" aria-current="page" style="color: var(--primary-color)">Create User</li>
+            </ol>
+        </nav>
+        <h1 class="fw-boldest" style="font-weight: 800; font-size: 2rem">➕ Provision User Access</h1>
+    </div>
 </div>
 
-<div class="content-area">
-  <div style="max-width:600px">
-    <div class="chart-card fade-in">
-      <h3><i class="bi bi-person-plus-fill"></i> User Details</h3>
-
-      <form method="post">
+<div class="form-container">
+    <form method="post">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() if csrf_token is defined else '' }}">
-
-        <div style="display:grid;gap:16px;margin-top:8px">
-
-          <div>
-            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-              Username / ITSID *
-            </label>
-            <input type="text" name="username" required
-                   placeholder="e.g. 12345678 or admin_nairobi"
-                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s"
-                   onfocus="this.style.borderColor='var(--accent-blue)'"
-                   onblur="this.style.borderColor='var(--border-subtle)'">
-          </div>
-
-          <div>
-            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-              Full Name
-            </label>
-            <input type="text" name="teacher_name"
-                   placeholder="e.g. Mufaddal Hussain"
-                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s"
-                   onfocus="this.style.borderColor='var(--accent-blue)'"
-                   onblur="this.style.borderColor='var(--border-subtle)'">
-          </div>
-
-          <div>
-            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-              Email Address
-            </label>
-            <input type="email" name="email"
-                   placeholder="e.g. user@jameasaifiyah.org"
-                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s"
-                   onfocus="this.style.borderColor='var(--accent-blue)'"
-                   onblur="this.style.borderColor='var(--border-subtle)'">
-          </div>
-
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-            <div>
-              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-                Role *
-              </label>
-              <select name="role" required
-                      style="width:100%;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);cursor:pointer">
-                <option value="admin">🔵 Admin</option>
-                <option value="hod">🟣 Head of Department</option>
-                <option value="teacher" selected>🟢 Teacher</option>
-                <option value="super_admin">👑 Super Admin</option>
-              </select>
+        
+        <div class="row g-4 overflow-hidden">
+            <!-- Left Column: Form -->
+            <div class="col-lg-7">
+                <div class="form-card fade-in delay-1">
+                    <div class="form-section-header">
+                        <i class="bi bi-person-bounding-box"></i>
+                        <div>
+                            <h3>Identity Details</h3>
+                            <p class="small text-muted mb-0">Basic information used for authentication</p>
+                        </div>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="custom-label">Username / ITSID *</label>
+                            <input type="text" name="username" required class="custom-input" placeholder="e.g. 10020030">
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="custom-label">Display Name</label>
+                            <input type="text" name="teacher_name" class="custom-input" placeholder="e.g. SK Mufaddal Hussain">
+                        </div>
+                        
+                        <div class="col-md-12">
+                            <label class="custom-label">Contact Email</label>
+                            <input type="email" name="email" class="custom-input" placeholder="e.g. user@jameasaifiyah.org">
+                        </div>
+                        
+                        <div class="col-md-6 pt-3">
+                            <label class="custom-label">Assigned Role</label>
+                            <select name="role" required class="custom-select">
+                                <option value="admin">🔵 Campus Admin</option>
+                                <option value="hod">🟣 Head of Dept</option>
+                                <option value="teacher" selected>🟢 Class Teacher</option>
+                                <option value="super_admin">👑 Super Admin</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6 pt-3">
+                            <label class="custom-label">Scope / Campus</label>
+                            <select name="branch_code" required class="custom-select">
+                                <option value="">🌐 Global Access</option>
+                                {% for code in branch_order %}
+                                    {% set cfg = campus_registry.get(code, {}) %}
+                                    <option value="{{ code }}">{{ cfg.flag }} {{ cfg.short_name }} ({{ code }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-12 pt-3">
+                            <label class="custom-label">Security Credentials</label>
+                            <input type="text" name="password" class="custom-input" placeholder="Leave blank for auto-generated password">
+                            <div class="alert alert-warning mt-3 border-0 rounded-4" style="font-size: 0.75rem; background: var(--bg-cream); color: var(--text-dark)">
+                                <i class="bi bi-info-circle-fill me-1"></i> New account passwords will be displayed <strong>once</strong> upon creation. Ensure you copy it.
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-12 mt-4 d-flex gap-3">
+                            <button type="submit" class="submit-btn shadow-none">
+                                <i class="bi bi-person-plus-fill"></i> Provision Account
+                            </button>
+                            <a href="{{ url_for('super_admin_bp.manage_users') }}" class="btn fw-bold px-4 rounded-4" style="border: 1px solid var(--border-soft); display: flex; align-items: center">Cancel</a>
+                        </div>
+                    </div>
+                </div>
             </div>
+            
+            <!-- Right Column: Info & Guide -->
+            <div class="col-lg-5">
+                <div class="guide-card fade-in delay-2">
+                    <div class="form-section-header" style="border-bottom: none; margin-bottom: 1rem;">
+                        <i class="bi bi-shield-check" style="background: rgba(16, 185, 129, 0.1); color: #059669"></i>
+                        <div>
+                            <h3>Access Controls</h3>
+                        </div>
+                    </div>
+                    
+                    <div class="guide-item">
+                        <div class="guide-icon">👑</div>
+                        <div class="guide-text">
+                            <h5>Super Administrator</h5>
+                            <p>God's Eye access. Can see all branches, manage international users, and view cross-campus analytics.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="guide-item">
+                        <div class="guide-icon">🛡️</div>
+                        <div class="guide-text">
+                            <h5>Campus Administrator</h5>
+                            <p>Full control over a specific branch. Manages local users, settings, and library marks.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="guide-item">
+                        <div class="guide-icon">🎓</div>
+                        <div class="guide-text">
+                            <h5>Head of Dept (HOD)</h5>
+                            <p>Department-level oversight. Can view all classes (Darajahs) within their assigned Marhala.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="guide-item">
+                        <div class="guide-icon">📋</div>
+                        <div class="guide-text">
+                            <h5>Class Teacher</h5>
+                            <p>Limited to their assigned class reports and student performance tracking.</p>
+                        </div>
+                    </div>
 
-            <div>
-              <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-                Campus Branch *
-              </label>
-              <select name="branch_code" required
-                      style="width:100%;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);cursor:pointer">
-                <option value="">🌐 All Branches (Global)</option>
-                {% for code in branch_order %}
-                  {% set cfg = campus_registry.get(code, {}) %}
-                  <option value="{{ code }}">{{ cfg.flag }} {{ cfg.short_name }} ({{ code }})</option>
-                {% endfor %}
-              </select>
+                    <div class="alert bg-white border-0 mt-4 rounded-4 shadow-sm" style="font-size: 0.75rem;">
+                        <h6 class="fw-bold small mb-2"><i class="bi bi-lightbulb me-1 text-warning"></i> Best Practice</h6>
+                        <p class="m-0 text-muted">Use the <strong>Global</strong> scope only for regional heads or IT support. Most academic staff should be pinned to their specific campus for data integrity.</p>
+                    </div>
+                </div>
             </div>
-          </div>
-
-          <div>
-            <label style="display:block;font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-              Password (leave blank for auto-generated)
-            </label>
-            <input type="text" name="password"
-                   placeholder="Leave blank to auto-generate a secure password"
-                   style="width:100%;background:rgba(255,255,255,0.04);border:1px solid var(--border-subtle);color:var(--text-primary);border-radius:10px;padding:10px 14px;font-size:13px;font-family:var(--font-main);outline:none;transition:border-color .2s"
-                   onfocus="this.style.borderColor='var(--accent-blue)'"
-                   onblur="this.style.borderColor='var(--border-subtle)'">
-            <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
-              ⚠️ The password will be shown once after creation. Save it securely.
-            </div>
-          </div>
-
-          <div style="display:flex;gap:12px;padding-top:8px">
-            <button type="submit" class="nav-btn primary" style="flex:1;justify-content:center;padding:12px">
-              <i class="bi bi-check2-circle"></i> Create User
-            </button>
-            <a href="{{ url_for('super_admin_bp.manage_users') }}" class="nav-btn" style="padding:12px 20px">
-              Cancel
-            </a>
-          </div>
-
         </div>
-      </form>
-    </div>
-
-    <!-- Role Guide -->
-    <div class="chart-card fade-in delay-2" style="margin-top:16px">
-      <h3><i class="bi bi-info-circle"></i> Role Reference Guide</h3>
-      <div style="display:grid;gap:10px;margin-top:4px">
-        <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px">
-          <span style="color:#FBBF24;font-size:16px">👑</span>
-          <div><strong>Super Admin</strong> — Full access to all branches and the God Eye dashboard. No branch restriction.</div>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px">
-          <span style="color:#38BDF8;font-size:16px">🔵</span>
-          <div><strong>Admin</strong> — Full control over their assigned branch: settings, reports, marks, users.</div>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px">
-          <span style="color:#A78BFA;font-size:16px">🟣</span>
-          <div><strong>Head of Department (HOD)</strong> — Views their marhala (department) data and reports.</div>
-        </div>
-        <div style="display:flex;align-items:flex-start;gap:10px;font-size:12px">
-          <span style="color:#34D399;font-size:16px">🟢</span>
-          <div><strong>Teacher</strong> — Accesses their assigned darajah (class) dashboard and student reports.</div>
-        </div>
-      </div>
-    </div>
-  </div>
+    </form>
 </div>
 {% endblock %}
